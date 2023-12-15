@@ -10,7 +10,7 @@ RUN go mod download
 COPY *.go ./
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags=”-s -w” -o /kromgo
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /kromgo
 
 FROM scratch
 COPY --from=build /kromgo /kromgo/
