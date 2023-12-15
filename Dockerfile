@@ -1,6 +1,16 @@
 FROM golang:1.21.5-alpine as build
 WORKDIR /go/src/github.com/kashalls/kromgo
 
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT=""
+
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH} \
+    GOARM=${TARGETVARIANT}
+
 # Download Go modules
 COPY go.mod go.sum ./
 RUN go mod download
@@ -10,7 +20,7 @@ RUN go mod download
 COPY *.go ./
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /kromgo
+RUN go build -ldflags="-s -w" -o /kromgo
 
 FROM scratch
 COPY --from=build /kromgo /kromgo/
