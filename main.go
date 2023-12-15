@@ -40,7 +40,7 @@ type MetricResult struct {
 }
 
 
-var configPath = "config.yaml.example" // Default config file path
+var configPath = "/config/config.yaml" // Default config file path
 
 func main() {
 	// Check if a custom config file path is provided via command line argument
@@ -58,9 +58,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	prometheusURL := os.Getenv("PROMETHEUS_URL")
+
+	if prometheusURL == "" {
+		panic("PROMETHEUS_URL is not set")
+	}
+
 	// Create a Prometheus API client
 	client, err := api.NewClient(api.Config{
-		Address: "https://prometheus.ok8.sh", // Replace with your Prometheus server URL
+		Address: prometheusURL, // Replace with your Prometheus server URL
 	})
 	if err != nil {
 		fmt.Printf("Error creating Prometheus client: %s\n", err)
