@@ -40,7 +40,7 @@ type MetricResult struct {
 }
 
 
-var configPath = "/config/config.yaml" // Default config file path
+var configPath = "/kromgo/config.yaml" // Default config file path
 
 func main() {
 	// Check if a custom config file path is provided via command line argument
