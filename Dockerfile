@@ -12,9 +12,8 @@ COPY *.go ./
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags=”-s -w” -o /kromgo
 
-
 FROM scratch
-COPY —from=build /kromgo /kromgo/
+COPY --from=build /kromgo /kromgo/
 
 EXPOSE 8080
 
