@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.21.5
+FROM golang:1.21.5 as build
 
 # Set destination for COPY
 WORKDIR /app
@@ -15,6 +15,10 @@ COPY *.go ./
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /kromgo
+
+FROM gcr.io/distroless/base-debian12
+
+COPY --from=build /kromgo /kromgo
 
 # Optional:
 # To bind to a TCP port, runtime parameters must be supplied to the docker command.
