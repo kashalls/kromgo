@@ -14,7 +14,7 @@ RUN go mod download
 COPY *.go ./
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o /kubernetes-json-shields
+RUN CGO_ENABLED=0 GOOS=linux go build -o /kromgo
 
 # Optional:
 # To bind to a TCP port, runtime parameters must be supplied to the docker command.
@@ -24,4 +24,4 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /kubernetes-json-shields
 EXPOSE 8080
 
 # Run
-CMD ["/kubernetes-json-shields"]
+CMD ["/kromgo"]
