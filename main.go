@@ -117,6 +117,11 @@ func main() {
 			return
 		}
 
+		if len(jsonResult) <= 0 {
+			http.Error(w, "Query returned no results", http.StatusNotFound)
+			return
+		}
+
 		if responseFormat == "endpoint" {
 			resultValue := float64(result.(model.Vector)[0].Value)
 			color := getColor(metric.Colors, resultValue)
