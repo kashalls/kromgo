@@ -4,7 +4,7 @@ A simple go project that allows you to expose prometheus metrics "safely" to a p
 
 It allows you to define your own metric names and your own prometheus queries as long as they return a single value at the end. There is config support to allow you to format the response with strings before and after the value.
 
-You can use [shields.io](https://sheilds.io) and use either the [Dynamic JSON Badge](https://shields.io/badges/dynamic-json-badge) or the [Endpoint Badge](https://shields.io/badges/endpoint-badge) and add dynamic coloring with ranges you set.
+You can use [shields.io](https://shields.io) and use either the [Dynamic JSON Badge](https://shields.io/badges/dynamic-json-badge) or the [Endpoint Badge](https://shields.io/badges/endpoint-badge) and add dynamic coloring with ranges you set.
 
 [Config Example](./config.yaml.example)
 
