@@ -1,3 +1,4 @@
+debug: false
 metrics:
   - name: node_cpu_usage
     query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"

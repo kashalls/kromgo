@@ -5,14 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
 	"os"
-	"time"
 	"strconv"
+	"time"
 
-	"github.com/prometheus/common/model"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	"gopkg.in/yaml.v2"
 )
 
@@ -31,6 +32,7 @@ type Metric struct {
 }
 
 type Config struct {
+	Debug   bool     `yaml:"debug,omitempty"`
 	Metrics []Metric `yaml:"metrics"`
 }
 
@@ -39,10 +41,16 @@ type MetricResult struct {
 	Value  []interface{}          `json:"value"`
 }
 
-
 var configPath = "/kromgo/config.yaml" // Default config file path
 
 func main() {
+	logLevel := &slog.LevelVar{}
+	logLevel.Set(slog.LevelInfo)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	}))
+	slog.SetDefault(logger)
+
 	// Check if a custom config file path is provided via command line argument
 	configPathFlag := flag.String("config", "", "Path to the YAML config file")
 	flag.Parse()
@@ -53,6 +61,9 @@ func main() {
 
 	// Load the YAML config file
 	config, err := loadConfig(configPath)
+	if config.Debug {
+		logLevel.Set(slog.LevelDebug)
+	}
 	if err != nil {
 		fmt.Printf("Error loading config: %s\n", err)
 		os.Exit(1)
@@ -66,7 +77,7 @@ func main() {
 
 	// Create a Prometheus API client
 	client, err := api.NewClient(api.Config{
-		Address: prometheusURL, // Replace with your Prometheus server URL
+		Address: prometheusURL,
 	})
 	if err != nil {
 		fmt.Printf("Error creating Prometheus client: %s\n", err)
@@ -78,6 +89,13 @@ func main() {
 
 	// Set up HTTP server
 	http.HandleFunc("/query", func(w http.ResponseWriter, r *http.Request) {
+
+		slog.Info("incoming request",
+			slog.String("method", r.Method),
+			slog.String("ip", r.RemoteAddr),
+			slog.String("url", r.URL.String()),
+		)
+
 		// Get the metric name from the query parameter
 		metricName := r.URL.Query().Get("metric")
 		responseFormat := r.URL.Query().Get("format")
@@ -87,37 +105,61 @@ func main() {
 		for _, configMetric := range config.Metrics {
 			if configMetric.Name == metricName {
 				metric = configMetric
-				fmt.Printf("Processing metric: %s with query %s\n", metric.Name, metric.Query)
 				break
 			}
 		}
 
 		// If metric not found, return an error
 		if metric.Query == "" {
-			fmt.Printf("Metric not found: %s\n", metricName)
+			slog.Error(
+				"metric not found",
+				slog.String("ip", r.RemoteAddr),
+				slog.String("metric", metric.Name),
+			)
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
 
 		// Run the Prometheus query
 		result, _, err := v1api.Query(r.Context(), metric.Query, time.Now())
-		fmt.Printf("Query result: %s\n", result)
 		if err != nil {
-			fmt.Printf("Error executing query: %s\n", err)
+			slog.Error(
+				"error executing query",
+				slog.String("ip", r.RemoteAddr),
+				slog.String("metric", metric.Name),
+				"error", err,
+			)
 			http.Error(w, fmt.Sprintf("Error executing query: %s", err), http.StatusInternalServerError)
 			return
 		}
 
 		// Convert the result to JSON
 		jsonResult, err := json.Marshal(result)
-		fmt.Printf("non-json result: %s\n", result)
+		slog.Debug(
+			"query result",
+			slog.String("ip", r.RemoteAddr),
+			slog.String("metric", metric.Name),
+			slog.String("query", metric.Query),
+			slog.String("result", string(jsonResult)),
+		)
 		if err != nil {
-			fmt.Printf("Error converting result to JSON: %s\n", err)
+			slog.Error(
+				"could not convert to json",
+				slog.String("ip", r.RemoteAddr),
+				slog.String("metric", metric.Name),
+				"error", err,
+			)
 			http.Error(w, fmt.Sprintf("Error converting result to JSON: %s", err), http.StatusInternalServerError)
 			return
 		}
 
 		if len(jsonResult) <= 0 {
+			slog.Error(
+				"query returned no results",
+				slog.String("ip", r.RemoteAddr),
+				slog.String("metric", metric.Name),
+				slog.String("query", metric.Query),
+			)
 			http.Error(w, "Query returned no results", http.StatusNotFound)
 			return
 		}
@@ -128,9 +170,9 @@ func main() {
 			message := metric.Prefix + strconv.FormatFloat(resultValue, 'f', -1, 64) + metric.Suffix
 			data := map[string]interface{}{
 				"schemaVersion": 1,
-				"label": metricName,
-				"message": message,
-				"color": color,
+				"label":         metricName,
+				"message":       message,
+				"color":         color,
 			}
 
 			// Convert the data to JSON
@@ -157,7 +199,9 @@ func main() {
 	}
 
 	// Start the HTTP server
-	fmt.Printf("Server listening on :%s\n", port)
+	slog.Info("server is listening",
+		slog.String("port", port),
+	)
 	http.ListenAndServe(":"+port, nil)
 }
 
