@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/kashalls/kromgo/main/config.schema.json",
+  "additionalProperties": false,
+  "description": "kromgo configuration file",
+  "properties": {
+    "debug": {
+      "type": "boolean"
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "suffix": {
+            "type": "string"
+          },
+          "colors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "color": {
+                  "type": "string"
+                },
+                "min": {
+                  "type": "integer"
+                },
+                "max": {
+                  "type": "integer"
+                }
+              },
+              "required": ["color", "min", "max"]
+            }
+          }
+        },
+        "required": ["name", "query"]
+      }
+    },
+    "required": ["metrics"]
+  }
+}
