@@ -11,29 +11,30 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/invopop/jsonschema"
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"gopkg.in/yaml.v2"
 )
 
 type MetricColor struct {
-	Color string  `yaml:"color"`
-	Min   float64 `yaml:"min"`
-	Max   float64 `yaml:"max"`
+	Color string  `yaml:"color" json:"color"`
+	Min   float64 `yaml:"min" json:"min"`
+	Max   float64 `yaml:"max" json:"max"`
 }
 
 type Metric struct {
-	Name   string        `yaml:"name"`
-	Query  string        `yaml:"query"`
-	Prefix string        `yaml:"prefix,omitempty"`
-	Suffix string        `yaml:"suffix,omitempty"`
-	Colors []MetricColor `yaml:"colors,omitempty"`
+	Name   string        `yaml:"name" json:"name"`
+	Query  string        `yaml:"query" json:"query"`
+	Prefix string        `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	Suffix string        `yaml:"suffix,omitempty" json:"suffix,omitempty"`
+	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
 }
 
 type Config struct {
-	Debug   bool     `yaml:"debug,omitempty"`
-	Metrics []Metric `yaml:"metrics"`
+	Debug   bool     `yaml:"debug,omitempty" json:"debug,omitempty"`
+	Metrics []Metric `yaml:"metrics" json:"metrics"`
 }
 
 type MetricResult struct {
@@ -53,7 +54,15 @@ func main() {
 
 	// Check if a custom config file path is provided via command line argument
 	configPathFlag := flag.String("config", "", "Path to the YAML config file")
+	jsonSchemaFlag := flag.Bool("jsonschema", false, "Dump JSON Schema for config file")
 	flag.Parse()
+
+	if *jsonSchemaFlag {
+		jsonString, _ := json.MarshalIndent(jsonschema.Reflect(&Config{}), "", "  ")
+		fmt.Println(string(jsonString))
+
+		return
+	}
 
 	if *configPathFlag != "" {
 		configPath = *configPathFlag
