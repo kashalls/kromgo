@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"net/http"
 	"os"
@@ -247,7 +246,7 @@ func main() {
 
 // Load the YAML config file
 func loadConfig(path string) (*Config, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file: %s", err)
 	}
