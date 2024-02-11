@@ -14,3 +14,6 @@ metrics:
       - color: "red"
         min: 76
         max: 1000
+  - name: kubernetes_build_version
+    query: kubernetes_build_info{service="kubernetes"}
+    label: git_version

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"net/http"
 	"os"
@@ -27,6 +26,7 @@ type MetricColor struct {
 type Metric struct {
 	Name   string        `yaml:"name" json:"name"`
 	Query  string        `yaml:"query" json:"query"`
+	Label  string        `yaml:"label,omitempty" json:"label,omitempty"`
 	Prefix string        `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 	Suffix string        `yaml:"suffix,omitempty" json:"suffix,omitempty"`
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
@@ -70,12 +70,13 @@ func main() {
 
 	// Load the YAML config file
 	config, err := loadConfig(configPath)
-	if config.Debug {
-		logLevel.Set(slog.LevelDebug)
-	}
 	if err != nil {
 		fmt.Printf("Error loading config: %s\n", err)
 		os.Exit(1)
+	}
+
+	if config.Debug {
+		logLevel.Set(slog.LevelDebug)
 	}
 
 	prometheusURL := os.Getenv("PROMETHEUS_URL")
@@ -130,7 +131,7 @@ func main() {
 		}
 
 		// Run the Prometheus query
-		result, _, err := v1api.Query(r.Context(), metric.Query, time.Now())
+		result, warnings, err := v1api.Query(r.Context(), metric.Query, time.Now())
 		if err != nil {
 			slog.Error(
 				"error executing query",
@@ -140,6 +141,10 @@ func main() {
 			)
 			http.Error(w, fmt.Sprintf("Error executing query: %s", err), http.StatusInternalServerError)
 			return
+		}
+
+		if len(warnings) > 0 {
+			fmt.Println("Warnings while executing query:", warnings)
 		}
 
 		// Convert the result to JSON
@@ -173,15 +178,43 @@ func main() {
 			return
 		}
 
-		if responseFormat == "endpoint" {
-			resultValue := float64(result.(model.Vector)[0].Value)
+		if (responseFormat == "raw") {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(jsonResult)
+			return
+		} else {
+
+			responseResult := result.(model.Vector)
+			resultValue := float64(responseResult[0].Value)
 			color := getColor(metric.Colors, resultValue)
-			message := metric.Prefix + strconv.FormatFloat(resultValue, 'f', -1, 64) + metric.Suffix
+
+			var whatAmIShowing string = strconv.FormatFloat(resultValue, 'f', -1, 64)
+
+			if len(metric.Label) > 0 {
+				value, err := ExtractLabelValue(responseResult, metric.Label)
+				if err != nil {
+					http.Error(w, "Label was not present in query.", http.StatusBadGateway)
+					slog.Error(
+						"label was not found in query result",
+						slog.String("ip", r.RemoteAddr),
+						slog.String("metric", metric.Name),
+						"label", metric.Label,
+					)
+					return
+				}
+				whatAmIShowing = value
+			}
+
+			message := metric.Prefix + whatAmIShowing + metric.Suffix
+
 			data := map[string]interface{}{
 				"schemaVersion": 1,
 				"label":         metricName,
 				"message":       message,
-				"color":         color,
+			}
+
+			if (color != "unknown") {
+				data["color"] = color
 			}
 
 			// Convert the data to JSON
@@ -194,10 +227,6 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(jsonData)
 
-		} else {
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(jsonResult)
 		}
 	})
 
@@ -216,7 +245,7 @@ func main() {
 
 // Load the YAML config file
 func loadConfig(path string) (*Config, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file: %s", err)
 	}
@@ -237,4 +266,17 @@ func getColor(colors []MetricColor, value float64) string {
 	}
 
 	return "unknown"
+}
+
+func ExtractLabelValue(vector model.Vector, labelName string) (string, error) {
+	// Extract label value from the first sample of the result
+	if len(vector) > 0 {
+		// Check if the label exists in the first sample
+		if val, ok := vector[0].Metric[model.LabelName(labelName)]; ok {
+			return string(val), nil
+		}
+	}
+
+	// If label not found, return an error
+	return "", fmt.Errorf("label '%s' not found in the query result", labelName)
 }
