@@ -28,6 +28,9 @@
         "query": {
           "type": "string"
         },
+        "label": {
+          "type": "string"
+        },
         "prefix": {
           "type": "string"
         },
