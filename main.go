@@ -178,10 +178,13 @@ func main() {
 			return
 		}
 
-		if responseFormat == "endpoint" {
+		if (responseFormat == "raw") {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(jsonResult)
+			return
+		} else {
 
 			responseResult := result.(model.Vector)
-
 			resultValue := float64(responseResult[0].Value)
 			color := getColor(metric.Colors, resultValue)
 
@@ -224,10 +227,6 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(jsonData)
 
-		} else {
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(jsonResult)
 		}
 	})
 
