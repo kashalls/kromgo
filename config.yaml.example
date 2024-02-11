@@ -4,6 +4,7 @@ metrics:
     query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"
     prefix: ""      # Optional
     suffix: "%"     # Optional
+    label: ""       # Optional
     colors:         # Optional
       - color: "green"
         min: 0

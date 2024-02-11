@@ -27,6 +27,7 @@ type MetricColor struct {
 type Metric struct {
 	Name   string        `yaml:"name" json:"name"`
 	Query  string        `yaml:"query" json:"query"`
+	Label  string        `yaml:"label,omitempty" json:"label,omitempty"`
 	Prefix string        `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 	Suffix string        `yaml:"suffix,omitempty" json:"suffix,omitempty"`
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
@@ -176,7 +177,37 @@ func main() {
 		if responseFormat == "endpoint" {
 			resultValue := float64(result.(model.Vector)[0].Value)
 			color := getColor(metric.Colors, resultValue)
-			message := metric.Prefix + strconv.FormatFloat(resultValue, 'f', -1, 64) + metric.Suffix
+
+			var whatAmIShowing string = strconv.FormatFloat(resultValue, 'f', -1, 64)
+
+			if (len(metric.Label) > 0) {
+				matrix, ok := result.(model.Matrix)
+				if (!ok) {
+					slog.Error(
+						"unexpected result type",
+						slog.String("ip", r.RemoteAddr),
+						slog.String("metric", metric.Name),
+						"error", result,
+					)
+					http.Error(w, "Unexpected result from server.", http.StatusBadGateway)
+					return
+				}
+				value, err := ExtractLabelValue(matrix, metric.Label)
+				if err != nil {
+					http.Error(w, "Label was not present in query.", http.StatusBadGateway)
+					slog.Error(
+						"label was not found in query result",
+						slog.String("ip", r.RemoteAddr),
+						slog.String("metric", metric.Name),
+						"label", metric.Label,
+					)
+					return
+				}
+				whatAmIShowing = value
+			}
+
+			message := metric.Prefix + whatAmIShowing + metric.Suffix
+
 			data := map[string]interface{}{
 				"schemaVersion": 1,
 				"label":         metricName,
@@ -237,4 +268,17 @@ func getColor(colors []MetricColor, value float64) string {
 	}
 
 	return "unknown"
+}
+
+func ExtractLabelValue(matrix model.Matrix, labelName string) (string, error) {
+    // Extract label value from the first sample of the result
+    if len(matrix) > 0 && len(matrix[0].Values) > 0 {
+        // Check if the label exists in the first sample
+        if val, ok := matrix[0].Metric[model.LabelName(labelName)]; ok {
+            return string(val), nil
+        }
+    }
+
+    // If label not found, return an error
+    return "", fmt.Errorf("label '%s' not found in the query result", labelName)
 }
