@@ -209,7 +209,10 @@ func main() {
 				"schemaVersion": 1,
 				"label":         metricName,
 				"message":       message,
-				"color":         color,
+			}
+
+			if (color != "unknown") {
+				data["color"] = color
 			}
 
 			// Convert the data to JSON
