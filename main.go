@@ -71,12 +71,13 @@ func main() {
 
 	// Load the YAML config file
 	config, err := loadConfig(configPath)
-	if config.Debug {
-		logLevel.Set(slog.LevelDebug)
-	}
 	if err != nil {
 		fmt.Printf("Error loading config: %s\n", err)
 		os.Exit(1)
+	}
+
+	if config.Debug {
+		logLevel.Set(slog.LevelDebug)
 	}
 
 	prometheusURL := os.Getenv("PROMETHEUS_URL")
