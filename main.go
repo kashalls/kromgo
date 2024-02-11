@@ -179,26 +179,16 @@ func main() {
 		}
 
 		if responseFormat == "endpoint" {
-			resultValue := float64(result.(model.Vector)[0].Value)
+
+			responseResult := result.(model.Vector)
+
+			resultValue := float64(responseResult[0].Value)
 			color := getColor(metric.Colors, resultValue)
 
 			var whatAmIShowing string = strconv.FormatFloat(resultValue, 'f', -1, 64)
 
-			if (len(metric.Label) > 0) {
-				matrix, ok := result.(model.Matrix)
-				fmt.Printf("result a: '%s'", matrix)
-				if (!ok) {
-					slog.Error(
-						"unexpected result type",
-						slog.String("ip", r.RemoteAddr),
-						slog.String("metric", metric.Name),
-						"error", result,
-						"what we got", matrix,
-					)
-					http.Error(w, "Unexpected result from server.", http.StatusBadGateway)
-					return
-				}
-				value, err := ExtractLabelValue(matrix, metric.Label)
+			if len(metric.Label) > 0 {
+				value, err := ExtractLabelValue(responseResult, metric.Label)
 				if err != nil {
 					http.Error(w, "Label was not present in query.", http.StatusBadGateway)
 					slog.Error(
@@ -276,15 +266,15 @@ func getColor(colors []MetricColor, value float64) string {
 	return "unknown"
 }
 
-func ExtractLabelValue(matrix model.Matrix, labelName string) (string, error) {
-    // Extract label value from the first sample of the result
-    if len(matrix) > 0 && len(matrix[0].Values) > 0 {
-        // Check if the label exists in the first sample
-        if val, ok := matrix[0].Metric[model.LabelName(labelName)]; ok {
-            return string(val), nil
-        }
-    }
+func ExtractLabelValue(vector model.Vector, labelName string) (string, error) {
+	// Extract label value from the first sample of the result
+	if len(vector) > 0 {
+		// Check if the label exists in the first sample
+		if val, ok := vector[0].Metric[model.LabelName(labelName)]; ok {
+			return string(val), nil
+		}
+	}
 
-    // If label not found, return an error
-    return "", fmt.Errorf("label '%s' not found in the query result", labelName)
+	// If label not found, return an error
+	return "", fmt.Errorf("label '%s' not found in the query result", labelName)
 }
