@@ -131,7 +131,7 @@ func main() {
 		}
 
 		// Run the Prometheus query
-		result, _, err := v1api.Query(r.Context(), metric.Query, time.Now())
+		result, warnings, err := v1api.Query(r.Context(), metric.Query, time.Now())
 		if err != nil {
 			slog.Error(
 				"error executing query",
@@ -141,6 +141,10 @@ func main() {
 			)
 			http.Error(w, fmt.Sprintf("Error executing query: %s", err), http.StatusInternalServerError)
 			return
+		}
+
+		if len(warnings) > 0 {
+			fmt.Println("Warnings while executing query:", warnings)
 		}
 
 		// Convert the result to JSON
@@ -182,12 +186,14 @@ func main() {
 
 			if (len(metric.Label) > 0) {
 				matrix, ok := result.(model.Matrix)
+				fmt.Printf("result a: '%s'", matrix)
 				if (!ok) {
 					slog.Error(
 						"unexpected result type",
 						slog.String("ip", r.RemoteAddr),
 						slog.String("metric", metric.Name),
 						"error", result,
+						"what we got", matrix,
 					)
 					http.Error(w, "Unexpected result from server.", http.StatusBadGateway)
 					return
