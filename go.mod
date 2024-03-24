@@ -5,7 +5,7 @@ go 1.21.5
 require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/prometheus/client_golang v1.19.0
-	github.com/prometheus/common v0.50.0
+	github.com/prometheus/common v0.51.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
