@@ -18,9 +18,10 @@ import (
 )
 
 type MetricColor struct {
-	Color string  `yaml:"color" json:"color"`
-	Min   float64 `yaml:"min" json:"min"`
-	Max   float64 `yaml:"max" json:"max"`
+	Min           float64 `yaml:"min" json:"min"`
+	Max           float64 `yaml:"max" json:"max"`
+	Color         string  `yaml:"color,omitempty" json:"color,omitempty"`
+	ValueOverride string  `yaml:"valueOverride,omitempty" json:"valueOverride,omitempty"`
 }
 
 type Metric struct {
@@ -33,8 +34,9 @@ type Metric struct {
 }
 
 type Config struct {
-	Debug   bool     `yaml:"debug,omitempty" json:"debug,omitempty"`
-	Metrics []Metric `yaml:"metrics" json:"metrics"`
+	Debug      bool     `yaml:"debug,omitempty" json:"debug,omitempty"`
+	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
+	Metrics    []Metric `yaml:"metrics" json:"metrics"`
 }
 
 type MetricResult struct {
@@ -60,7 +62,6 @@ func main() {
 	if *jsonSchemaFlag {
 		jsonString, _ := json.MarshalIndent(jsonschema.Reflect(&Config{}), "", "  ")
 		fmt.Println(string(jsonString))
-
 		return
 	}
 
@@ -80,14 +81,17 @@ func main() {
 	}
 
 	prometheusURL := os.Getenv("PROMETHEUS_URL")
+	if prometheusURL != "" {
+		config.Prometheus = prometheusURL
+	}
 
-	if prometheusURL == "" {
-		panic("PROMETHEUS_URL is not set")
+	if len(config.Prometheus) == 0 {
+		panic("No valid prometheus endpoint was set in config or environment.")
 	}
 
 	// Create a Prometheus API client
 	client, err := api.NewClient(api.Config{
-		Address: prometheusURL,
+		Address: config.Prometheus,
 	})
 	if err != nil {
 		fmt.Printf("Error creating Prometheus client: %s\n", err)
@@ -186,7 +190,7 @@ func main() {
 
 			responseResult := result.(model.Vector)
 			resultValue := float64(responseResult[0].Value)
-			color := getColor(metric.Colors, resultValue)
+			colorConfig := getColorConfig(metric.Colors, resultValue)
 
 			var whatAmIShowing string = strconv.FormatFloat(resultValue, 'f', -1, 64)
 
@@ -205,6 +209,10 @@ func main() {
 				whatAmIShowing = value
 			}
 
+			if len(colorConfig.ValueOverride) > 0 {
+				whatAmIShowing = colorConfig.ValueOverride
+			}
+
 			message := metric.Prefix + whatAmIShowing + metric.Suffix
 
 			data := map[string]interface{}{
@@ -213,8 +221,8 @@ func main() {
 				"message":       message,
 			}
 
-			if (color != "unknown") {
-				data["color"] = color
+			if colorConfig.Color != "" {
+				data["color"] = colorConfig.Color
 			}
 
 			// Convert the data to JSON
@@ -258,14 +266,19 @@ func loadConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
-func getColor(colors []MetricColor, value float64) string {
+func getColorConfig(colors []MetricColor, value float64) MetricColor {
 	for _, colorConfig := range colors {
 		if value >= colorConfig.Min && value <= colorConfig.Max {
-			return colorConfig.Color
+			return colorConfig
 		}
 	}
 
-	return "unknown"
+	// MetricColors is enabled, but the value does not have a corresponding value to it.
+	// We return a default value here only if the result value falls outside the range.
+	return MetricColor{
+			Min: value,
+			Max: value,
+	}
 }
 
 func ExtractLabelValue(vector model.Vector, labelName string) (string, error) {
