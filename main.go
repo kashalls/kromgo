@@ -101,6 +101,12 @@ func main() {
 	// Create a Prometheus v1 API client
 	v1api := v1.NewAPI(client)
 
+	http.HandleFunc("/-/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Kromgo is Ready"))
+		return
+	})
+
 	// Set up HTTP server
 	http.HandleFunc("/query", func(w http.ResponseWriter, r *http.Request) {
 
