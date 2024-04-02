@@ -7,6 +7,9 @@
         "debug": {
           "type": "boolean"
         },
+        "prometheus": {
+          "type": "string"
+        },
         "metrics": {
           "items": {
             "$ref": "#/$defs/Metric"
@@ -53,20 +56,22 @@
     },
     "MetricColor": {
       "properties": {
-        "color": {
-          "type": "string"
-        },
         "min": {
           "type": "number"
         },
         "max": {
           "type": "number"
+        },
+        "color": {
+          "type": "string"
+        },
+        "valueOverride": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "color",
         "min",
         "max"
       ]
