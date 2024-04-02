@@ -7,6 +7,9 @@
         "debug": {
           "type": "boolean"
         },
+        "port": {
+          "type": "string"
+        },
         "prometheus": {
           "type": "string"
         },
