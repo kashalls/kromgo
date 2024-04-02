@@ -18,9 +18,9 @@ import (
 )
 
 type MetricColor struct {
-	Color         string  `yaml:"color" json:"color"`
 	Min           float64 `yaml:"min" json:"min"`
 	Max           float64 `yaml:"max" json:"max"`
+	Color         string  `yaml:"color,omitempty" json:"color,omitempty"`
 	ValueOverride string  `yaml:"valueOverride,omitempty" json:"valueOverride,omitempty"`
 }
 
@@ -221,7 +221,7 @@ func main() {
 				"message":       message,
 			}
 
-			if (colorConfig.Color != "unknown") {
+			if colorConfig.Color != "" {
 				data["color"] = colorConfig.Color
 			}
 
@@ -273,8 +273,9 @@ func getColorConfig(colors []MetricColor, value float64) MetricColor {
 		}
 	}
 
+	// MetricColors is enabled, but the value does not have a corresponding value to it.
+	// We return a default value here only if the result value falls outside the range.
 	return MetricColor{
-			Color: "red",
 			Min: value,
 			Max: value,
 	}
