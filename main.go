@@ -35,6 +35,7 @@ type Metric struct {
 
 type Config struct {
 	Debug      bool     `yaml:"debug,omitempty" json:"debug,omitempty"`
+	Port       string   `yaml:"port,omitempty" json:"port,omitempty"`
 	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
 	Metrics    []Metric `yaml:"metrics" json:"metrics"`
 }
@@ -247,7 +248,10 @@ func main() {
 	// Determine the HTTP server port
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" // Default port
+		port = config.Port
+		if port == "" {
+			port = "8080"
+		}
 	}
 
 	// Start the HTTP server
