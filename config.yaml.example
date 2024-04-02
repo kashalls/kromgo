@@ -1,3 +1,5 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kashalls/kromgo/main/config.schema.json
 debug: false
 metrics:
   - name: node_cpu_usage
@@ -17,3 +19,9 @@ metrics:
   - name: kubernetes_build_version
     query: kubernetes_build_info{service="kubernetes"}
     label: git_version
+  - name: ceph_health_status
+    query: ceph_health_status{}
+    colors:
+      - { valueOverride: 'Ok', color: "green", min: 0, max: 0 }
+      - { valueOverride: 'Not good', color: "orange", min: 1, max: 1 }
+      - { valueOverride: 'Whoops', color: "red", min: 2, max: 2 }
