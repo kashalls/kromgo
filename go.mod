@@ -1,6 +1,6 @@
 module kashall.dev/kubernetes-json-shields
 
-go 1.22.1
+go 1.22.2
 
 require (
 	github.com/invopop/jsonschema v0.12.0
