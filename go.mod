@@ -7,6 +7,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/common v0.53.0
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -20,5 +21,4 @@ require (
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
