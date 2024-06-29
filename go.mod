@@ -6,7 +6,7 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/common v0.55.0
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
