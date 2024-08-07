@@ -19,7 +19,7 @@ type ServerConfig struct {
 
 	ServerReadTimeout  time.Duration `env:"SERVER_READ_TIMEOUT"`
 	ServerWriteTimeout time.Duration `env:"SERVER_WRITE_TIMEOUT"`
-	ServerLogging   bool `env:"SERVER_LOGGING"`
+	ServerLogging      bool          `env:"SERVER_LOGGING"`
 
 	RatelimitEnable       bool          `env:"RATELIMIT_ENABLE"`
 	RatelimitAll          bool          `env:"RATELIMIT_ALL"`
