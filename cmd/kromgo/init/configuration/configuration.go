@@ -12,12 +12,20 @@ import (
 )
 
 type ServerConfig struct {
-	ServerHost         string        `env:"SERVER_HOST" envDefault:"localhost"`
-	ServerPort         int           `env:"SERVER_PORT" envDefault:"8080"`
+	ServerHost string `env:"SERVER_HOST" envDefault:"localhost"`
+	ServerPort int    `env:"SERVER_PORT" envDefault:"8080"`
+
+	HealthHost string `env:"HEALTH_HOST" envDefault:"localhost"`
+	HealthPort int    `env:"HEALTH_PORT" envDefault:"8888"`
+
 	ServerReadTimeout  time.Duration `env:"SERVER_READ_TIMEOUT"`
 	ServerWriteTimeout time.Duration `env:"SERVER_WRITE_TIMEOUT"`
-	HealthHost         string        `env:"HEALTH_HOST" envDefault:"localhost"`
-	HealthPort         int           `env:"HEALTH_PORT" envDefault:"8888"`
+
+	RatelimitEnable       bool          `env:"RATELIMIT_ENABLE"`
+	RatelimitAll          bool          `env:"RATELIMIT_ALL"`
+	RatelimitByRealIP     bool          `env:"RATELIMIT_BY_REAL_IP"`
+	RatelimitRequestLimit int           `env:"RATELIMIT_REQUEST_LIMIT" envDefault:"100"`
+	RatelimitWindowLength time.Duration `env:"RATELIMIT_WINDOW_LENGTH" envDefault:"60000"`
 }
 
 // KromgoConfig struct for configuration environmental variables

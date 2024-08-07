@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/httprate"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/configuration"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/log"
 	"github.com/kashalls/kromgo/pkg/kromgo"
@@ -34,6 +35,17 @@ func ReadinessHandler(w http.ResponseWriter, r *http.Request) {
 func Init(config configuration.KromgoConfig, serverConfig configuration.ServerConfig) (*http.Server, *http.Server) {
 
 	mainRouter := chi.NewRouter()
+
+	if serverConfig.RatelimitEnable {
+		if serverConfig.RatelimitAll {
+			mainRouter.Use(httprate.LimitAll(serverConfig.RatelimitRequestLimit, serverConfig.RatelimitWindowLength))
+		} else if serverConfig.RatelimitByRealIP {
+			mainRouter.Use(httprate.LimitByRealIP(serverConfig.RatelimitRequestLimit, serverConfig.RatelimitWindowLength))
+		} else {
+			mainRouter.Use(httprate.LimitByIP(serverConfig.RatelimitRequestLimit, serverConfig.RatelimitWindowLength))
+		}
+	}
+
 	mainRouter.Get("/{metric}", func(w http.ResponseWriter, r *http.Request) {
 		kromgo.KromgoRequestHandler(w, r, config)
 	})
