@@ -31,16 +31,14 @@ func ReadinessHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Init initializes the http server
-func Init(config configuration.Config) (*http.Server, *http.Server) {
+func Init(config configuration.KromgoConfig, serverConfig configuration.ServerConfig) (*http.Server, *http.Server) {
+
 	mainRouter := chi.NewRouter()
-	mainRouter.Get("/query", func(w http.ResponseWriter, r *http.Request) {
-		kromgo.DeprecatedRequestHandler(w, r, config)
-	})
 	mainRouter.Get("/{metric}", func(w http.ResponseWriter, r *http.Request) {
 		kromgo.KromgoRequestHandler(w, r, config)
 	})
 
-	mainServer := createHTTPServer(fmt.Sprintf("%s:%d", config.ServerHost, config.ServerPort), mainRouter, config.ServerReadTimeout, config.ServerWriteTimeout)
+	mainServer := createHTTPServer(fmt.Sprintf("%s:%d", serverConfig.ServerHost, serverConfig.ServerPort), mainRouter, serverConfig.ServerReadTimeout, serverConfig.ServerWriteTimeout)
 	go func() {
 		log.Info("starting webhook server", zap.String("address", mainServer.Addr))
 		if err := mainServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -55,7 +53,7 @@ func Init(config configuration.Config) (*http.Server, *http.Server) {
 	healthRouter.Get("/readyz", ReadinessHandler)
 	healthRouter.Get("/-/ready", ReadinessHandler)
 
-	healthServer := createHTTPServer("0.0.0.0:8080", healthRouter, config.ServerReadTimeout, config.ServerWriteTimeout)
+	healthServer := createHTTPServer(fmt.Sprintf("%s:%d", serverConfig.HealthHost, serverConfig.HealthPort), healthRouter, serverConfig.ServerReadTimeout, serverConfig.ServerWriteTimeout)
 	go func() {
 		log.Info("starting health server", zap.String("address", healthServer.Addr))
 		if err := healthServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

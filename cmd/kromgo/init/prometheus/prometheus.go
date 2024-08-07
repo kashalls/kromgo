@@ -11,7 +11,7 @@ import (
 
 var Papi v1.API
 
-func Init(config configuration.Config) (v1.API, error) {
+func Init(config configuration.KromgoConfig) (v1.API, error) {
 	prometheusURL := os.Getenv("PROMETHEUS_URL")
 	if prometheusURL != "" {
 		config.Prometheus = prometheusURL

@@ -5,19 +5,25 @@ import (
 	"os"
 	"time"
 
+	"github.com/caarlos0/env/v11"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/log"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
-// Config struct for configuration environmental variables
-type Config struct {
+type ServerConfig struct {
 	ServerHost         string        `env:"SERVER_HOST" envDefault:"localhost"`
-	ServerPort         int           `env:"SERVER_PORT" envDefault:"8888"`
+	ServerPort         int           `env:"SERVER_PORT" envDefault:"8080"`
 	ServerReadTimeout  time.Duration `env:"SERVER_READ_TIMEOUT"`
 	ServerWriteTimeout time.Duration `env:"SERVER_WRITE_TIMEOUT"`
-	Prometheus         string        `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
-	Metrics            []Metric      `yaml:"metrics" json:"metrics"`
+	HealthHost         string        `env:"HEALTH_HOST" envDefault:"localhost"`
+	HealthPort         int           `env:"HEALTH_PORT" envDefault:"8888"`
+}
+
+// KromgoConfig struct for configuration environmental variables
+type KromgoConfig struct {
+	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
+	Metrics    []Metric `yaml:"metrics" json:"metrics"`
 }
 
 type Metric struct {
@@ -40,7 +46,7 @@ var configPath = "/kromgo/config.yaml" // Default config file path
 var ProcessedMetrics map[string]Metric
 
 // Init sets up configuration by reading set environmental variables
-func Init() Config {
+func Init() KromgoConfig {
 
 	// Check if a custom config file path is provided via command line argument
 	configPathFlag := flag.String("config", "", "Path to the YAML config file")
@@ -56,7 +62,7 @@ func Init() Config {
 		os.Exit(1)
 	}
 
-	var config Config
+	var config KromgoConfig
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		log.Error("error unmarshalling config yaml", zap.Error(err))
 		os.Exit(1)
@@ -64,6 +70,14 @@ func Init() Config {
 
 	ProcessedMetrics = preprocess(config.Metrics)
 	return config
+}
+
+func InitServer() ServerConfig {
+	cfg := ServerConfig{}
+	if err := env.Parse(&cfg); err != nil {
+		log.Error("error reading configuration from environment", zap.Error(err))
+	}
+	return cfg
 }
 
 func preprocess(metrics []Metric) map[string]Metric {
