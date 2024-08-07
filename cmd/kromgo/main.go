@@ -32,7 +32,7 @@ func main() {
 	flag.Parse()
 
 	if *jsonSchemaFlag {
-		jsonString, _ := json.MarshalIndent(jsonschema.Reflect(&configuration.Config{}), "", "  ")
+		jsonString, _ := json.MarshalIndent(jsonschema.Reflect(&configuration.KromgoConfig{}), "", "  ")
 		fmt.Println(string(jsonString))
 		return
 	}
@@ -40,11 +40,12 @@ func main() {
 	log.Init()
 
 	config := configuration.Init()
+	serverConfig := configuration.InitServer()
 	_, err := prometheus.Init(config)
 	if err != nil {
 		log.Error("failed to initialize provider", zap.Error(err))
 	}
 
-	main, health := server.Init(config)
+	main, health := server.Init(config, serverConfig)
 	server.ShutdownGracefully(main, health)
 }
