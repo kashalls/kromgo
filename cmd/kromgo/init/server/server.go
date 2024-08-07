@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httprate"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/configuration"
@@ -35,7 +36,9 @@ func ReadinessHandler(w http.ResponseWriter, r *http.Request) {
 func Init(config configuration.KromgoConfig, serverConfig configuration.ServerConfig) (*http.Server, *http.Server) {
 
 	mainRouter := chi.NewRouter()
-
+	if serverConfig.ServerLogging {
+		mainRouter.Use(middleware.Logger)
+	}
 	if serverConfig.RatelimitEnable {
 		if serverConfig.RatelimitAll {
 			mainRouter.Use(httprate.LimitAll(serverConfig.RatelimitRequestLimit, serverConfig.RatelimitWindowLength))

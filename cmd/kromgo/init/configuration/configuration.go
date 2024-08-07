@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	"flag"
 	"os"
 	"time"
 
@@ -20,12 +19,13 @@ type ServerConfig struct {
 
 	ServerReadTimeout  time.Duration `env:"SERVER_READ_TIMEOUT"`
 	ServerWriteTimeout time.Duration `env:"SERVER_WRITE_TIMEOUT"`
+	ServerLogging   bool `env:"SERVER_LOGGING"`
 
 	RatelimitEnable       bool          `env:"RATELIMIT_ENABLE"`
 	RatelimitAll          bool          `env:"RATELIMIT_ALL"`
 	RatelimitByRealIP     bool          `env:"RATELIMIT_BY_REAL_IP"`
 	RatelimitRequestLimit int           `env:"RATELIMIT_REQUEST_LIMIT" envDefault:"100"`
-	RatelimitWindowLength time.Duration `env:"RATELIMIT_WINDOW_LENGTH" envDefault:"60000"`
+	RatelimitWindowLength time.Duration `env:"RATELIMIT_WINDOW_LENGTH" envDefault:"1m"`
 }
 
 // KromgoConfig struct for configuration environmental variables
@@ -50,17 +50,14 @@ type MetricColor struct {
 	ValueOverride string  `yaml:"valueOverride,omitempty" json:"valueOverride,omitempty"`
 }
 
-var configPath = "/kromgo/config.yaml" // Default config file path
+var ConfigPath = "/kromgo/config.yaml" // Default config file path
 var ProcessedMetrics map[string]Metric
 
 // Init sets up configuration by reading set environmental variables
-func Init() KromgoConfig {
+func Init(configPath string) KromgoConfig {
 
-	// Check if a custom config file path is provided via command line argument
-	configPathFlag := flag.String("config", "", "Path to the YAML config file")
-	flag.Parse()
-	if *configPathFlag != "" {
-		configPath = *configPathFlag
+	if configPath == "" {
+		configPath = ConfigPath
 	}
 
 	// Read file from path.

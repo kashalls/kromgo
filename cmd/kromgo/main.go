@@ -28,6 +28,7 @@ var (
 func main() {
 	fmt.Printf(banner, Version, Gitsha)
 
+	configPathFlag := flag.String("config", "", "Path to the YAML config file")
 	jsonSchemaFlag := flag.Bool("jsonschema", false, "Dump JSON Schema for config file")
 	flag.Parse()
 
@@ -39,11 +40,11 @@ func main() {
 
 	log.Init()
 
-	config := configuration.Init()
+	config := configuration.Init(*configPathFlag)
 	serverConfig := configuration.InitServer()
 	_, err := prometheus.Init(config)
 	if err != nil {
-		log.Error("failed to initialize provider", zap.Error(err))
+		log.Error("failed to initialize prometheus", zap.Error(err))
 	}
 
 	main, health := server.Init(config, serverConfig)
