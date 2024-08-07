@@ -2,8 +2,6 @@ package kromgo
 
 import (
 	"encoding/json"
-	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -16,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configuration.Config) {
+func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configuration.KromgoConfig) {
 	requestMetric := chi.URLParam(r, "metric")
 	requestFormat := r.URL.Query().Get("format")
 
@@ -78,8 +76,8 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 
 	data := map[string]interface{}{
 		"schemaVersion": 1,
-		"label":  "",
-		"message": metric.Prefix + customResponse + metric.Suffix,
+		"label":         "",
+		"message":       metric.Prefix + customResponse + metric.Suffix,
 	}
 
 	if colorConfig.Color != "" {
@@ -95,135 +93,6 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonResponse)
-}
-
-
-func DeprecatedRequestHandler(w http.ResponseWriter, r *http.Request, config configuration.Config) {
-	// Get the metric name from the query parameter
-	metricName := r.URL.Query().Get("metric")
-	responseFormat := r.URL.Query().Get("format")
-
-	// Find the corresponding metric configuration
-	var metric configuration.Metric
-	for _, configMetric := range config.Metrics {
-		if configMetric.Name == metricName {
-			metric = configMetric
-			break
-		}
-	}
-
-	// If metric not found, return an error
-	if metric.Query == "" {
-		slog.Error(
-			"metric not found",
-			slog.String("ip", r.RemoteAddr),
-			slog.String("metric", metric.Name),
-		)
-		http.Error(w, "Metric not found", http.StatusNotFound)
-		return
-	}
-
-	// Run the Prometheus query
-	result, warnings, err := prometheus.Papi.Query(r.Context(), metric.Query, time.Now())
-	if err != nil {
-		slog.Error(
-			"error executing query",
-			slog.String("ip", r.RemoteAddr),
-			slog.String("metric", metric.Name),
-			"error", err,
-		)
-		http.Error(w, fmt.Sprintf("Error executing query: %s", err), http.StatusInternalServerError)
-		return
-	}
-
-	if len(warnings) > 0 {
-		fmt.Println("Warnings while executing query:", warnings)
-	}
-
-	// Convert the result to JSON
-	jsonResult, err := json.Marshal(result)
-	slog.Debug(
-		"query result",
-		slog.String("ip", r.RemoteAddr),
-		slog.String("metric", metric.Name),
-		slog.String("query", metric.Query),
-		slog.String("result", string(jsonResult)),
-	)
-	if err != nil {
-		slog.Error(
-			"could not convert to json",
-			slog.String("ip", r.RemoteAddr),
-			slog.String("metric", metric.Name),
-			"error", err,
-		)
-		http.Error(w, fmt.Sprintf("Error converting result to JSON: %s", err), http.StatusInternalServerError)
-		return
-	}
-
-	if len(jsonResult) <= 0 {
-		slog.Error(
-			"query returned no results",
-			slog.String("ip", r.RemoteAddr),
-			slog.String("metric", metric.Name),
-			slog.String("query", metric.Query),
-		)
-		http.Error(w, "Query returned no results", http.StatusNotFound)
-		return
-	}
-
-	if responseFormat == "raw" {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(jsonResult)
-		return
-	} else {
-
-		responseResult := result.(model.Vector)
-		resultValue := float64(responseResult[0].Value)
-		colorConfig := GetColorConfig(metric.Colors, resultValue)
-
-		var whatAmIShowing string = strconv.FormatFloat(resultValue, 'f', -1, 64)
-
-		if len(metric.Label) > 0 {
-			value, err := ExtractLabelValue(responseResult, metric.Label)
-			if err != nil {
-				http.Error(w, "Label was not present in query.", http.StatusBadGateway)
-				slog.Error(
-					"label was not found in query result",
-					slog.String("ip", r.RemoteAddr),
-					slog.String("metric", metric.Name),
-					"label", metric.Label,
-				)
-				return
-			}
-			whatAmIShowing = value
-		}
-
-		if len(colorConfig.ValueOverride) > 0 {
-			whatAmIShowing = colorConfig.ValueOverride
-		}
-
-		message := metric.Prefix + whatAmIShowing + metric.Suffix
-
-		data := map[string]interface{}{
-			"schemaVersion": 1,
-			"label":         metricName,
-			"message":       message,
-		}
-
-		if colorConfig.Color != "" {
-			data["color"] = colorConfig.Color
-		}
-
-		// Convert the data to JSON
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			http.Error(w, "Error converting to JSON", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(jsonData)
-	}
 }
 
 func requestLog(r *http.Request) *zap.Logger {
