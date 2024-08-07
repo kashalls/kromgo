@@ -76,7 +76,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 
 	data := map[string]interface{}{
 		"schemaVersion": 1,
-		"label":         "",
+		"label":         metric.Name,
 		"message":       metric.Prefix + customResponse + metric.Suffix,
 	}
 
