@@ -16,6 +16,9 @@ import (
 
 func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configuration.KromgoConfig) {
 	requestMetric := chi.URLParam(r, "metric")
+	if requestMetric == "query" {
+		requestMetric = r.URL.Query().Get("metric")
+	}
 	requestFormat := r.URL.Query().Get("format")
 
 	metric, exists := configuration.ProcessedMetrics[requestMetric]
