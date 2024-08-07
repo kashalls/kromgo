@@ -6,11 +6,11 @@ WORKDIR /build
 COPY . .
 RUN go build -ldflags "-s -w -X main.Version=${VERSION} -X main.Gitsha=${REVISION}" ./cmd/kromgo
 
-FROM gcr.io/distroless/static:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot
 USER nonroot:nonroot
-COPY --from=build --chmod=555 /build/kromgo /kromgo
-EXPOSE 8080/tcp
+COPY --from=build --chmod=555 /build/kromgo /kromgo/kromgo
+EXPOSE 8080/tcp 8888/tcp
 LABEL \
     org.opencontainers.image.title="kromgo" \
     org.opencontainers.image.source="https://github.com/kashalls/kromgo"
-ENTRYPOINT ["/kromgo"]
+ENTRYPOINT ["/kromgo/kromgo"]
