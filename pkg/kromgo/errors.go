@@ -27,7 +27,7 @@ func HandleError(w http.ResponseWriter, r *http.Request, metric string, reason s
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error converting data to json response")
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(200)
 		return
 	}
 	w.WriteHeader(http.StatusNotFound)
