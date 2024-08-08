@@ -16,7 +16,7 @@ type EndpointResponse struct {
 	Style         string `json:"style,omitempty"`
 }
 
-func HandleError(w http.ResponseWriter, r *http.Request, metric string, reason string) {
+func HandleError(w http.ResponseWriter, r *http.Request, metric string, reason string, code int) {
 	response := EndpointResponse{
 		SchemaVersion: 1,
 		Label:         metric,
@@ -27,10 +27,10 @@ func HandleError(w http.ResponseWriter, r *http.Request, metric string, reason s
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error converting data to json response")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNotFound)
+	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonResponse)
 }

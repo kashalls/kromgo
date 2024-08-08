@@ -25,7 +25,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 
 	if !exists {
 		requestLog(r).Error("metric not found")
-		HandleError(w, r, requestMetric, "Not Found")
+		HandleError(w, r, requestMetric, "Not Found", http.StatusNotFound)
 		return
 	}
 
@@ -34,7 +34,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error executing metric query")
 		w.WriteHeader(http.StatusInternalServerError)
-		HandleError(w, r, requestMetric, "Query Error")
+		HandleError(w, r, requestMetric, "Query Error", http.StatusInternalServerError)
 		return
 	}
 	if len(warnings) > 0 {
@@ -46,13 +46,13 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 	requestLog(r).With(zap.String("result", string(jsonResult))).Debug("query result")
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("could not convert query result to json")
-		HandleError(w, r, requestMetric, "Query Error")
+		HandleError(w, r, requestMetric, "Query Error", http.StatusInternalServerError)
 		return
 	}
 
 	if len(jsonResult) <= 0 {
 		requestLog(r).Error("query returned no results")
-		HandleError(w, r, requestMetric, "No Data")
+		HandleError(w, r, requestMetric, "No Data", http.StatusOK)
 		return
 	}
 
@@ -71,7 +71,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 		labelValue, err := ExtractLabelValue(prometheusData, metric.Label)
 		if err != nil {
 			requestLog(r).With(zap.String("label", metric.Label), zap.Error(err)).Error("label was not found in query result")
-			HandleError(w, r, requestMetric, "No Data")
+			HandleError(w, r, requestMetric, "No Data", http.StatusOK)
 			return
 		}
 		customResponse = labelValue
@@ -93,7 +93,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 	jsonResponse, err := json.Marshal(data)
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error converting data to json response")
-		HandleError(w, r, requestMetric, "Error")
+		HandleError(w, r, requestMetric, "Error", http.StatusInternalServerError)
 		return
 	}
 
