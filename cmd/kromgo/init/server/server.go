@@ -55,9 +55,9 @@ func Init(config configuration.KromgoConfig, serverConfig configuration.ServerCo
 
 	mainServer := createHTTPServer(fmt.Sprintf("%s:%d", serverConfig.ServerHost, serverConfig.ServerPort), mainRouter, serverConfig.ServerReadTimeout, serverConfig.ServerWriteTimeout)
 	go func() {
-		log.Info("starting webhook server", zap.String("address", mainServer.Addr))
+		log.Info("starting kromgo server", zap.String("address", mainServer.Addr))
 		if err := mainServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("unable to start webhook server", zap.String("address", mainServer.Addr), zap.Error(err))
+			log.Error("unable to start kromgo server", zap.String("address", mainServer.Addr), zap.Error(err))
 		}
 	}()
 
