@@ -25,7 +25,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 
 	if !exists {
 		requestLog(r).Error("metric not found")
-		w.WriteHeader(http.StatusNotFound)
+		HandleError(w, r, requestMetric, "Not Found")
 		return
 	}
 
@@ -34,6 +34,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error executing metric query")
 		w.WriteHeader(http.StatusInternalServerError)
+		HandleError(w, r, requestMetric, "Query Error")
 		return
 	}
 	if len(warnings) > 0 {
@@ -45,12 +46,14 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 	requestLog(r).With(zap.String("result", string(jsonResult))).Debug("query result")
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("could not convert query result to json")
-		w.WriteHeader(http.StatusInternalServerError)
+		HandleError(w, r, requestMetric, "Query Error")
 		return
 	}
 
 	if len(jsonResult) <= 0 {
 		requestLog(r).Error("query returned no results")
+		HandleError(w, r, requestMetric, "No Data")
+		return
 	}
 
 	if requestFormat == "raw" {
@@ -68,7 +71,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 		labelValue, err := ExtractLabelValue(prometheusData, metric.Label)
 		if err != nil {
 			requestLog(r).With(zap.String("label", metric.Label), zap.Error(err)).Error("label was not found in query result")
-			w.WriteHeader(http.StatusInternalServerError)
+			HandleError(w, r, requestMetric, "No Data")
 			return
 		}
 		customResponse = labelValue
@@ -90,7 +93,7 @@ func KromgoRequestHandler(w http.ResponseWriter, r *http.Request, config configu
 	jsonResponse, err := json.Marshal(data)
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error converting data to json response")
-		w.WriteHeader(http.StatusInternalServerError)
+		HandleError(w, r, requestMetric, "Error")
 		return
 	}
 
