@@ -1,29 +1,16 @@
-# Build Project
-FROM golang:1.22.5-alpine as build
-WORKDIR /go/src/github.com/kashalls/kromgo
+FROM golang:1.22-alpine AS build
+ARG PKG=github.com/kashalls/kromgo
+ARG VERSION=dev
+ARG REVISION=dev
+WORKDIR /build
+COPY . .
+RUN go build -ldflags "-s -w -X main.Version=${VERSION} -X main.Gitsha=${REVISION}" ./cmd/kromgo
 
-ARG TARGETOS
-ARG TARGETARCH
-ARG TARGETVARIANT=""
-
-ENV GO111MODULE=on \
-    CGO_ENABLED=0 \
-    GOOS=${TARGETOS} \
-    GOARCH=${TARGETARCH} \
-    GOARM=${TARGETVARIANT}
-
-COPY go.mod go.sum ./
-RUN go mod download
-COPY *.go ./
-RUN go build -ldflags="-s -w" -o /kromgo
-
-# Final Image
-FROM gcr.io/distroless/static:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot
 USER nonroot:nonroot
-COPY --from=build --chown=nonroot:nonroot /kromgo /kromgo/
-EXPOSE 8080
-
-CMD ["/kromgo/kromgo"]
+COPY --from=build --chmod=555 /build/kromgo /kromgo/kromgo
+EXPOSE 8080/tcp 8888/tcp
 LABEL \
     org.opencontainers.image.title="kromgo" \
     org.opencontainers.image.source="https://github.com/kashalls/kromgo"
+ENTRYPOINT ["/kromgo/kromgo"]
