@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/essentialkaos/go-badge"
 	"github.com/invopop/jsonschema"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -33,11 +35,17 @@ type Metric struct {
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
 }
 
+type Badge struct {
+	Font string `yaml:"font" json:"font"`
+	Size int    `yaml:"size" json:"size"`
+}
+
 type Config struct {
 	Debug      bool     `yaml:"debug,omitempty" json:"debug,omitempty"`
 	Port       string   `yaml:"port,omitempty" json:"port,omitempty"`
 	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
 	Metrics    []Metric `yaml:"metrics" json:"metrics"`
+	Badge      Badge     `yaml:"badge,omitempty" json:"badge,omitempty"`
 }
 
 type MetricResult struct {
@@ -97,6 +105,18 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error creating Prometheus client: %s\n", err)
 		os.Exit(1)
+	}
+
+	var badgeGenerator *badge.Generator
+	if config.Badge.Font != "" {
+		size := 11
+		if config.Badge.Size != 0 {
+			size = config.Badge.Size
+		}
+		badgeGenerator, err = badge.NewGenerator(config.Badge.Font, size)
+		if (err) != nil {
+			panic(err)
+		}
 	}
 
 	// Create a Prometheus v1 API client
@@ -189,7 +209,7 @@ func main() {
 			return
 		}
 
-		if (responseFormat == "raw") {
+		if responseFormat == "raw" {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(jsonResult)
 			return
@@ -232,16 +252,34 @@ func main() {
 				data["color"] = colorConfig.Color
 			}
 
-			// Convert the data to JSON
-			jsonData, err := json.Marshal(data)
-			if err != nil {
-				http.Error(w, "Error converting to JSON", http.StatusInternalServerError)
-				return
+			if responseFormat == "badge" {
+				if badgeGenerator == nil {
+					http.Error(w, "Badge not configured", http.StatusInternalServerError)
+
+					return
+				}
+
+				hex, err := colorNameToHex(colorConfig.Color)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+
+					return
+				}
+
+				w.Header().Set("Content-Type", "image/svg+xml")
+				w.Write(badgeGenerator.GenerateFlat(metricName, message, hex))
+			} else {
+				// Convert the data to JSON
+				jsonData, err := json.Marshal(data)
+				if err != nil {
+					http.Error(w, "Error converting to JSON", http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(jsonData)
+
 			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(jsonData)
-
 		}
 	})
 
@@ -286,8 +324,8 @@ func getColorConfig(colors []MetricColor, value float64) MetricColor {
 	// MetricColors is enabled, but the value does not have a corresponding value to it.
 	// We return a default value here only if the result value falls outside the range.
 	return MetricColor{
-			Min: value,
-			Max: value,
+		Min: value,
+		Max: value,
 	}
 }
 
@@ -302,4 +340,42 @@ func ExtractLabelValue(vector model.Vector, labelName string) (string, error) {
 
 	// If label not found, return an error
 	return "", fmt.Errorf("label '%s' not found in the query result", labelName)
+}
+
+func colorNameToHex(colorName string) (string, error) {
+	if colorName == "" {
+		colorName = "blue"
+	}
+	switch colorName {
+	case "blue":
+		return badge.COLOR_BLUE, nil
+	case "brightgreen":
+		return badge.COLOR_BRIGHTGREEN, nil
+	case "green":
+		return badge.COLOR_GREEN, nil
+	case "grey":
+		return badge.COLOR_GREY, nil
+	case "lightgrey":
+		return badge.COLOR_LIGHTGREY, nil
+	case "orange":
+		return badge.COLOR_ORANGE, nil
+	case "red":
+		return badge.COLOR_RED, nil
+	case "yellow":
+		return badge.COLOR_YELLOW, nil
+	case "yellowgreen":
+		return badge.COLOR_YELLOWGREEN, nil
+	case "success":
+		return badge.COLOR_SUCCESS, nil
+	case "important":
+		return badge.COLOR_IMPORTANT, nil
+	case "critical":
+		return badge.COLOR_CRITICAL, nil
+	case "informational":
+		return badge.COLOR_INFORMATIONAL, nil
+	case "inactive":
+		return badge.COLOR_INACTIVE, nil
+	default:
+		return "", errors.New("unknown color name")
+	}
 }
