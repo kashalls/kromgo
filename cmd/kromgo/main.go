@@ -26,8 +26,6 @@ var (
 )
 
 func main() {
-	fmt.Printf(banner, Version, Gitsha)
-
 	configPathFlag := flag.String("config", "", "Path to the YAML config file")
 	jsonSchemaFlag := flag.Bool("jsonschema", false, "Dump JSON Schema for config file")
 	flag.Parse()
@@ -38,6 +36,7 @@ func main() {
 		return
 	}
 
+	fmt.Printf(banner, Version, Gitsha)
 	log.Init()
 
 	config := configuration.Init(*configPathFlag)
