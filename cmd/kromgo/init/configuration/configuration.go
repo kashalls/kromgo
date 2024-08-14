@@ -32,6 +32,7 @@ type ServerConfig struct {
 type KromgoConfig struct {
 	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
 	Metrics    []Metric `yaml:"metrics" json:"metrics"`
+	Badge      Badge    `yaml:"badge,omitempty" json:"badge,omitempty"`
 }
 
 type Metric struct {
@@ -48,6 +49,11 @@ type MetricColor struct {
 	Max           float64 `yaml:"max" json:"max"`
 	Color         string  `yaml:"color,omitempty" json:"color,omitempty"`
 	ValueOverride string  `yaml:"valueOverride,omitempty" json:"valueOverride,omitempty"`
+}
+
+type Badge struct {
+	Font string `yaml:"font" json:"font"`
+	Size int    `yaml:"size" json:"size"`
 }
 
 var ConfigPath = "/kromgo/config.yaml" // Default config file path

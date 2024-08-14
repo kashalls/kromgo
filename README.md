@@ -49,6 +49,17 @@ This format is provided to support Shield.io's [Endpoint Badge](https://shields.
 ]
 ```
 
+### Badge Response
+
+Like the `endpoint` format but serves an svg badge with `label` and `message`
+
+`HTTP GET localhost:8080/query?format=badge&metric=node_cpu_usage`
+
+```
+content-type: image/svg+xml
+<svg xmlns="http://www.w3.org/2000/svg" ...
+```
+
 ### 🤝 Gratitude and Thanks
 
 Thanks to all of the people at the [Home Operations](https://discord.gg/home-operations) Discord community. Be sure to check it out, its a blast!

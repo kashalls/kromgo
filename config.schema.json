@@ -13,6 +13,9 @@
             "$ref": "#/$defs/Metric"
           },
           "type": "array"
+        },
+        "badge": {
+          "$ref": "#/$defs/Badge"
         }
       },
       "additionalProperties": false,
@@ -72,6 +75,21 @@
       "required": [
         "min",
         "max"
+      ]
+    },
+    "Badge": {
+      "properties": {
+        "font": {
+          "type": "string"
+        },
+        "size": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "font"
       ]
     }
   }
