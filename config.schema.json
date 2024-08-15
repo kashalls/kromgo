@@ -3,6 +3,22 @@
   "$id": "https://github.com/kashalls/kromgo/cmd/kromgo/init/configuration/kromgo-config",
   "$ref": "#/$defs/KromgoConfig",
   "$defs": {
+    "Badge": {
+      "properties": {
+        "font": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "font",
+        "size"
+      ]
+    },
     "KromgoConfig": {
       "properties": {
         "prometheus": {
@@ -75,21 +91,6 @@
       "required": [
         "min",
         "max"
-      ]
-    },
-    "Badge": {
-      "properties": {
-        "font": {
-          "type": "string"
-        },
-        "size": {
-          "type": "number"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "font"
       ]
     }
   }
