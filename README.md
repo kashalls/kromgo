@@ -22,7 +22,7 @@ Queries take around 5ms ~ 75ms to complete depending on how many breaks my prome
 
 This format is provided to support Shield.io's [Endpoint Badge](https://shields.io/badges/endpoint-badge) endpoint.
 
-`HTTP GET localhost:8080/query?format=endpoint&metric=node_cpu_usage`
+`HTTP GET localhost:8080/node_cpu_usage`
 
 ```json
 {
@@ -35,7 +35,7 @@ This format is provided to support Shield.io's [Endpoint Badge](https://shields.
 
 ### Raw Response
 
-`HTTP GET localhost:8080/query?metric=node_cpu_usage`
+`HTTP GET localhost:8080/node_cpu_usage?format=raw`
 
 ```json
 [
@@ -53,7 +53,7 @@ This format is provided to support Shield.io's [Endpoint Badge](https://shields.
 
 Like the `endpoint` format but serves an svg badge with `label` and `message`
 
-`HTTP GET localhost:8080/query?format=badge&metric=node_cpu_usage`
+`HTTP GET localhost:8080/node_cpu_usage?format=badge`
 
 ```
 content-type: image/svg+xml
