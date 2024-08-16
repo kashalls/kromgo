@@ -25,16 +25,17 @@ type KromgoHandler struct {
 func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error) {
 	var badgeGenerator *badge.Generator
 
-	if config.Badge.Font == "" {
-		// This font is included in the container by default.
-		config.Badge.Font = "Verdana.ttf"
+	font := config.Badge.Font
+	if font == "" {
+		font = "Verdana.ttf"
 	}
 
-	if config.Badge.Size < 0 {
-		config.Badge.Size = 11
+	size := config.Badge.Size
+	if size < 0 {
+		size = 11
 	}
 
-	badgeGenerator, err := badge.NewGenerator(config.Badge.Font, config.Badge.Size)
+	badgeGenerator, err := badge.NewGenerator(font, size)
 	if err != nil {
 		return nil, err
 	}
