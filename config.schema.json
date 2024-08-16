@@ -45,6 +45,9 @@
         "name": {
           "type": "string"
         },
+        "title": {
+          "type": "string"
+        },
         "query": {
           "type": "string"
         },
