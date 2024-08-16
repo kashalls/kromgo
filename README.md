@@ -7,10 +7,11 @@ It allows you to define your own metric names and your own prometheus queries as
 You can use [shields.io](https://shields.io) and use either the [Dynamic JSON Badge](https://shields.io/badges/dynamic-json-badge) or the [Endpoint Badge](https://shields.io/badges/endpoint-badge) and add dynamic coloring with ranges you set.
 
 [Config Example](./config.yaml.example)
+[Configuration Structure](./cmd/kromgo/init/configuration/configuration.go)
 
 - Reads configuration file from `/kromgo/config.yaml`
 - Requires `PROMETHEUS_URL` be set in ENV.
-- Optional `PORT` to change server port.
+- Optional `SERVER_PORT` to change server port.
 
 ## Performance
 
