@@ -31,11 +31,9 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 	}
 
 	size := config.Badge.Size
-	if size < 0 {
+	if size <= 0 {
 		size = 11
 	}
-
-	log.Info("badge gen", zap.Int("size", size), zap.String("font", font))
 
 	badgeGenerator, err := badge.NewGenerator(font, size)
 	if err != nil {
