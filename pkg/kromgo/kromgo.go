@@ -118,17 +118,22 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	message := metric.Prefix + customResponse + metric.Suffix
 
+	title := metric.Name
+	if metric.Title != "" {
+		title = metric.Title
+	}
+
 	if requestFormat == "badge" {
 		hex := colorNameToHex(colorConfig.Color)
 
 		w.Header().Set("Content-Type", "image/svg+xml")
-		w.Write(h.BadgeGenerator.GenerateFlat(metric.Name, message, hex))
+		w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
 		return
 	}
 
 	data := map[string]interface{}{
 		"schemaVersion": 1,
-		"label":         metric.Name,
+		"label":         title,
 		"message":       message,
 	}
 

@@ -36,11 +36,19 @@ type KromgoConfig struct {
 }
 
 type Metric struct {
-	Name   string        `yaml:"name" json:"name"`
-	Query  string        `yaml:"query" json:"query"`
-	Label  string        `yaml:"label,omitempty" json:"label,omitempty"`
-	Prefix string        `yaml:"prefix,omitempty" json:"prefix,omitempty"`
-	Suffix string        `yaml:"suffix,omitempty" json:"suffix,omitempty"`
+	// The name of the metric. This is used in the HTTP Call
+	Name string `yaml:"name" json:"name"`
+	// The title of the metric to display. (Optional)
+	Title string `yaml:"title,omitempty" json:"title,omitempty"`
+	// The prometheus query to run.
+	Query string `yaml:"query" json:"query"`
+	// Fetch the value from this label in the prometheus query.
+	Label string `yaml:"label,omitempty" json:"label,omitempty"`
+	// Prefix the result of the query with this.
+	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	// Suffix the result of the query with this.
+	Suffix string `yaml:"suffix,omitempty" json:"suffix,omitempty"`
+	// Add color.
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
 }
 
