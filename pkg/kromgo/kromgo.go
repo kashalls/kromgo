@@ -52,6 +52,8 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		requestMetric = r.URL.Query().Get("metric")
 	}
 	requestFormat := r.URL.Query().Get("format")
+	badgeStyle := r.URL.Query().Get("style")
+
 
 	if requestFormat == "badge" && h.BadgeGenerator == nil {
 		HandleError(w, r, requestMetric, "Format badge is not configured", http.StatusInternalServerError)
@@ -128,6 +130,20 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		hex := colorNameToHex(colorConfig.Color)
 
 		w.Header().Set("Content-Type", "image/svg+xml")
+		
+		if badgeStyle == "plastic" {
+			w.Write(h.BadgeGenerator.GeneratePlastic(title, message, hex))
+			return
+		}
+		if badgeStyle == "flat-square" {
+			w.Write(h.BadgeGenerator.GenerateFlatSquare(title, message, hex))
+			return
+		}
+		//if badgeStyle == "flat" || badgeStyle == "" {
+		//	w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
+		//	return
+		//}
+
 		w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
 		return
 	}
