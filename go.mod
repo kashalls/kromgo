@@ -4,6 +4,7 @@ go 1.22.1
 
 require (
 	github.com/caarlos0/env/v11 v11.2.2
+	github.com/essentialkaos/go-badge v1.4.1
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/httprate v0.12.1
 	github.com/invopop/jsonschema v0.12.0
@@ -20,6 +21,7 @@ require (
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -30,6 +32,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
+	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 )

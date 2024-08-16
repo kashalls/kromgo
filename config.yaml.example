@@ -1,5 +1,8 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/kashalls/kromgo/main/config.schema.json
+badge:
+  font: Verdana.ttf # Relative to /kromgo - Verdana.ttf is available in the container
+  size: 12
 metrics:
   - name: node_cpu_usage
     query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"

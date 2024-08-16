@@ -49,9 +49,12 @@ func Init(config configuration.KromgoConfig, serverConfig configuration.ServerCo
 		}
 	}
 
-	mainRouter.Get("/{metric}", func(w http.ResponseWriter, r *http.Request) {
-		kromgo.KromgoRequestHandler(w, r, config)
-	})
+	kromgoHandler, err := kromgo.NewKromgoHandler(config)
+	if err != nil {
+		log.Fatal("Failed to initialize KromgoHandler", zap.Error(err))
+	}
+
+	mainRouter.Get("/{metric}", kromgoHandler.ServeHTTP)
 
 	mainServer := createHTTPServer(fmt.Sprintf("%s:%d", serverConfig.ServerHost, serverConfig.ServerPort), mainRouter, serverConfig.ServerReadTimeout, serverConfig.ServerWriteTimeout)
 	go func() {
