@@ -7,7 +7,7 @@ COPY . .
 RUN go build -ldflags "-s -w -X main.Version=${VERSION} -X main.Gitsha=${REVISION}" ./cmd/kromgo
 
 
-FROM alpine as fonts
+FROM alpine AS fonts
 
 RUN apk add --no-cache msttcorefonts-installer
 RUN update-ms-fonts
