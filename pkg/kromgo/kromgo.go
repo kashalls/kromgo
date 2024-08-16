@@ -24,16 +24,19 @@ type KromgoHandler struct {
 // NewKromgoHandler initializes the handler with the necessary dependencies
 func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error) {
 	var badgeGenerator *badge.Generator
-	if config.Badge.Font != "" {
-		size := 11
-		if config.Badge.Size != 0 {
-			size = config.Badge.Size
-		}
-		ptr, err := badge.NewGenerator(config.Badge.Font, size)
-		badgeGenerator = ptr
-		if err != nil {
-			return nil, err
-		}
+
+	if config.Badge.Font == "" {
+		// This font is included in the container by default.
+		config.Badge.Font = "Verdana.ttf"
+	}
+
+	if config.Badge.Size < 0 {
+		config.Badge.Size = 11
+	}
+
+	badgeGenerator, err := badge.NewGenerator(config.Badge.Font, config.Badge.Size)
+	if err != nil {
+		return nil, err
 	}
 
 	return &KromgoHandler{
@@ -151,7 +154,7 @@ func requestLog(r *http.Request) *zap.Logger {
 	return log.With(zap.String("req_method", r.Method), zap.String("req_path", r.URL.Path), zap.String("metric", requestMetric), zap.String("format", requestFormat))
 }
 
-func colorNameToHex(colorName string) (string) {
+func colorNameToHex(colorName string) string {
 	if strings.HasPrefix(colorName, "#") {
 		return colorName
 	}
