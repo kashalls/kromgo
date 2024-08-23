@@ -6,7 +6,7 @@ require (
 	github.com/caarlos0/env/v11 v11.2.2
 	github.com/essentialkaos/go-badge v1.4.1
 	github.com/go-chi/chi/v5 v5.1.0
-	github.com/go-chi/httprate v0.12.1
+	github.com/go-chi/httprate v0.14.0
 	github.com/invopop/jsonschema v0.12.0
 	github.com/prometheus/client_golang v1.20.0
 	github.com/prometheus/common v0.55.0
