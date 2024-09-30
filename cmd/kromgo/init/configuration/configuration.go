@@ -11,10 +11,10 @@ import (
 )
 
 type ServerConfig struct {
-	ServerHost string `env:"SERVER_HOST" envDefault:"localhost"`
+	ServerHost string `env:"SERVER_HOST" envDefault:"0.0.0.0"`
 	ServerPort int    `env:"SERVER_PORT" envDefault:"8080"`
 
-	HealthHost string `env:"HEALTH_HOST" envDefault:"localhost"`
+	HealthHost string `env:"HEALTH_HOST" envDefault:"0.0.0.0"`
 	HealthPort int    `env:"HEALTH_PORT" envDefault:"8888"`
 
 	ServerReadTimeout  time.Duration `env:"SERVER_READ_TIMEOUT"`
