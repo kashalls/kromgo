@@ -3,7 +3,7 @@ module github.com/kashalls/kromgo
 go 1.22.1
 
 require (
-	github.com/caarlos0/env/v11 v11.2.2
+	github.com/caarlos0/env/v11 v11.3.1
 	github.com/essentialkaos/go-badge v1.4.1
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/httprate v0.14.1
