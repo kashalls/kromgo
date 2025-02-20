@@ -48,12 +48,15 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestMetric := chi.URLParam(r, "metric")
+	if requestMetric == "" {
+		HandleError(w,r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
+		return
+	}
 	if requestMetric == "query" {
 		requestMetric = r.URL.Query().Get("metric")
 	}
 	requestFormat := r.URL.Query().Get("format")
 	badgeStyle := r.URL.Query().Get("style")
-
 
 	if requestFormat == "badge" && h.BadgeGenerator == nil {
 		HandleError(w, r, requestMetric, "Format badge is not configured", http.StatusInternalServerError)
@@ -69,6 +72,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Run the Prometheus query
+	// potentially utilize withlimit or withtimeout
 	promResult, warnings, err := prometheus.Papi.Query(r.Context(), metric.Query, time.Now())
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error executing metric query")
@@ -102,10 +106,19 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	prometheusData := promResult.(model.Vector)
-	resultValue := float64(prometheusData[0].Value)
-	colorConfig := GetColorConfig(metric.Colors, resultValue)
+	log.Debug("prometheus returned data", zap.Any("data", prometheusData))
 
-	var customResponse string = strconv.FormatFloat(resultValue, 'f', -1, 64)
+	var colorConfig configuration.MetricColor
+	var response string 
+	if len(prometheusData) > 0 {
+		resultValue := float64(prometheusData[0].Value)
+		colorConfig = GetColorConfig(metric.Colors, resultValue)
+		response = strconv.FormatFloat(resultValue, 'f', -1, 64)
+	} else {
+		colorConfig = configuration.MetricColor{}
+		response = "metric returned no data"
+	}
+
 	if len(metric.Label) > 0 {
 		labelValue, err := ExtractLabelValue(prometheusData, metric.Label)
 		if err != nil {
@@ -113,13 +126,13 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			HandleError(w, r, requestMetric, "No Data", http.StatusOK)
 			return
 		}
-		customResponse = labelValue
+		response = labelValue
 	}
 	if len(colorConfig.ValueOverride) > 0 {
-		customResponse = colorConfig.ValueOverride
+		response = colorConfig.ValueOverride
 	}
 
-	message := metric.Prefix + customResponse + metric.Suffix
+	message := metric.Prefix + response + metric.Suffix
 
 	title := metric.Name
 	if metric.Title != "" {
@@ -130,7 +143,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		hex := colorNameToHex(colorConfig.Color)
 
 		w.Header().Set("Content-Type", "image/svg+xml")
-		
+
 		if badgeStyle == "plastic" {
 			w.Write(h.BadgeGenerator.GeneratePlastic(title, message, hex))
 			return
