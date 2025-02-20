@@ -48,6 +48,10 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestMetric := chi.URLParam(r, "metric")
+	if requestMetric == "" {
+		HandleError(w,r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
+		return
+	}
 	if requestMetric == "query" {
 		requestMetric = r.URL.Query().Get("metric")
 	}
