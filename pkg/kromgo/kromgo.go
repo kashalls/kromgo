@@ -1,10 +1,12 @@
 package kromgo
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/essentialkaos/go-badge"
@@ -19,6 +21,7 @@ import (
 type KromgoHandler struct {
 	Config         configuration.KromgoConfig
 	BadgeGenerator *badge.Generator
+	Templater      *template.Template
 }
 
 // NewKromgoHandler initializes the handler with the necessary dependencies
@@ -43,13 +46,14 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 	return &KromgoHandler{
 		Config:         config,
 		BadgeGenerator: badgeGenerator,
+		Templater:      template.New("templater").Funcs(templates),
 	}, nil
 }
 
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestMetric := chi.URLParam(r, "metric")
 	if requestMetric == "" {
-		HandleError(w,r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
+		HandleError(w, r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
 		return
 	}
 	if requestMetric == "query" {
@@ -109,7 +113,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debug("prometheus returned data", zap.Any("data", prometheusData))
 
 	var colorConfig configuration.MetricColor
-	var response string 
+	var response string
 	if len(prometheusData) > 0 {
 		resultValue := float64(prometheusData[0].Value)
 		colorConfig = GetColorConfig(metric.Colors, resultValue)
@@ -132,12 +136,34 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		response = colorConfig.ValueOverride
 	}
 
-	message := metric.Prefix + response + metric.Suffix
-
 	title := metric.Name
 	if metric.Title != "" {
 		title = metric.Title
 	}
+
+	if metric.NameTemplate != "" {
+		var buf bytes.Buffer
+		t := template.Must(h.Templater.Parse(metric.NameTemplate))
+		if err := t.Execute(&buf, response); err != nil {
+			requestLog(r).Error("failed to template", zap.String("response", response), zap.Error(err))
+			HandleError(w, r, requestMetric, "Template Failed", http.StatusInternalServerError)
+			return
+		}
+		title = buf.String()
+	}
+
+	if metric.ValueTemplate != "" {
+		var buf bytes.Buffer
+		t := template.Must(h.Templater.Parse(metric.ValueTemplate))
+		if err := t.Execute(&buf, response); err != nil {
+			requestLog(r).Error("failed to template", zap.String("response", response), zap.Error(err))
+			HandleError(w, r, requestMetric, "Template Failed", http.StatusInternalServerError)
+			return
+		}
+		response = buf.String()
+	}
+
+	message := metric.Prefix + response + metric.Suffix
 
 	if requestFormat == "badge" {
 		hex := colorNameToHex(colorConfig.Color)
