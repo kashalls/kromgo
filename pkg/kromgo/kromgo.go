@@ -49,7 +49,7 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestMetric := chi.URLParam(r, "metric")
 	if requestMetric == "" {
-		HandleError(w,r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
+		HandleError(w, r, requestMetric, "Not a valid metric", http.StatusBadRequest)
 		return
 	}
 	if requestMetric == "query" {
@@ -59,7 +59,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	badgeStyle := r.URL.Query().Get("style")
 
 	if requestFormat == "badge" && h.BadgeGenerator == nil {
-		HandleError(w, r, requestMetric, "Format badge is not configured", http.StatusInternalServerError)
+		HandleError(w, r, requestMetric, "Badges are not configured", http.StatusInternalServerError)
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debug("prometheus returned data", zap.Any("data", prometheusData))
 
 	var colorConfig configuration.MetricColor
-	var response string 
+	var response string
 	if len(prometheusData) > 0 {
 		resultValue := float64(prometheusData[0].Value)
 		colorConfig = GetColorConfig(metric.Colors, resultValue)
@@ -152,10 +152,6 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Write(h.BadgeGenerator.GenerateFlatSquare(title, message, hex))
 			return
 		}
-		//if badgeStyle == "flat" || badgeStyle == "" {
-		//	w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
-		//	return
-		//}
 
 		w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
 		return

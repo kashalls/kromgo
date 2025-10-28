@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/kashalls/kromgo/internal/metrics"
 	"go.uber.org/zap"
 )
 
@@ -33,4 +34,6 @@ func HandleError(w http.ResponseWriter, r *http.Request, metric string, reason s
 	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonResponse)
+
+	metrics.IncMetricErrors(metric, reason)
 }
