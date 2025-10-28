@@ -32,6 +32,11 @@ func Middleware(next http.Handler) http.Handler {
 		if metric == "query" {
 			metric = r.URL.Query().Get("metric")
 		}
+		
+		if metric == "favicon.ico" {
+			return
+		}
+		
 		if metric == "" {
 			metric = "unknown"
 		}
