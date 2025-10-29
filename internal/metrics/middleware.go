@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/kashalls/kromgo/pkg/kromgo"
 )
 
 type statusRecorder struct {
@@ -26,12 +26,7 @@ func Middleware(next http.Handler) http.Handler {
 		next.ServeHTTP(&rec, r)
 
 		duration := time.Since(start).Seconds()
-		format := r.URL.Query().Get("format")
-		style := r.URL.Query().Get("style")
-		metric := chi.URLParam(r, "metric")
-		if metric == "query" {
-			metric = r.URL.Query().Get("metric")
-		}
+		metric, format, style := kromgo.ExtractRequestParams(r)
 
 		if metric == "favicon.ico" || (rec.status >= 400 && rec.status < 500) {
 			return
