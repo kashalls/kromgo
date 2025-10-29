@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/configuration"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/log"
+	"github.com/kashalls/kromgo/internal/metrics"
 	"github.com/kashalls/kromgo/pkg/kromgo"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -53,7 +54,11 @@ func Init(config configuration.KromgoConfig, serverConfig configuration.ServerCo
 	if err != nil {
 		log.Fatal("Failed to initialize KromgoHandler", zap.Error(err))
 	}
+	mainRouter.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	})
 
+	mainRouter.Use(metrics.Middleware)
 	mainRouter.Get("/{metric}", kromgoHandler.ServeHTTP)
 
 	mainServer := createHTTPServer(fmt.Sprintf("%s:%d", serverConfig.ServerHost, serverConfig.ServerPort), mainRouter, serverConfig.ServerReadTimeout, serverConfig.ServerWriteTimeout)
