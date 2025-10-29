@@ -28,7 +28,9 @@ func Middleware(next http.Handler) http.Handler {
 		duration := time.Since(start).Seconds()
 		metric, format, style := kromgo.ExtractRequestParams(r)
 
-		if metric == "favicon.ico" || (rec.status >= 400 && rec.status < 500) {
+		// We do not want to collect metrics for 404 responses. This prevents someone from creating a metric
+		// that does not exist and skewing our metrics with a high number of 404s.
+		if rec.status == http.StatusNotFound {
 			return
 		}
 
