@@ -76,7 +76,6 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	promResult, warnings, err := prometheus.Papi.Query(r.Context(), metric.Query, time.Now())
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error executing metric query")
-		w.WriteHeader(http.StatusInternalServerError)
 		HandleError(w, r, requestMetric, "Query Error", http.StatusInternalServerError)
 		return
 	}
