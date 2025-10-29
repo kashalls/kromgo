@@ -55,19 +55,19 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if requestMetric == "query" {
 		requestMetric = r.URL.Query().Get("metric")
 	}
-	requestFormat := r.URL.Query().Get("format")
-	badgeStyle := r.URL.Query().Get("style")
-
-	if requestFormat == "badge" && h.BadgeGenerator == nil {
-		HandleError(w, r, requestMetric, "Badges are not configured", http.StatusInternalServerError)
-		return
-	}
-
 	metric, exists := configuration.ProcessedMetrics[requestMetric]
 
 	if !exists {
 		requestLog(r).Error("metric not found")
 		HandleError(w, r, requestMetric, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	requestFormat := r.URL.Query().Get("format")
+	badgeStyle := r.URL.Query().Get("style")
+
+	if requestFormat == "badge" && h.BadgeGenerator == nil {
+		HandleError(w, r, requestMetric, "Badges are not configured", http.StatusInternalServerError)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if len(jsonResult) <= 0 {
 		requestLog(r).Error("query returned no results")
-		HandleError(w, r, requestMetric, "No Data", http.StatusOK)
+		HandleError(w, r, requestMetric, "No Data", http.StatusInternalServerError)
 		return
 	}
 
@@ -123,7 +123,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		labelValue, err := ExtractLabelValue(prometheusData, metric.Label)
 		if err != nil {
 			requestLog(r).With(zap.String("label", metric.Label), zap.Error(err)).Error("label was not found in query result")
-			HandleError(w, r, requestMetric, "No Data", http.StatusOK)
+			HandleError(w, r, requestMetric, "No Data", http.StatusInternalServerError)
 			return
 		}
 		response = labelValue
