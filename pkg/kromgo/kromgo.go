@@ -60,10 +60,6 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if requestFormat == "badge" && h.BadgeGenerator == nil {
-		HandleError(w, r, requestMetric, "Badges are not configured", http.StatusInternalServerError)
-		return
-	}
 
 	// Run the Prometheus query
 	// potentially utilize withlimit or withtimeout
