@@ -49,7 +49,7 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestMetric, requestFormat, badgeStyle := ExtractRequestParams(r)
 	if requestMetric == "" {
-		HandleError(w, r, requestMetric, "Not a valid metric", http.StatusBadRequest)
+		HandleError(w, r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
 		return
 	}
 	metric, exists := configuration.ProcessedMetrics[requestMetric]

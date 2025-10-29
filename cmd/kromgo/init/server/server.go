@@ -58,6 +58,7 @@ func Init(config configuration.KromgoConfig, serverConfig configuration.ServerCo
 		http.NotFound(w, r)
 	})
 
+	// Intentionally don't capture requests for favicon.ico
 	mainRouter.Use(metrics.Middleware)
 	mainRouter.Get("/{metric}", kromgoHandler.ServeHTTP)
 
