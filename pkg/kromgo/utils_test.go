@@ -1,8 +1,11 @@
 package kromgo
 
 import (
+	"context"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/configuration"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
@@ -154,4 +157,59 @@ func TestExtractLabelValue_LabelEmptyValue(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedValue, value)
+}
+
+func TestExtractRequestParams_URLParam(t *testing.T) {
+	req := httptest.NewRequest("GET", "/metrics/test?format=json&style=flat", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("metric", "test")
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+	req = req.WithContext(ctx)
+
+	metric, format, style := ExtractRequestParams(req)
+
+	assert.Equal(t, "test", metric)
+	assert.Equal(t, "json", format)
+	assert.Equal(t, "flat", style)
+}
+
+func TestExtractRequestParams_QueryParam(t *testing.T) {
+	req := httptest.NewRequest("GET", "/metrics/query?metric=actual_metric&format=badge&style=plastic", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("metric", "query")
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+	req = req.WithContext(ctx)
+
+	metric, format, style := ExtractRequestParams(req)
+
+	assert.Equal(t, "actual_metric", metric)
+	assert.Equal(t, "badge", format)
+	assert.Equal(t, "plastic", style)
+}
+
+func TestExtractRequestParams_NoParams(t *testing.T) {
+	req := httptest.NewRequest("GET", "/metrics/test", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("metric", "test")
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+	req = req.WithContext(ctx)
+
+	metric, format, style := ExtractRequestParams(req)
+
+	assert.Equal(t, "test", metric)
+	assert.Equal(t, "", format)
+	assert.Equal(t, "", style)
+}
+
+func TestExtractRequestParams_EmptyMetric(t *testing.T) {
+	req := httptest.NewRequest("GET", "/metrics/?format=json", nil)
+	rctx := chi.NewRouteContext()
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+	req = req.WithContext(ctx)
+
+	metric, format, style := ExtractRequestParams(req)
+
+	assert.Equal(t, "", metric)
+	assert.Equal(t, "json", format)
+	assert.Equal(t, "", style)
 }
