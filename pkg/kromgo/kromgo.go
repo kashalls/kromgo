@@ -47,13 +47,10 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 }
 
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requestMetric := chi.URLParam(r, "metric")
+	requestMetric, requestFormat, badgeStyle := ExtractRequestParams(r)
 	if requestMetric == "" {
 		HandleError(w, r, requestMetric, "Not a valid metric", http.StatusBadRequest)
 		return
-	}
-	if requestMetric == "query" {
-		requestMetric = r.URL.Query().Get("metric")
 	}
 	metric, exists := configuration.ProcessedMetrics[requestMetric]
 
@@ -62,9 +59,6 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, r, requestMetric, "Not Found", http.StatusNotFound)
 		return
 	}
-
-	requestFormat := r.URL.Query().Get("format")
-	badgeStyle := r.URL.Query().Get("style")
 
 	if requestFormat == "badge" && h.BadgeGenerator == nil {
 		HandleError(w, r, requestMetric, "Badges are not configured", http.StatusInternalServerError)
