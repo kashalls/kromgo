@@ -60,7 +60,6 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	// Run the Prometheus query
 	// potentially utilize withlimit or withtimeout
 	promResult, warnings, err := prometheus.Papi.Query(r.Context(), metric.Query, time.Now())
@@ -84,7 +83,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if len(jsonResult) <= 0 {
 		requestLog(r).Error("query returned no results")
-		HandleError(w, r, requestMetric, "No Data", http.StatusInternalServerError)
+		HandleError(w, r, requestMetric, "No Data", http.StatusOK)
 		return
 	}
 
@@ -112,7 +111,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		labelValue, err := ExtractLabelValue(prometheusData, metric.Label)
 		if err != nil {
 			requestLog(r).With(zap.String("label", metric.Label), zap.Error(err)).Error("label was not found in query result")
-			HandleError(w, r, requestMetric, "No Data", http.StatusInternalServerError)
+			HandleError(w, r, requestMetric, "No Data", http.StatusOK)
 			return
 		}
 		response = labelValue
