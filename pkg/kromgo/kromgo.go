@@ -48,6 +48,11 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestMetric, requestFormat, badgeStyle := ExtractRequestParams(r)
+	// Check for badge format and ensure BadgeGenerator is configured
+	if requestFormat == "badge" && h.BadgeGenerator == nil {
+		HandleError(w, r, requestMetric, "Badge generator not configured", http.StatusInternalServerError)
+		return
+	}
 	if requestMetric == "" {
 		HandleError(w, r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
 		return
