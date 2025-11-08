@@ -47,16 +47,22 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 }
 
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requestMetric, requestFormat, badgeStyle := ExtractRequestParams(r)
-	// Check for badge format and ensure BadgeGenerator is configured
-	if requestFormat == "badge" && h.BadgeGenerator == nil {
-		HandleError(w, r, requestMetric, "Badge generator not configured", http.StatusInternalServerError)
-		return
-	}
+	requestMetric := chi.URLParam(r, "metric")
 	if requestMetric == "" {
-		HandleError(w, r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
+		HandleError(w,r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
 		return
 	}
+	if requestMetric == "query" {
+		requestMetric = r.URL.Query().Get("metric")
+	}
+	requestFormat := r.URL.Query().Get("format")
+	badgeStyle := r.URL.Query().Get("style")
+
+	if requestFormat == "badge" && h.BadgeGenerator == nil {
+		HandleError(w, r, requestMetric, "Format badge is not configured", http.StatusInternalServerError)
+		return
+	}
+
 	metric, exists := configuration.ProcessedMetrics[requestMetric]
 
 	if !exists {
@@ -70,6 +76,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	promResult, warnings, err := prometheus.Papi.Query(r.Context(), metric.Query, time.Now())
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error executing metric query")
+		w.WriteHeader(http.StatusInternalServerError)
 		HandleError(w, r, requestMetric, "Query Error", http.StatusInternalServerError)
 		return
 	}
@@ -102,7 +109,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debug("prometheus returned data", zap.Any("data", prometheusData))
 
 	var colorConfig configuration.MetricColor
-	var response string
+	var response string 
 	if len(prometheusData) > 0 {
 		resultValue := float64(prometheusData[0].Value)
 		colorConfig = GetColorConfig(metric.Colors, resultValue)
@@ -145,6 +152,10 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Write(h.BadgeGenerator.GenerateFlatSquare(title, message, hex))
 			return
 		}
+		//if badgeStyle == "flat" || badgeStyle == "" {
+		//	w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
+		//	return
+		//}
 
 		w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
 		return

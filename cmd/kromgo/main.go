@@ -10,7 +10,6 @@ import (
 	"github.com/kashalls/kromgo/cmd/kromgo/init/log"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/prometheus"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/server"
-	"github.com/kashalls/kromgo/internal/metrics"
 
 	"go.uber.org/zap"
 )
@@ -39,7 +38,6 @@ func main() {
 
 	fmt.Printf(banner, Version, Gitsha)
 	log.Init()
-	metrics.Init()
 
 	config := configuration.Init(*configPathFlag)
 	serverConfig := configuration.InitServer()
