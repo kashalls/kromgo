@@ -50,6 +50,10 @@ type Metric struct {
 	Suffix string `yaml:"suffix,omitempty" json:"suffix,omitempty"`
 	// Add color.
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
+	// Enable Go templating for the metric name.
+	NameTemplate string `yaml:"nameTemplate,omitempty" json:"nameTemplate,omitempty"`
+	// Enable Go templating for the metric value.
+	ValueTemplate string `yaml:"valueTemplate,omitempty" json:"valueTemplate,omitempty"`
 }
 
 type MetricColor struct {
