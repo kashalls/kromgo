@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS build
+FROM golang:1.26-alpine AS build
 ARG PKG=github.com/kashalls/kromgo
 ARG VERSION=dev
 ARG REVISION=dev
