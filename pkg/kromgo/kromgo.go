@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/essentialkaos/go-badge"
@@ -19,6 +20,7 @@ import (
 type KromgoHandler struct {
 	Config         configuration.KromgoConfig
 	BadgeGenerator *badge.Generator
+	badgeMu        sync.Mutex
 }
 
 // NewKromgoHandler initializes the handler with the necessary dependencies
@@ -142,22 +144,20 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if requestFormat == "badge" {
 		hex := colorNameToHex(colorConfig.Color)
 
+		h.badgeMu.Lock()
+		var badgeBytes []byte
+		switch badgeStyle {
+		case "plastic":
+			badgeBytes = h.BadgeGenerator.GeneratePlastic(title, message, hex)
+		case "flat-square":
+			badgeBytes = h.BadgeGenerator.GenerateFlatSquare(title, message, hex)
+		default:
+			badgeBytes = h.BadgeGenerator.GenerateFlat(title, message, hex)
+		}
+		h.badgeMu.Unlock()
+
 		w.Header().Set("Content-Type", "image/svg+xml")
-
-		if badgeStyle == "plastic" {
-			w.Write(h.BadgeGenerator.GeneratePlastic(title, message, hex))
-			return
-		}
-		if badgeStyle == "flat-square" {
-			w.Write(h.BadgeGenerator.GenerateFlatSquare(title, message, hex))
-			return
-		}
-		//if badgeStyle == "flat" || badgeStyle == "" {
-		//	w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
-		//	return
-		//}
-
-		w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
+		w.Write(badgeBytes)
 		return
 	}
 
