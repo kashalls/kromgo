@@ -30,9 +30,11 @@ type ServerConfig struct {
 
 // KromgoConfig struct for configuration environmental variables
 type KromgoConfig struct {
-	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
-	Metrics    []Metric `yaml:"metrics" json:"metrics"`
-	Badge      Badge    `yaml:"badge,omitempty" json:"badge,omitempty"`
+	Prometheus string            `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
+	Metrics    []Metric          `yaml:"metrics" json:"metrics"`
+	Badge      Badge             `yaml:"badge,omitempty" json:"badge,omitempty"`
+	// Named Go template snippets that can be referenced by name in a metric's valueTemplate field.
+	Templates  map[string]string `yaml:"templates,omitempty" json:"templates,omitempty"`
 }
 
 type Metric struct {
@@ -48,6 +50,10 @@ type Metric struct {
 	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 	// Suffix the result of the query with this.
 	Suffix string `yaml:"suffix,omitempty" json:"suffix,omitempty"`
+	// A Go template string applied to the result value before prefix/suffix are added.
+	// Available functions: simplifyDays, humanBytes, humanDuration, toUpper, toLower, trim.
+	// Example: "{{ . | simplifyDays }}" converts 1159 → 3y64d.
+	ValueTemplate string `yaml:"valueTemplate,omitempty" json:"valueTemplate,omitempty"`
 	// Add color.
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
 }

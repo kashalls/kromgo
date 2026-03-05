@@ -132,6 +132,18 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		response = colorConfig.ValueOverride
 	}
 
+	if metric.ValueTemplate != "" {
+		tmplStr := metric.ValueTemplate
+		if resolved, ok := h.Config.Templates[tmplStr]; ok {
+			tmplStr = resolved
+		}
+		formatted, err := ApplyValueTemplate(tmplStr, response)
+		if err != nil {
+			requestLog(r).With(zap.Error(err)).Error("failed to apply value template")
+		}
+		response = formatted
+	}
+
 	message := metric.Prefix + response + metric.Suffix
 
 	title := metric.Name

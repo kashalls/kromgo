@@ -32,6 +32,13 @@
         },
         "badge": {
           "$ref": "#/$defs/Badge"
+        },
+        "templates": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Named Go template snippets reusable across metrics via valueTemplate."
         }
       },
       "additionalProperties": false,
@@ -59,6 +66,10 @@
         },
         "suffix": {
           "type": "string"
+        },
+        "valueTemplate": {
+          "type": "string",
+          "description": "A Go template applied to the result value. Available functions: simplifyDays, humanBytes, humanDuration, toUpper, toLower, trim. Example: \"{{ . | simplifyDays }}\""
         },
         "colors": {
           "items": {
