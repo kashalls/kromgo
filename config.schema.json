@@ -32,6 +32,13 @@
         },
         "badge": {
           "$ref": "#/$defs/Badge"
+        },
+        "templates": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Named Go template snippets reusable across metrics via valueTemplate."
         }
       },
       "additionalProperties": false,

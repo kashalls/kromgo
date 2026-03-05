@@ -13,6 +13,61 @@ You can use [shields.io](https://shields.io) and use either the [Dynamic JSON Ba
 - Requires `PROMETHEUS_URL` be set in ENV.
 - Optional `SERVER_PORT` to change server port.
 
+## Value Templates
+
+Metrics support a `valueTemplate` field that applies a [Go template](https://pkg.go.dev/text/template) to the raw Prometheus value before `prefix` and `suffix` are added.
+
+### Built-in template functions
+
+| Function | Input | Output | Description |
+|---|---|---|---|
+| `simplifyDays` | `"1159"` | `3y64d` | Converts a day count to years and days |
+| `humanBytes` | `"1572864"` | `1.5MB` | Converts a byte count to a human-readable size |
+| `humanDuration` | `"9000"` | `2h30m` | Converts seconds to a compact duration string |
+| `toUpper` | `"v1.31.0"` | `V1.31.0` | Converts the string to uppercase |
+| `toLower` | `"HEALTHY"` | `healthy` | Converts the string to lowercase |
+| `trim` | `" ok "` | `ok` | Strips leading and trailing whitespace |
+
+### Inline template
+
+Set `valueTemplate` directly on a metric to a Go template string:
+
+```yaml
+metrics:
+  - name: cluster_age
+    query: "floor((time() - k8s_cluster_created_timestamp) / 86400)"
+    valueTemplate: "{{ . | simplifyDays }}"   # 1159 → 3y64d
+
+  - name: node_memory_used
+    query: "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes"
+    valueTemplate: "{{ . | humanBytes }}"     # 1572864 → 1.5MB
+
+  - name: node_uptime
+    query: "time() - node_boot_time_seconds"
+    valueTemplate: "{{ . | humanDuration }}"  # 9000 → 2h30m
+```
+
+### Named templates
+
+Define reusable template snippets at the top level under `templates` and reference them by name across multiple metrics:
+
+```yaml
+templates:
+  clusterAge: "{{ . | simplifyDays }}"
+  uptime: "{{ . | humanDuration }}"
+
+metrics:
+  - name: cluster_age
+    query: "floor((time() - k8s_cluster_created_timestamp) / 86400)"
+    valueTemplate: "clusterAge"   # resolved from templates map
+
+  - name: node_uptime
+    query: "time() - node_boot_time_seconds"
+    valueTemplate: "uptime"
+```
+
+If `valueTemplate` matches a key in `templates`, that snippet is used; otherwise the value is treated as a literal Go template string. Named templates and inline templates can be mixed freely.
+
 ## Performance
 
 Queries take around 5ms ~ 75ms to complete depending on how many breaks my prometheus server takes. This was running on my [home-cluster](https://github.com/kashalls/home-cluster) and runs 3 instances, so depending on the query YMMV.

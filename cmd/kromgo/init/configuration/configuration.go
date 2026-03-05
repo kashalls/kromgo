@@ -30,9 +30,11 @@ type ServerConfig struct {
 
 // KromgoConfig struct for configuration environmental variables
 type KromgoConfig struct {
-	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
-	Metrics    []Metric `yaml:"metrics" json:"metrics"`
-	Badge      Badge    `yaml:"badge,omitempty" json:"badge,omitempty"`
+	Prometheus string            `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
+	Metrics    []Metric          `yaml:"metrics" json:"metrics"`
+	Badge      Badge             `yaml:"badge,omitempty" json:"badge,omitempty"`
+	// Named Go template snippets that can be referenced by name in a metric's valueTemplate field.
+	Templates  map[string]string `yaml:"templates,omitempty" json:"templates,omitempty"`
 }
 
 type Metric struct {
