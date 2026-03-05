@@ -2,9 +2,12 @@ package kromgo
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/essentialkaos/go-badge"
@@ -17,14 +20,12 @@ import (
 )
 
 type KromgoHandler struct {
-	Config         configuration.KromgoConfig
-	BadgeGenerator *badge.Generator
+	Config    configuration.KromgoConfig
+	badgePool sync.Pool
 }
 
 // NewKromgoHandler initializes the handler with the necessary dependencies
 func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error) {
-	var badgeGenerator *badge.Generator
-
 	font := config.Badge.Font
 	if font == "" {
 		font = "Verdana.ttf"
@@ -35,14 +36,23 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 		size = 11
 	}
 
-	badgeGenerator, err := badge.NewGenerator(font, size)
+	fontData, err := os.ReadFile(font)
 	if err != nil {
+		return nil, fmt.Errorf("failed to read font file: %w", err)
+	}
+	// Verify the font parses correctly at startup.
+	if _, err := badge.NewGeneratorFromBytes(fontData, size); err != nil {
 		return nil, err
 	}
 
 	return &KromgoHandler{
-		Config:         config,
-		BadgeGenerator: badgeGenerator,
+		Config: config,
+		badgePool: sync.Pool{
+			New: func() any {
+				gen, _ := badge.NewGeneratorFromBytes(fontData, size)
+				return gen
+			},
+		},
 	}, nil
 }
 
@@ -65,10 +75,6 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		requestsTotal.WithLabelValues(requestMetric, requestFormat).Inc()
 	}()
 
-	if requestFormat == "badge" && h.BadgeGenerator == nil {
-		HandleError(w, r, requestMetric, "Format badge is not configured", http.StatusInternalServerError)
-		return
-	}
 
 	metric, exists := configuration.ProcessedMetrics[requestMetric]
 
@@ -159,24 +165,19 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if requestFormat == "badge" {
+		gen := h.badgePool.Get().(*badge.Generator)
+		defer h.badgePool.Put(gen)
+
 		hex := colorNameToHex(colorConfig.Color)
-
 		w.Header().Set("Content-Type", "image/svg+xml")
-
-		if badgeStyle == "plastic" {
-			w.Write(h.BadgeGenerator.GeneratePlastic(title, message, hex))
-			return
+		switch badgeStyle {
+		case "plastic":
+			w.Write(gen.GeneratePlastic(title, message, hex))
+		case "flat-square":
+			w.Write(gen.GenerateFlatSquare(title, message, hex))
+		default:
+			w.Write(gen.GenerateFlat(title, message, hex))
 		}
-		if badgeStyle == "flat-square" {
-			w.Write(h.BadgeGenerator.GenerateFlatSquare(title, message, hex))
-			return
-		}
-		//if badgeStyle == "flat" || badgeStyle == "" {
-		//	w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
-		//	return
-		//}
-
-		w.Write(h.BadgeGenerator.GenerateFlat(title, message, hex))
 		return
 	}
 
