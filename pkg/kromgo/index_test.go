@@ -56,7 +56,7 @@ func newTestHandler(config configuration.KromgoConfig) *KromgoHandler {
 	return &KromgoHandler{Config: config}
 }
 
-func TestIndexHandler_AllHidden_BlankBody(t *testing.T) {
+func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {
 	h := newTestHandler(configuration.KromgoConfig{
 		Metrics: []configuration.Metric{
 			{Name: "cpu"},
@@ -71,6 +71,7 @@ func TestIndexHandler_AllHidden_BlankBody(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "text/html; charset=utf-8", w.Header().Get("Content-Type"))
+	assert.Contains(t, w.Body.String(), "page intentionally blank")
 	assert.NotContains(t, w.Body.String(), "<a href")
 }
 
@@ -91,6 +92,7 @@ func TestIndexHandler_AllVisible_AllLinksPresent(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
 	assert.Contains(t, body, `<a href="/mem">mem</a>`)
+	assert.NotContains(t, body, "page intentionally blank")
 }
 
 func TestIndexHandler_MixedVisibility(t *testing.T) {
@@ -129,7 +131,7 @@ func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
 	assert.NotContains(t, body, `<a href="/secret">`)
 }
 
-func TestIndexHandler_NoMetrics_BlankBody(t *testing.T) {
+func TestIndexHandler_NoMetrics_ShowsIntentionallyBlank(t *testing.T) {
 	h := newTestHandler(configuration.KromgoConfig{
 		Metrics: []configuration.Metric{},
 		HideAll: boolPtr(false),
@@ -140,5 +142,6 @@ func TestIndexHandler_NoMetrics_BlankBody(t *testing.T) {
 	h.IndexHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "page intentionally blank")
 	assert.False(t, strings.Contains(w.Body.String(), "<a href"))
 }
