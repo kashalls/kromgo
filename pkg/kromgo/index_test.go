@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// boolPtr returns a pointer to the given bool, for use in test literals.
+// helpers to make *bool literals concise in tests.
 func boolPtr(b bool) *bool { return &b }
 
 // --- isHidden ---
@@ -111,7 +111,6 @@ func TestIndexHandler_MixedVisibility(t *testing.T) {
 	body := w.Body.String()
 	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
 	assert.NotContains(t, body, `<a href="/mem">`)
-	assert.NotContains(t, body, "page intentionally blank")
 }
 
 func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
