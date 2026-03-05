@@ -33,11 +33,10 @@ metrics:
     valueTemplate: "{{ . | humanBytes }}"     # 1572864 → "1.5MB"
   # valueTemplate - reference a named template defined under the top-level 'templates' key
   - name: cluster_age
-    query: "floor((time() - k8s_cluster_created_timestamp) / 86400)"
+    query: "floor((time() - kube_node_created) / 86400)"
     valueTemplate: "clusterAge"              # resolved via templates map below
   - name: node_uptime
     query: "time() - node_boot_time_seconds"
-    valueTemplate: "uptime"
 # Named template snippets - reference these by key in any metric's valueTemplate field
 templates:
   clusterAge: "{{ . | simplifyDays }}"   # 1159 → "3y64d"
