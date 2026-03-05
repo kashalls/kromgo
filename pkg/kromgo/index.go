@@ -10,8 +10,12 @@ import (
 var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 <html>
 <body>
+{{- if .}}
 {{- range .}}
 <a href="/{{.Name}}">{{.Name}}</a><br>
+{{- end}}
+{{- else}}
+<i>page intentionally blank</i>
 {{- end}}
 </body>
 </html>`))
