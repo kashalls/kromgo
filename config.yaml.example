@@ -3,8 +3,10 @@
 badge:
   font: Verdana.ttf # Relative to /kromgo - Verdana.ttf is available in the container
   size: 12
+# hideAll: false  # Show all metrics on the index page (GET /) by default. Default is true (all hidden).
 metrics:
   - name: node_cpu_usage
+    hidden: false   # Show this metric on the index page even when hideAll is true
     query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"
     prefix: ""      # Optional
     suffix: "%"     # Optional

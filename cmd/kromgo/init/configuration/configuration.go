@@ -35,6 +35,9 @@ type KromgoConfig struct {
 	Badge      Badge             `yaml:"badge,omitempty" json:"badge,omitempty"`
 	// Named Go template snippets that can be referenced by name in a metric's valueTemplate field.
 	Templates  map[string]string `yaml:"templates,omitempty" json:"templates,omitempty"`
+	// HideAll sets the default visibility for all metrics on the index page.
+	// Defaults to true (all hidden) when not specified.
+	HideAll    *bool             `yaml:"hideAll,omitempty" json:"hideAll,omitempty"`
 }
 
 type Metric struct {
@@ -56,6 +59,9 @@ type Metric struct {
 	ValueTemplate string `yaml:"valueTemplate,omitempty" json:"valueTemplate,omitempty"`
 	// Add color.
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
+	// Hidden controls whether this metric appears on the index page.
+	// If nil, the global HideAll setting is used (default: true).
+	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 }
 
 type MetricColor struct {

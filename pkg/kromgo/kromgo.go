@@ -56,7 +56,14 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		requestMetric = r.URL.Query().Get("metric")
 	}
 	requestFormat := r.URL.Query().Get("format")
+	if requestFormat == "" {
+		requestFormat = "json"
+	}
 	badgeStyle := r.URL.Query().Get("style")
+
+	defer func() {
+		requestsTotal.WithLabelValues(requestMetric, requestFormat).Inc()
+	}()
 
 	if requestFormat == "badge" && h.BadgeGenerator == nil {
 		HandleError(w, r, requestMetric, "Format badge is not configured", http.StatusInternalServerError)

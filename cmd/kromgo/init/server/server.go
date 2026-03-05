@@ -54,6 +54,7 @@ func Init(config configuration.KromgoConfig, serverConfig configuration.ServerCo
 		log.Fatal("Failed to initialize KromgoHandler", zap.Error(err))
 	}
 
+	mainRouter.Get("/", kromgoHandler.IndexHandler)
 	mainRouter.Get("/{metric}", kromgoHandler.ServeHTTP)
 
 	mainServer := createHTTPServer(fmt.Sprintf("%s:%d", serverConfig.ServerHost, serverConfig.ServerPort), mainRouter, serverConfig.ServerReadTimeout, serverConfig.ServerWriteTimeout)
