@@ -38,6 +38,10 @@
             "type": "string"
           },
           "type": "object"
+        },
+        "hideAll": {
+          "type": "boolean",
+          "description": "Hide all metrics from the index page by default. Defaults to true when not specified."
         }
       },
       "additionalProperties": false,
@@ -74,6 +78,10 @@
             "$ref": "#/$defs/MetricColor"
           },
           "type": "array"
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Hide this metric from the index page. If not set, inherits the global hideAll setting."
         }
       },
       "additionalProperties": false,
