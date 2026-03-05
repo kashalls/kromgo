@@ -48,6 +48,10 @@ type Metric struct {
 	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 	// Suffix the result of the query with this.
 	Suffix string `yaml:"suffix,omitempty" json:"suffix,omitempty"`
+	// A Go template string applied to the result value before prefix/suffix are added.
+	// Available functions: simplifyDays, humanBytes, humanDuration, toUpper, toLower, trim.
+	// Example: "{{ . | simplifyDays }}" converts 1159 → 3y64d.
+	ValueTemplate string `yaml:"valueTemplate,omitempty" json:"valueTemplate,omitempty"`
 	// Add color.
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
 }

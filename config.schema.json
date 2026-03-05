@@ -60,6 +60,10 @@
         "suffix": {
           "type": "string"
         },
+        "valueTemplate": {
+          "type": "string",
+          "description": "A Go template applied to the result value. Available functions: simplifyDays, humanBytes, humanDuration, toUpper, toLower, trim. Example: \"{{ . | simplifyDays }}\""
+        },
         "colors": {
           "items": {
             "$ref": "#/$defs/MetricColor"
