@@ -138,8 +138,4 @@ jobs:
 
       - name: Sign the images
         run: |
-          images=""
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            images+="${tag} "
-          done
-          cosign sign --yes ${images}
+          cosign sign --yes $(jq -r '.tags | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
