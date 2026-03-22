@@ -19,6 +19,21 @@
         "size"
       ]
     },
+    "HistoryConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxDuration": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "enabled"
+      ]
+    },
     "KromgoConfig": {
       "properties": {
         "prometheus": {
@@ -41,6 +56,9 @@
         },
         "hideAll": {
           "type": "boolean"
+        },
+        "history": {
+          "$ref": "#/$defs/HistoryConfig"
         }
       },
       "additionalProperties": false,
@@ -80,6 +98,9 @@
         },
         "hidden": {
           "type": "boolean"
+        },
+        "history": {
+          "$ref": "#/$defs/MetricHistoryConfig"
         }
       },
       "additionalProperties": false,
@@ -110,6 +131,18 @@
         "min",
         "max"
       ]
+    },
+    "MetricHistoryConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxDuration": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     }
   }
 }
