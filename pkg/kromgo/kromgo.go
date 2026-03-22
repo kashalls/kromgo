@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,6 +82,16 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		requestLog(r).Error("metric not found")
 		HandleError(w, r, requestMetric, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	if requestFormat == "history" {
+		h.handleHistory(w, r, metric)
+		return
+	}
+
+	if requestFormat == "chart" {
+		h.handleChart(w, r, metric)
 		return
 	}
 
@@ -209,9 +220,14 @@ func requestLog(r *http.Request) *zap.Logger {
 	return log.With(zap.String("req_method", r.Method), zap.String("req_path", r.URL.Path), zap.String("metric", requestMetric), zap.String("format", requestFormat))
 }
 
+var hexColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
+
 func colorNameToHex(colorName string) string {
 	if strings.HasPrefix(colorName, "#") {
-		return colorName
+		if hexColorRe.MatchString(colorName) {
+			return colorName
+		}
+		return badge.COLOR_GREEN
 	}
 
 	switch colorName {

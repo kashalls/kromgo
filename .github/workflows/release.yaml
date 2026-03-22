@@ -31,7 +31,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ghcr.io/${{ github.repository }}
@@ -45,7 +45,7 @@ jobs:
             latest=auto
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
@@ -56,7 +56,7 @@ jobs:
 
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -99,7 +99,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ghcr.io/${{ github.repository }}
@@ -113,7 +113,7 @@ jobs:
             latest=auto
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
@@ -138,8 +138,4 @@ jobs:
 
       - name: Sign the images
         run: |
-          images=""
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            images+="${tag} "
-          done
-          cosign sign --yes ${images}
+          cosign sign --yes $(jq -r '.tags | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
