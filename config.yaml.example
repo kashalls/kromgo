@@ -4,6 +4,15 @@ badge:
   font: Verdana.ttf # Relative to /kromgo - Verdana.ttf is available in the container
   size: 12
 # hideAll: false  # Show all metrics on the index page (GET /) by default. Default is true (all hidden).
+
+# history controls access to format=history and format=chart.
+# Disabled by default — must explicitly opt in.
+# history:
+#   enabled: true
+#   maxDuration: "7d"   # global cap on the time window per request. Defaults to "1h".
+#                       # Supports: s, m, h, d, y — combinable: "1y30d", "7d12h"
+#                       # Set to "0" to allow unlimited time windows.
+
 metrics:
   - name: node_cpu_usage
     hidden: false   # Show this metric on the index page even when hideAll is true
@@ -20,6 +29,27 @@ metrics:
       - color: "red"
         min: 76
         max: 1000
+    # history per-metric: overrides global history settings.
+    # history:
+    #   enabled: true      # opt this metric in even if global history.enabled is false
+    #   maxDuration: "7d"  # allow up to 7 days for this metric specifically
+
+  # Example: github stars over 30 days — useful as a format=chart sparkline in a README.
+  # Requires global history.enabled: true.
+  # - name: github_stars_total
+  #   query: github_stars_total
+  #   title: Stars
+  #   history:
+  #     maxDuration: "30d"   # 30 days
+  #     # maxDuration: "1y"  # or 1 year
+  #     # maxDuration: "0"   # or unlimited
+
+  # Example: metric explicitly opted out of history even when globally enabled.
+  # - name: some_version_metric
+  #   query: some_version_info
+  #   label: version
+  #   history:
+  #     enabled: false  # label-based metrics are not meaningful as time series
   - name: kubernetes_build_version
     query: kubernetes_build_info{service="kubernetes"}
     label: git_version
