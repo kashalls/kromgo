@@ -1,6 +1,6 @@
 module github.com/kashalls/kromgo
 
-go 1.24.2
+go 1.25.0
 
 require (
 	github.com/caarlos0/env/v11 v11.4.0
@@ -35,7 +35,7 @@ require (
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/image v0.27.0 // indirect
+	golang.org/x/image v0.38.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
