@@ -10,12 +10,13 @@ import (
 )
 
 var templateFuncs = template.FuncMap{
-	"simplifyDays":  simplifyDays,
-	"humanBytes":    humanBytes,
-	"humanDuration": humanDuration,
-	"toUpper":       strings.ToUpper,
-	"toLower":       strings.ToLower,
-	"trim":          strings.TrimSpace,
+	"simplifyDays":       simplifyDays,
+	"humanBytes":         humanBytes,
+	"humanDuration":      humanDuration,
+	"humanizeThousands":  humanizeThousands,
+	"toUpper":            strings.ToUpper,
+	"toLower":            strings.ToLower,
+	"trim":               strings.TrimSpace,
 }
 
 // ApplyValueTemplate executes the given Go template string with value as the dot (.) data.
@@ -80,6 +81,50 @@ func humanBytes(v interface{}) string {
 		return fmt.Sprintf("%dB", int(math.Round(f)))
 	}
 	return fmt.Sprintf("%.1f%s", f, units[i])
+}
+
+// humanizeThousands formats a number with comma thousands separators.
+// For example, 157121 becomes "157,121".
+func humanizeThousands(v interface{}) string {
+	f, err := toFloat(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+
+	// Format as integer if no fractional part, otherwise keep decimals
+	var intPart int64
+	var fracStr string
+	if f == math.Trunc(f) {
+		intPart = int64(math.Round(f))
+	} else {
+		// Split on decimal point
+		s := strconv.FormatFloat(f, 'f', -1, 64)
+		parts := strings.SplitN(s, ".", 2)
+		intPart, _ = strconv.ParseInt(parts[0], 10, 64)
+		if len(parts) == 2 {
+			fracStr = "." + parts[1]
+		}
+	}
+
+	negative := intPart < 0
+	if negative {
+		intPart = -intPart
+	}
+
+	s := strconv.FormatInt(intPart, 10)
+	var result []byte
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result = append(result, ',')
+		}
+		result = append(result, byte(c))
+	}
+
+	out := string(result) + fracStr
+	if negative {
+		out = "-" + out
+	}
+	return out
 }
 
 // humanDuration converts a duration in seconds into a compact human-readable string.

@@ -74,6 +74,40 @@ func TestHumanDuration_InvalidInput(t *testing.T) {
 	assert.Equal(t, "notanumber", humanDuration("notanumber"))
 }
 
+func TestHumanizeThousands_Large(t *testing.T) {
+	assert.Equal(t, "157,121", humanizeThousands("157121"))
+}
+
+func TestHumanizeThousands_Small(t *testing.T) {
+	assert.Equal(t, "999", humanizeThousands("999"))
+}
+
+func TestHumanizeThousands_Millions(t *testing.T) {
+	assert.Equal(t, "1,000,000", humanizeThousands("1000000"))
+}
+
+func TestHumanizeThousands_Float64Input(t *testing.T) {
+	assert.Equal(t, "157,121", humanizeThousands(float64(157121)))
+}
+
+func TestHumanizeThousands_WithDecimal(t *testing.T) {
+	assert.Equal(t, "1,234.56", humanizeThousands("1234.56"))
+}
+
+func TestHumanizeThousands_Negative(t *testing.T) {
+	assert.Equal(t, "-1,234", humanizeThousands("-1234"))
+}
+
+func TestHumanizeThousands_InvalidInput(t *testing.T) {
+	assert.Equal(t, "notanumber", humanizeThousands("notanumber"))
+}
+
+func TestApplyValueTemplate_HumanizeThousands(t *testing.T) {
+	result, err := ApplyValueTemplate("{{ . | humanizeThousands }}", "157121")
+	assert.NoError(t, err)
+	assert.Equal(t, "157,121", result)
+}
+
 func TestApplyValueTemplate_SimplifyDays(t *testing.T) {
 	result, err := ApplyValueTemplate("{{ . | simplifyDays }}", "1159")
 	assert.NoError(t, err)
