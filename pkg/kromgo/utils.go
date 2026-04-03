@@ -8,7 +8,8 @@ import (
 )
 
 func GetColorConfig(colors []configuration.MetricColor, value float64) configuration.MetricColor {
-	for _, colorConfig := range colors {
+	for i := len(colors) - 1; i >= 0; i-- {
+		colorConfig := colors[i]
 		if value >= colorConfig.Min && value <= colorConfig.Max {
 			return colorConfig
 		}
