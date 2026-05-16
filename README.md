@@ -118,7 +118,8 @@ The `valueTemplate` field applies a [Go template](https://pkg.go.dev/text/templa
 | Function | Example input | Example output | Description |
 |---|---|---|---|
 | `simplifyDays` | `"1159"` | `3y64d` | Converts a day count to years and days |
-| `humanBytes` | `"1572864"` | `1.5MB` | Converts bytes to a human-readable size |
+| `humanBytes`   | `"1572864"` | `1.5MiB` | Bytes → human size with IEC binary units (KiB, MiB, GiB...)     |
+| `humanSIBytes` | `"1500000"` | `1.5MB`  | Bytes → human size with SI decimal units (÷1000, kB, MB, GB...) |
 | `humanDuration` | `"9000"` | `2h30m` | Converts seconds to a compact duration string |
 | `toUpper` | `"v1.31.0"` | `V1.31.0` | Uppercases the string |
 | `toLower` | `"HEALTHY"` | `healthy` | Lowercases the string |
@@ -134,7 +135,7 @@ metrics:
 
   - name: node_memory_used
     query: "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes"
-    valueTemplate: "{{ . | humanBytes }}"     # 1572864 → 1.5MB
+    valueTemplate: "{{ . | humanBytes }}"     # 1572864 → 1.5MiB
 ```
 
 ### Named templates
