@@ -30,24 +30,51 @@ func TestSimplifyDays_InvalidInput(t *testing.T) {
 	assert.Equal(t, "notanumber", simplifyDays("notanumber"))
 }
 
-func TestHumanBytes_Bytes(t *testing.T) {
-	assert.Equal(t, "512B", humanBytes("512"))
+func TestHumanBytes(t *testing.T) {
+	tests := []struct {
+		name  string
+		input interface{}
+		want  string
+	}{
+		{"zero", "0", "0B"},
+		{"sub-kibibyte-string", "512", "512B"},
+		{"below-kibibyte-boundary", "1000", "1000B"},
+		{"exact-kibibyte-string", "1024", "1.0KiB"},
+		{"one-and-a-half-mib-string", "1572864", "1.5MiB"},
+		{"two-gib", "2147483648", "2.0GiB"},
+		{"above-pib-clamps", float64(2e18), "1776.4PiB"},
+		{"int-input", int(1024), "1.0KiB"},
+		{"float64-input", float64(1572864), "1.5MiB"},
+		{"invalid-input", "not-a-number", "not-a-number"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, humanBytes(tt.input))
+		})
+	}
 }
 
-func TestHumanBytes_Kilobytes(t *testing.T) {
-	assert.Equal(t, "1.0KB", humanBytes("1024"))
-}
-
-func TestHumanBytes_Megabytes(t *testing.T) {
-	assert.Equal(t, "1.5MB", humanBytes("1572864"))
-}
-
-func TestHumanBytes_Gigabytes(t *testing.T) {
-	assert.Equal(t, "2.0GB", humanBytes("2147483648"))
-}
-
-func TestHumanBytes_InvalidInput(t *testing.T) {
-	assert.Equal(t, "notanumber", humanBytes("notanumber"))
+func TestHumanSIBytes(t *testing.T) {
+	tests := []struct {
+		name  string
+		input interface{}
+		want  string
+	}{
+		{"zero", "0", "0B"},
+		{"sub-kilobyte-string", "512", "512B"},
+		{"exact-kilobyte-boundary", "1000", "1.0kB"},
+		{"kibibyte-in-si", "1024", "1.0kB"},
+		{"one-and-a-half-mb-string", "1572864", "1.6MB"},
+		{"above-pb-clamps", float64(2e18), "2000.0PB"},
+		{"int-input", int(1000), "1.0kB"},
+		{"float64-input", float64(1572864), "1.6MB"},
+		{"invalid-input", "not-a-number", "not-a-number"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, humanSIBytes(tt.input))
+		})
+	}
 }
 
 func TestHumanDuration_SecondsOnly(t *testing.T) {
@@ -116,6 +143,12 @@ func TestApplyValueTemplate_SimplifyDays(t *testing.T) {
 
 func TestApplyValueTemplate_HumanBytes(t *testing.T) {
 	result, err := ApplyValueTemplate("{{ . | humanBytes }}", "1572864")
+	assert.NoError(t, err)
+	assert.Equal(t, "1.5MiB", result)
+}
+
+func TestApplyValueTemplate_HumanSIBytes(t *testing.T) {
+	result, err := ApplyValueTemplate("{{ . | humanSIBytes }}", "1500000")
 	assert.NoError(t, err)
 	assert.Equal(t, "1.5MB", result)
 }

@@ -10,13 +10,14 @@ import (
 )
 
 var templateFuncs = template.FuncMap{
-	"simplifyDays":       simplifyDays,
-	"humanBytes":         humanBytes,
-	"humanDuration":      humanDuration,
-	"humanizeThousands":  humanizeThousands,
-	"toUpper":            strings.ToUpper,
-	"toLower":            strings.ToLower,
-	"trim":               strings.TrimSpace,
+	"simplifyDays":      simplifyDays,
+	"humanBytes":        humanBytes,
+	"humanSIBytes":      humanSIBytes,
+	"humanDuration":     humanDuration,
+	"humanizeThousands": humanizeThousands,
+	"toUpper":           strings.ToUpper,
+	"toLower":           strings.ToLower,
+	"trim":              strings.TrimSpace,
 }
 
 // ApplyValueTemplate executes the given Go template string with value as the dot (.) data.
@@ -64,21 +65,36 @@ func simplifyDays(v interface{}) string {
 	return fmt.Sprintf("%dd", remaining)
 }
 
-// humanBytes converts a byte count into a human-readable size string.
-// For example, 1572864 becomes "1.5MB".
+// humanBytes converts a byte count into a human-readable size string using
+// IEC binary units (powers of 1024). For example, 1572864 becomes "1.5MiB".
+// For SI decimal units (powers of 1000, kB/MB/GB...) use humanSIBytes.
 func humanBytes(v interface{}) string {
 	f, err := toFloat(v)
 	if err != nil {
 		return fmt.Sprintf("%v", v)
 	}
-	units := []string{"B", "KB", "MB", "GB", "TB", "PB"}
+	return scaleBytes(f, 1024, []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB"})
+}
+
+// humanSIBytes converts a byte count into a human-readable size string using
+// SI decimal units (powers of 1000). For example, 1500000 becomes "1.5MB".
+// For IEC binary units (powers of 1024, KiB/MiB/GiB...) use humanBytes.
+func humanSIBytes(v interface{}) string {
+	f, err := toFloat(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return scaleBytes(f, 1000, []string{"B", "kB", "MB", "GB", "TB", "PB"})
+}
+
+func scaleBytes(f float64, base float64, units []string) string {
 	i := 0
-	for f >= 1024 && i < len(units)-1 {
-		f /= 1024
+	for f >= base && i < len(units)-1 {
+		f /= base
 		i++
 	}
 	if i == 0 {
-		return fmt.Sprintf("%dB", int(math.Round(f)))
+		return fmt.Sprintf("%d%s", int(math.Round(f)), units[0])
 	}
 	return fmt.Sprintf("%.1f%s", f, units[i])
 }
