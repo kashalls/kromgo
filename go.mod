@@ -9,7 +9,7 @@ require (
 	github.com/go-chi/httprate v0.15.0
 	github.com/invopop/jsonschema v0.14.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/prometheus/common v0.67.5
+	github.com/prometheus/common v0.68.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.28.0
 	gopkg.in/yaml.v3 v3.0.1
