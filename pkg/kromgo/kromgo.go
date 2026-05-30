@@ -9,14 +9,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/essentialkaos/go-badge"
 	"github.com/go-chi/chi/v5"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/configuration"
 	"github.com/kashalls/kromgo/cmd/kromgo/init/log"
-	"github.com/kashalls/kromgo/cmd/kromgo/init/prometheus"
-	"github.com/prometheus/common/model"
 	"go.uber.org/zap"
 )
 
@@ -60,7 +57,7 @@ func NewKromgoHandler(config configuration.KromgoConfig) (*KromgoHandler, error)
 func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestMetric := chi.URLParam(r, "metric")
 	if requestMetric == "" {
-		HandleError(w,r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
+		HandleError(w, r, requestMetric, "A valid metric name must be passed /{metric}", http.StatusBadRequest)
 		return
 	}
 	if requestMetric == "query" {
@@ -75,7 +72,6 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		requestsTotal.WithLabelValues(requestMetric, requestFormat).Inc()
 	}()
-
 
 	metric, exists := configuration.ProcessedMetrics[requestMetric]
 
@@ -95,9 +91,9 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run the Prometheus query
+	// Run the Prometheus query (instant or range, depending on metric.QueryType).
 	// potentially utilize withlimit or withtimeout
-	promResult, warnings, err := prometheus.Papi.Query(r.Context(), metric.Query, time.Now())
+	prometheusData, warnings, err := executeMetricQuery(r.Context(), metric)
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("error executing metric query")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -109,7 +105,7 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			requestLog(r).With(zap.String("warning", warning)).Warn("encountered warnings while executing metric query")
 		}
 	}
-	jsonResult, err := json.Marshal(promResult)
+	jsonResult, err := json.Marshal(prometheusData)
 	requestLog(r).With(zap.String("result", string(jsonResult))).Debug("query result")
 	if err != nil {
 		requestLog(r).With(zap.Error(err)).Error("could not convert query result to json")
@@ -129,11 +125,10 @@ func (h *KromgoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prometheusData := promResult.(model.Vector)
 	log.Debug("prometheus returned data", zap.Any("data", prometheusData))
 
 	var colorConfig configuration.MetricColor
-	var response string 
+	var response string
 	if len(prometheusData) > 0 {
 		resultValue := float64(prometheusData[0].Value)
 		colorConfig = GetColorConfig(metric.Colors, resultValue)

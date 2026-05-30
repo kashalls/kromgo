@@ -78,6 +78,12 @@
         "query": {
           "type": "string"
         },
+        "type": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/RangeConfig"
+        },
         "label": {
           "type": "string"
         },
@@ -138,6 +144,24 @@
           "type": "boolean"
         },
         "maxDuration": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RangeConfig": {
+      "properties": {
+        "last": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "reduce": {
           "type": "string"
         }
       },

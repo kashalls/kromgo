@@ -77,6 +77,8 @@ Each entry under `metrics:` defines one queryable endpoint at `/{name}`.
 |---|---|---|
 | `name` | yes | URL path segment — `node_cpu_usage` → `GET /node_cpu_usage` |
 | `query` | yes | PromQL expression, must return a single scalar or vector value |
+| `type` | no | How the value is fetched: `instant` (default) or `range` — see [Query Types](#query-types) |
+| `range` | no | Window/step/reduction for `type: range` — see [Query Types](#query-types) |
 | `title` | no | Display label in badge/endpoint responses (defaults to `name`) |
 | `label` | no | Extract value from this metric label instead of the sample value |
 | `prefix` | no | String prepended to the value in the response (e.g. `v`) |
@@ -108,6 +110,42 @@ metrics:
 ```
 
 Supported color names: `blue`, `brightgreen`, `green`, `grey`, `lightgrey`, `orange`, `red`, `yellow`, `yellowgreen`, `success`, `important`, `critical`, `informational`, `inactive`. Hex values (e.g. `#e05d44`) are also accepted.
+
+## Query Types
+
+The `type` field selects how a metric's value is fetched from Prometheus. It is independent of the response `format` (`json`, `badge`, `raw`).
+
+| Type | Description |
+|---|---|
+| `instant` (default) | Evaluates `query` at the current time, like the Prometheus `/query` endpoint. This is the original behavior; omit `type` to keep it. |
+| `range` | Evaluates `query` over a time window and reduces each series to a single value. |
+
+### Range queries
+
+When `type: range`, the `range` block controls the window and reduction. The evaluated window is `end = now - offset`, `start = end - last`:
+
+| Field | Required | Description |
+|---|---|---|
+| `last` | yes | Window length, e.g. `7d`. Supports `s`, `m`, `h`, `d`, `y` (combinable: `1y30d`). |
+| `step` | yes | Resolution of the range query, e.g. `1h`. |
+| `offset` | no | Shift the whole window back in time, e.g. `7d`. Defaults to `0` (window ends now). |
+| `reduce` | no | How to collapse each series to one value: `last` (default), `first`, `avg`, `min`, `max`, `sum`. |
+
+```yaml
+metrics:
+  # Average CPU usage over the previous week (14d ago .. 7d ago)
+  - name: cpu_prev_week_avg
+    type: range
+    query: "cluster:node_cpu:ratio_rate5m * 100"
+    range:
+      last: "7d"      # window length
+      offset: "7d"    # shift back 7d → covers 14d ago .. 7d ago
+      step: "1h"
+      reduce: avg
+    suffix: "%"
+```
+
+The reduced value flows through `label`, `colors`, `prefix`/`suffix`, and `valueTemplate` exactly like an instant query. The `format=history` and `format=chart` renderers are separate and always query the full window of `query`.
 
 ## Value Templates
 

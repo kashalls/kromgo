@@ -69,6 +69,23 @@ metrics:
     valueTemplate: "clusterAge"              # resolved via templates map below
   - name: node_uptime
     query: "time() - node_boot_time_seconds"
+
+  # type: range - evaluate the query over a window and reduce it to a single value.
+  # The window is: end = now - offset, start = end - last.
+  # Example: average CPU usage over the previous week (14d ago .. 7d ago).
+  - name: cpu_prev_week_avg
+    type: range
+    query: "cluster:node_cpu:ratio_rate5m * 100"
+    range:
+      last: "7d"      # window length (s, m, h, d, y — combinable: "1y30d")
+      offset: "7d"    # shift the window back; omit for a window ending now
+      step: "1h"      # resolution of the range query
+      reduce: avg     # last | first | avg | min | max | sum (default: last)
+    suffix: "%"
+    colors:
+      - { color: "green", min: 0, max: 35 }
+      - { color: "orange", min: 36, max: 75 }
+      - { color: "red", min: 76, max: 1000 }
 # Named template snippets - reference these by key in any metric's valueTemplate field
 templates:
   clusterAge: "{{ . | simplifyDays }}"   # 1159 → "3y64d"
