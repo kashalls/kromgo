@@ -89,9 +89,29 @@ func TestGallery(t *testing.T) {
 
 	b.WriteString("</body></html>")
 
-	out := filepath.Join(os.TempDir(), "kromgo-gallery.html")
+	// Write to the repo root (gitignored) by default — a predictable path so you
+	// don't have to read test output. Override with GALLERY_OUT.
+	out := os.Getenv("GALLERY_OUT")
+	if out == "" {
+		out = filepath.Join(moduleRoot(t), "kromgo-gallery.html")
+	}
 	require.NoError(t, os.WriteFile(out, []byte(b.String()), 0o644))
-	t.Logf("gallery written: open file://%s", out)
+	t.Logf("gallery written: open %q", out)
+}
+
+// moduleRoot walks up from the test's working directory to the directory holding go.mod.
+func moduleRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	require.NoError(t, err)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		require.NotEqual(t, parent, dir, "could not locate go.mod")
+		dir = parent
+	}
 }
 
 const threshold = `result <= 35 ? "green" : result <= 75 ? "orange" : "red"`
