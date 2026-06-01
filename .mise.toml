@@ -29,6 +29,10 @@ run = "go test -tags e2e -timeout 5m -v ./test/e2e/..."
 description = "Run integration tests against a real Prometheus (set PROMETHEUS_URL)"
 run = "go test -tags integration -timeout 5m -v ./test/integration/..."
 
+[tasks.gallery]
+description = "Render a badge/graph styling gallery to kromgo-gallery.html (set PROMETHEUS_URL)"
+run = "go test -tags integration -count=1 -run TestGallery ./test/integration/..."
+
 [tasks.lint]
 description = "Run golangci-lint"
 run = "golangci-lint run"
