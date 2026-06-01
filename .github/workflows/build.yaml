@@ -27,10 +27,12 @@ jobs:
       sign: true
       meta-images: ghcr.io/${{ github.repository }}
       # main push → the branch name ("main"); release → the semver version
-      # (e.g. 0.12.0). event=branch only fires on a branch push and semver only on
-      # a release, so the two never collide.
+      # (e.g. 0.12.0) plus "rolling" (a moving pointer to the latest release).
+      # event=branch fires only on a branch push and semver/rolling only on a
+      # release, so the sets never collide.
       meta-tags: |
         type=semver,pattern={{version}}
+        type=raw,value=rolling,enable=${{ github.event_name == 'release' }}
         type=ref,event=branch
     secrets:
       registry-auths: |
