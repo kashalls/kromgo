@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.12.1](https://github.com/home-operations/kromgo/compare/0.12.0...0.12.1) (2026-06-01)
+
+
+### Features
+
+* **mise:** update tool oxfmt (0.52.0 → 0.53.0) ([6cf9b97](https://github.com/home-operations/kromgo/commit/6cf9b978bd742ca97bad35278c3cf7aae89368bb))
+
+
+### Miscellaneous Chores
+
+* update mise lockfile ([efe5420](https://github.com/home-operations/kromgo/commit/efe542010b36222105fd0edc66d04650d12f6ec8))
+
+
+### Code Refactoring
+
+* request-scoped logging and comprehensive test cleanup ([#197](https://github.com/home-operations/kromgo/issues/197)) ([eb12795](https://github.com/home-operations/kromgo/commit/eb12795cc1d2b998aa4f13d83188c6eb33c87b18))
+
 ## [0.12.0](https://github.com/home-operations/kromgo/compare/0.11.1...0.12.0) (2026-06-01)
 
 
