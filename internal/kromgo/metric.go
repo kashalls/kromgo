@@ -2,24 +2,26 @@ package kromgo
 
 import (
 	"fmt"
-	"text/template"
 	"time"
 
+	"github.com/google/cel-go/cel"
 	"github.com/home-operations/kromgo/internal/config"
 )
 
 const (
 	defaultHistoryMaxDuration = time.Hour
 	minRangeStep              = time.Minute
+	defaultValueExpr          = "string(result)"
 )
 
 // resolvedMetric is a config.Metric with its per-request values resolved once at
-// startup: the compiled value template, effective timeseries settings, cache TTL,
-// and (for type: range) the parsed range-query window. This keeps parsing off the
-// request hot path and surfaces malformed config at startup.
+// startup: the compiled value/color CEL programs, effective timeseries settings,
+// cache TTL, and (for type: range) the parsed range-query window. This keeps
+// compilation/parsing off the request hot path and surfaces bad config at startup.
 type resolvedMetric struct {
 	config.Metric
-	template       *template.Template // compiled ValueTemplate; nil when none
+	valueProg      cel.Program // compiled Value expression (always set)
+	colorProg      cel.Program // compiled Color expression; nil when none
 	historyEnabled bool
 	historyMax     time.Duration // 0 means unlimited
 	cacheSeconds   int
@@ -35,8 +37,8 @@ type rangeQuery struct {
 }
 
 // resolveMetric precomputes a metric's request-time values, returning an error if
-// its value template, durations, or range query are invalid.
-func resolveMetric(m config.Metric, cfg config.KromgoConfig) (*resolvedMetric, error) {
+// its expressions, durations, or range query are invalid.
+func resolveMetric(m config.Metric, cfg config.KromgoConfig, env *cel.Env) (*resolvedMetric, error) {
 	rm := &resolvedMetric{
 		Metric:         m,
 		historyEnabled: cfg.Defaults.Timeseries.Enabled,
@@ -44,12 +46,18 @@ func resolveMetric(m config.Metric, cfg config.KromgoConfig) (*resolvedMetric, e
 		cacheSeconds:   cfg.Defaults.CacheSeconds,
 	}
 
-	if m.ValueTemplate != "" {
-		tmpl, err := template.New(m.Name).Funcs(templateFuncs).Parse(m.ValueTemplate)
-		if err != nil {
-			return nil, fmt.Errorf("metric %q valueTemplate: %w", m.Name, err)
+	valueExpr := m.Value
+	if valueExpr == "" {
+		valueExpr = defaultValueExpr
+	}
+	var err error
+	if rm.valueProg, err = compileStringExpr(env, m.Name, "value", valueExpr); err != nil {
+		return nil, err
+	}
+	if m.Color != "" {
+		if rm.colorProg, err = compileStringExpr(env, m.Name, "color", m.Color); err != nil {
+			return nil, err
 		}
-		rm.template = tmpl
 	}
 
 	if m.Timeseries != nil && m.Timeseries.Enabled != nil {

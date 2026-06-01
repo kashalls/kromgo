@@ -252,7 +252,11 @@ func TestParseTimeParam_Invalid(t *testing.T) {
 
 func mustResolve(t *testing.T, m config.Metric, cfg config.KromgoConfig) *resolvedMetric {
 	t.Helper()
-	rm, err := resolveMetric(m, cfg)
+	env, err := newCELEnv()
+	if err != nil {
+		t.Fatalf("newCELEnv: %v", err)
+	}
+	rm, err := resolveMetric(m, cfg, env)
 	if err != nil {
 		t.Fatalf("resolveMetric: %v", err)
 	}
@@ -323,9 +327,19 @@ func TestResolveMetric_TimeseriesMax_Unlimited(t *testing.T) {
 	}
 }
 
-func TestResolveMetric_InvalidTemplateFailsFast(t *testing.T) {
-	m := config.Metric{Name: "test", ValueTemplate: "{{ .broken"}
-	if _, err := resolveMetric(m, config.KromgoConfig{}); err == nil {
-		t.Error("expected resolveMetric to reject a malformed value template")
+func TestResolveMetric_InvalidExprFailsFast(t *testing.T) {
+	env, err := newCELEnv()
+	if err != nil {
+		t.Fatalf("newCELEnv: %v", err)
+	}
+	cases := map[string]config.Metric{
+		"syntax error":  {Name: "a", Value: "result +"},
+		"not a string":  {Name: "b", Value: "result"},       // value must be string
+		"unknown ident": {Name: "c", Color: "nope(result)"}, // bad color expr
+	}
+	for name, m := range cases {
+		if _, err := resolveMetric(m, config.KromgoConfig{}, env); err == nil {
+			t.Errorf("%s: expected resolveMetric to reject the expression", name)
+		}
 	}
 }

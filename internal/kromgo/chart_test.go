@@ -49,7 +49,6 @@ func TestRenderSparkline_Structure(t *testing.T) {
 	svg := renderSparkline(
 		makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
 		chartParams{width: 300, height: 80, strokeWidth: 2, legend: true},
-		nil,
 	)
 	if !strings.HasPrefix(svg, "<svg ") {
 		t.Error("expected SVG to start with <svg")
@@ -71,7 +70,7 @@ func TestRenderSparkline_PolylineCount(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			svg := renderSparkline(tc.matrix, chartParams{width: 300, height: 80, strokeWidth: 2}, nil)
+			svg := renderSparkline(tc.matrix, chartParams{width: 300, height: 80, strokeWidth: 2})
 			got := strings.Count(svg, "<polyline ")
 			if got != tc.wantLines {
 				t.Errorf("expected %d <polyline> elements, got %d", tc.wantLines, got)
@@ -86,12 +85,12 @@ func TestRenderSparkline_LegendText(t *testing.T) {
 		"server2": {40, 50, 60},
 	})
 
-	withLegend := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2, legend: true}, nil)
+	withLegend := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2, legend: true})
 	if !strings.Contains(withLegend, "server1") || !strings.Contains(withLegend, "server2") {
 		t.Error("expected legend labels in SVG when legend=true")
 	}
 
-	withoutLegend := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2, legend: false}, nil)
+	withoutLegend := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2, legend: false})
 	if strings.Contains(withoutLegend, "<text ") {
 		t.Error("expected no <text> elements when legend=false")
 	}
@@ -104,7 +103,7 @@ func TestRenderSparkline_SkipsNaNAndInf(t *testing.T) {
 	matrix[0].Values[1].Value = model.SampleValue(math.NaN())
 	matrix[0].Values[2].Value = model.SampleValue(math.Inf(1))
 
-	svg := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2}, nil)
+	svg := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2})
 
 	if strings.Contains(svg, "NaN") || strings.Contains(svg, "Inf") {
 		t.Errorf("SVG contains non-finite coordinates: %s", svg)
@@ -120,7 +119,7 @@ func TestRenderSparkline_AllNaNSeriesSkipped(t *testing.T) {
 		matrix[0].Values[i].Value = model.SampleValue(math.NaN())
 	}
 
-	svg := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2}, nil)
+	svg := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2})
 
 	// The all-NaN series is dropped; the finite series still draws.
 	if got := strings.Count(svg, "<polyline "); got != 1 {
@@ -132,7 +131,6 @@ func TestRenderSparkline_FlatLineNoNaN(t *testing.T) {
 	svg := renderSparkline(
 		makeMatrix([][]float64{{42, 42, 42, 42, 42}}),
 		chartParams{width: 300, height: 80, strokeWidth: 2},
-		nil,
 	)
 	if strings.Contains(svg, "NaN") {
 		t.Error("SVG contains NaN coordinates")

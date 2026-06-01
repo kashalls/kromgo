@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/home-operations/kromgo/internal/config"
 	"github.com/prometheus/common/model"
 )
 
@@ -56,12 +55,9 @@ func parseChartParams(r *http.Request) chartParams {
 	return p
 }
 
-func seriesColor(i int, override string, colors []config.MetricColor) string {
+func seriesColor(i int, override string) string {
 	if override != "" {
 		return colorNameToHex(override)
-	}
-	if i == 0 && len(colors) > 0 && colors[0].Color != "" {
-		return colorNameToHex(colors[0].Color)
 	}
 	return chartColors[i%len(chartColors)]
 }
@@ -85,7 +81,7 @@ func seriesLabel(stream *model.SampleStream) string {
 	return strings.Join(vals, ", ")
 }
 
-func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.MetricColor) string {
+func renderSparkline(matrix model.Matrix, p chartParams) string {
 	const (
 		legendHeight       = 20
 		legendFontSize     = 11
@@ -110,7 +106,7 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.M
 		for i, stream := range matrix {
 			if label := seriesLabel(stream); label != "" {
 				items = append(items, legendItem{
-					color: seriesColor(i, p.color, metricColors),
+					color: seriesColor(i, p.color),
 					label: label,
 				})
 			}
@@ -148,7 +144,7 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.M
 		}
 
 		n := len(stream.Values)
-		color := seriesColor(i, p.color, metricColors)
+		color := seriesColor(i, p.color)
 
 		type point struct{ x, y float64 }
 		pts := make([]point, 0, n)
@@ -214,5 +210,5 @@ func (h *Handler) handleChart(w http.ResponseWriter, r *http.Request, metric *re
 		return
 	}
 
-	writeSVG(w, []byte(renderSparkline(matrix, parseChartParams(r), metric.Colors)))
+	writeSVG(w, []byte(renderSparkline(matrix, parseChartParams(r))))
 }

@@ -23,7 +23,7 @@ prometheus: http://prom:9090
 metrics:
   - name: cpu
     query: node_cpu
-    suffix: "%"
+    value: string(result) + "%"
 defaults:
   timeseries:
     enabled: true

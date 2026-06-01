@@ -34,10 +34,10 @@ func baseConfig() config.KromgoConfig {
 	return config.KromgoConfig{
 		Metrics: []config.Metric{
 			{
-				Name:   "cpu",
-				Query:  "node_cpu_usage",
-				Suffix: "%",
-				Colors: []config.MetricColor{{Min: 0, Max: 50, Color: "green"}},
+				Name:  "cpu",
+				Query: "node_cpu_usage",
+				Value: `string(result) + "%"`,
+				Color: `result <= 50.0 ? "green" : "red"`,
 			},
 		},
 		Defaults: config.Defaults{Timeseries: config.TimeseriesConfig{Enabled: true, MaxDuration: "24h"}},
@@ -125,12 +125,12 @@ func TestServeMetric_NotFound(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"isError":true`)
 }
 
-func TestServeMetric_ValueTemplateAndOverride(t *testing.T) {
+func TestServeMetric_ValueExpression(t *testing.T) {
 	cfg := config.KromgoConfig{
 		Metrics: []config.Metric{{
-			Name:          "uptime",
-			Query:         "q",
-			ValueTemplate: "{{ . | humanDuration }}",
+			Name:  "uptime",
+			Query: "q",
+			Value: "humanDuration(result)",
 		}},
 	}
 	srv := mockProm(t, "9000", nil)
@@ -188,9 +188,9 @@ func TestServeMetric_HistoryWindowTooLarge(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestServeMetric_LabelExtraction(t *testing.T) {
+func TestServeMetric_ValueFromLabel(t *testing.T) {
 	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"version": "v1.2.3"}), nil)
-	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", FromLabel: "version"}}}
+	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Value: `labels["version"]`}}}
 	h := newHandlerForTest(t, cfg, srv.URL)
 
 	w := doGet(t, h, "/ver")
@@ -199,22 +199,24 @@ func TestServeMetric_LabelExtraction(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"message":"v1.2.3"`)
 }
 
-func TestServeMetric_LabelMissing_NoData(t *testing.T) {
+func TestServeMetric_ValueExpressionError(t *testing.T) {
+	// Indexing a missing label is a CEL runtime error → 500 (write a safe expr instead).
 	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"other": "x"}), nil)
-	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", FromLabel: "version"}}}
+	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Value: `labels["version"]`}}}
 	h := newHandlerForTest(t, cfg, srv.URL)
 
 	w := doGet(t, h, "/ver")
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), `"isError":true`)
 }
 
-func TestServeMetric_ColorDisplay(t *testing.T) {
+func TestServeMetric_StateExpressions(t *testing.T) {
 	cfg := config.KromgoConfig{Metrics: []config.Metric{{
-		Name:   "ceph",
-		Query:  "q",
-		Colors: []config.MetricColor{{Min: 0, Max: 0, Color: "green", Display: "Healthy"}},
+		Name:  "ceph",
+		Query: "q",
+		Value: `result == 0.0 ? "Healthy" : "Critical"`,
+		Color: `result == 0.0 ? "green" : "red"`,
 	}}}
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
@@ -289,11 +291,11 @@ func TestServeMetric_RangeType(t *testing.T) {
 	// type: range reduces a range query to one value (avg of 10,20,30 = 20).
 	cfg := config.KromgoConfig{
 		Metrics: []config.Metric{{
-			Name:   "cpu_avg",
-			Type:   config.TypeRange,
-			Query:  "q",
-			Suffix: "%",
-			Range:  &config.RangeQuery{Last: "1h", Reduce: config.ReduceAvg},
+			Name:  "cpu_avg",
+			Type:  config.TypeRange,
+			Query: "q",
+			Value: `string(result) + "%"`,
+			Range: &config.RangeQuery{Last: "1h", Reduce: config.ReduceAvg},
 		}},
 	}
 	srv := promtest.Server(t, nil, []float64{10, 20, 30})

@@ -5,21 +5,10 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"text/template"
 )
 
-// templateFuncs are the functions available to a metric's valueTemplate. Templates
-// are compiled once at startup (see resolveMetric) and executed per request.
-var templateFuncs = template.FuncMap{
-	"simplifyDays":      simplifyDays,
-	"humanBytes":        humanBytes,
-	"humanSIBytes":      humanSIBytes,
-	"humanDuration":     humanDuration,
-	"humanizeThousands": humanizeThousands,
-	"toUpper":           strings.ToUpper,
-	"toLower":           strings.ToLower,
-	"trim":              strings.TrimSpace,
-}
+// The functions below are registered with the CEL environment (see expr.go) and
+// callable from a metric's value/color expression, e.g. humanBytes(result).
 
 // toFloat converts a string, int, or float64 to float64.
 func toFloat(v any) (float64, error) {

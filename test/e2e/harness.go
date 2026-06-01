@@ -28,10 +28,8 @@ defaults:
 metrics:
   - name: cpu
     query: node_cpu_usage
-    suffix: "%"
-    colors:
-      - { color: green, min: 0, max: 50 }
-      - { color: red, min: 51, max: 100 }
+    value: string(result) + "%"
+    color: 'result <= 50.0 ? "green" : "red"'
 `
 
 type harness struct {

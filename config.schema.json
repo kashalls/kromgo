@@ -69,23 +69,11 @@
         "range": {
           "$ref": "#/$defs/RangeQuery"
         },
-        "fromLabel": {
+        "value": {
           "type": "string"
         },
-        "prefix": {
+        "color": {
           "type": "string"
-        },
-        "suffix": {
-          "type": "string"
-        },
-        "valueTemplate": {
-          "type": "string"
-        },
-        "colors": {
-          "items": {
-            "$ref": "#/$defs/MetricColor"
-          },
-          "type": "array"
         },
         "hidden": {
           "type": "boolean"
@@ -100,25 +88,6 @@
       "additionalProperties": false,
       "type": "object",
       "required": ["name", "query"]
-    },
-    "MetricColor": {
-      "properties": {
-        "min": {
-          "type": "number"
-        },
-        "max": {
-          "type": "number"
-        },
-        "color": {
-          "type": "string"
-        },
-        "display": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": ["min", "max"]
     },
     "MetricTimeseriesConfig": {
       "properties": {

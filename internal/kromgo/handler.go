@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/home-operations/kromgo/internal/config"
@@ -26,18 +24,23 @@ type Handler struct {
 	badges  *badgePool
 }
 
-// New builds a Handler from config and a Prometheus client. Per-metric value
-// templates and history durations are compiled/parsed here, so a malformed one
-// fails at startup rather than on a request.
+// New builds a Handler from config and a Prometheus client. Per-metric CEL
+// expressions and durations are compiled/parsed here, so malformed config fails
+// at startup rather than on a request.
 func New(cfg config.KromgoConfig, prom *prometheus.Client) (*Handler, error) {
 	badges, err := newBadgePool(cfg.Badge)
 	if err != nil {
 		return nil, err
 	}
 
+	env, err := newCELEnv()
+	if err != nil {
+		return nil, fmt.Errorf("building CEL environment: %w", err)
+	}
+
 	metrics := make(map[string]*resolvedMetric, len(cfg.Metrics))
 	for _, m := range cfg.Metrics {
-		rm, err := resolveMetric(m, cfg)
+		rm, err := resolveMetric(m, cfg, env)
 		if err != nil {
 			return nil, err
 		}
@@ -126,15 +129,24 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric *
 		return
 	}
 
-	color, message, ok := h.buildResponse(metric, vector, log)
+	if len(vector) == 0 {
+		// No data: report it without evaluating the expressions (no result/labels).
+		if err := writeJSON(w, EndpointResponse{SchemaVersion: 1, Label: metricTitle(metric), Message: "metric returned no data"}); err != nil {
+			log.Error("error writing no-data response", "error", err)
+			writeError(w, metric.Name, "Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	message, color, ok := h.evalDisplay(metric, vector[0], log)
 	if !ok {
-		writeError(w, metric.Name, "No Data", http.StatusOK)
+		writeError(w, metric.Name, "Expression Error", http.StatusInternalServerError)
 		return
 	}
 	title := metricTitle(metric)
 
 	if format == "badge" {
-		h.badges.write(w, r.URL.Query().Get("style"), title, message, color.Color)
+		h.badges.write(w, r.URL.Query().Get("style"), title, message, color)
 		return
 	}
 
@@ -142,7 +154,7 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric *
 		SchemaVersion: 1,
 		Label:         title,
 		Message:       message,
-		Color:         color.Color,         // omitted when empty
+		Color:         color,               // omitted when empty
 		CacheSeconds:  metric.cacheSeconds, // shields.io honors this; omitted when 0
 	}
 	if err := writeJSON(w, resp); err != nil {
@@ -151,41 +163,28 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric *
 	}
 }
 
-// buildResponse derives the display color and message from an instant vector,
-// applying label extraction, value override, value template, and prefix/suffix.
-// ok is false when a required label is missing (caller responds with "No Data").
-func (h *Handler) buildResponse(metric *resolvedMetric, vector model.Vector, log *slog.Logger) (color config.MetricColor, message string, ok bool) {
-	var response string
-	if len(vector) > 0 {
-		value := float64(vector[0].Value)
-		color = GetColorConfig(metric.Colors, value)
-		response = strconv.FormatFloat(value, 'f', -1, 64)
-	} else {
-		response = "metric returned no data"
+// evalDisplay evaluates the metric's value and color CEL expressions against a
+// sample. ok is false only if the value expression errors (caller returns 500);
+// a failing color expression is logged and treated as no color.
+func (h *Handler) evalDisplay(metric *resolvedMetric, sample *model.Sample, log *slog.Logger) (message, color string, ok bool) {
+	result := float64(sample.Value)
+	labels := make(map[string]string, len(sample.Metric))
+	for k, v := range sample.Metric {
+		labels[string(k)] = string(v)
 	}
 
-	if metric.FromLabel != "" {
-		labelValue, err := ExtractLabelValue(vector, metric.FromLabel)
-		if err != nil {
-			log.Error("label was not found in query result", "label", metric.FromLabel, "error", err)
-			return color, "", false
-		}
-		response = labelValue
+	message, err := evalStringExpr(metric.valueProg, result, labels)
+	if err != nil {
+		log.Error("value expression failed", "error", err)
+		return "", "", false
 	}
-	if color.Display != "" {
-		response = color.Display
-	}
-
-	if metric.template != nil {
-		var buf strings.Builder
-		if err := metric.template.Execute(&buf, response); err != nil {
-			log.Error("failed to apply value template", "error", err) // keep the raw value
-		} else {
-			response = buf.String()
+	if metric.colorProg != nil {
+		if color, err = evalStringExpr(metric.colorProg, result, labels); err != nil {
+			log.Error("color expression failed", "error", err) // degrade to no color
+			color = ""
 		}
 	}
-
-	return color, metric.Prefix + response + metric.Suffix, true
+	return message, color, true
 }
 
 // queryValue computes the metric's instant value: an instant query for the default

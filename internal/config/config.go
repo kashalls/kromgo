@@ -54,19 +54,13 @@ type Metric struct {
 	Type string `yaml:"type,omitempty" json:"type,omitempty"`
 	// Range configures the windowed range query when Type is "range".
 	Range *RangeQuery `yaml:"range,omitempty" json:"range,omitempty"`
-	// FromLabel uses the value of this query-result label instead of the sample value.
-	FromLabel string `yaml:"fromLabel,omitempty" json:"fromLabel,omitempty"`
-	// Prefix is prepended to the value in the response.
-	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
-	// Suffix is appended to the value in the response.
-	Suffix string `yaml:"suffix,omitempty" json:"suffix,omitempty"`
-	// ValueTemplate is an inline Go template applied to the value before prefix/suffix
-	// are added. Available functions: simplifyDays, humanBytes, humanSIBytes,
-	// humanDuration, humanizeThousands, toUpper, toLower, trim. Use a YAML anchor to
-	// reuse one across metrics. Example: "{{ . | simplifyDays }}".
-	ValueTemplate string `yaml:"valueTemplate,omitempty" json:"valueTemplate,omitempty"`
-	// Colors assigns a response color based on the numeric value.
-	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
+	// Value is a CEL expression producing the displayed string. It receives `result`
+	// (the sample value, double) and `labels` (map). Defaults to string(result).
+	// Examples: 'string(result) + "%"', 'labels["version"]', 'humanBytes(result)'.
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
+	// Color is a CEL expression producing the color name or hex. Same inputs as Value;
+	// empty means no color. Example: 'result < 75 ? "green" : "red"'.
+	Color string `yaml:"color,omitempty" json:"color,omitempty"`
 	// Hidden overrides defaults.hidden for this metric. If nil, the default applies.
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// Timeseries overrides defaults.timeseries for this metric. If nil, the defaults apply.
@@ -94,15 +88,6 @@ type MetricTimeseriesConfig struct {
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	// MaxDuration overrides defaults.timeseries.maxDuration for this metric (e.g. "24h").
 	MaxDuration string `yaml:"maxDuration,omitempty" json:"maxDuration,omitempty"`
-}
-
-// MetricColor maps a numeric range to a color and an optional display override.
-type MetricColor struct {
-	Min   float64 `yaml:"min" json:"min"`
-	Max   float64 `yaml:"max" json:"max"`
-	Color string  `yaml:"color,omitempty" json:"color,omitempty"`
-	// Display replaces the shown value when this range matches (e.g. "Healthy").
-	Display string `yaml:"display,omitempty" json:"display,omitempty"`
 }
 
 // Badge configures SVG badge rendering.

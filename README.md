@@ -20,8 +20,7 @@ Works out of the box with [shields.io Endpoint Badges](https://shields.io/badges
     - [Metrics](#metrics)
     - [Defaults](#defaults)
     - [Range queries](#range-queries)
-    - [Colors](#colors)
-    - [Value templates](#value-templates)
+    - [Value and color](#value-and-color)
     - [History and charts](#history-and-charts)
     - [Badge font](#badge-font)
 - [Index page](#index-page)
@@ -81,7 +80,7 @@ config file there (or pass `-config /path/to/config.yaml`).
 metrics:
     - name: node_cpu_usage
       query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"
-      suffix: "%"
+      value: string(result) + "%"
 ```
 
 See the sections below for the full set of options — colors, value templates, history/charts, and
@@ -108,21 +107,18 @@ point your editor's YAML language server at it for inline completion and validat
 
 Each entry under `metrics:` defines one queryable endpoint at `/{name}`.
 
-| Field           | Required | Description                                                                                     |
-| --------------- | -------- | ----------------------------------------------------------------------------------------------- |
-| `name`          | yes      | URL path segment — `node_cpu_usage` → `GET /node_cpu_usage`                                     |
-| `query`         | yes      | PromQL expression, must return a single scalar or vector value                                  |
-| `type`          | no       | `instant` (default) or `range` — see [Range queries](#range-queries)                            |
-| `range`         | no\*     | Range-query window when `type: range` — see [Range queries](#range-queries)                     |
-| `title`         | no       | Display label in badge/endpoint responses (defaults to `name`)                                  |
-| `fromLabel`     | no       | Use the value of this query-result label instead of the sample value                            |
-| `prefix`        | no       | String prepended to the value in the response (e.g. `v`)                                        |
-| `suffix`        | no       | String appended to the value in the response (e.g. `%`)                                         |
-| `valueTemplate` | no       | Go template applied to the value before prefix/suffix — see [Value templates](#value-templates) |
-| `colors`        | no       | List of color ranges for the response — see [Colors](#colors)                                   |
-| `hidden`        | no       | Override `defaults.hidden` for this metric — see [Index page](#index-page)                      |
-| `timeseries`    | no       | Override `defaults.timeseries` for this metric — see [History and charts](#history-and-charts)  |
-| `cacheSeconds`  | no       | Override `defaults.cacheSeconds` for this metric — see [Caching](#caching)                      |
+| Field          | Required | Description                                                                                    |
+| -------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `name`         | yes      | URL path segment — `node_cpu_usage` → `GET /node_cpu_usage`                                    |
+| `query`        | yes      | PromQL expression, must return a single scalar or vector value                                 |
+| `type`         | no       | `instant` (default) or `range` — see [Range queries](#range-queries)                           |
+| `range`        | no\*     | Range-query window when `type: range` — see [Range queries](#range-queries)                    |
+| `title`        | no       | Display label in badge/endpoint responses (defaults to `name`)                                 |
+| `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)              |
+| `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)                         |
+| `hidden`       | no       | Override `defaults.hidden` for this metric — see [Index page](#index-page)                     |
+| `timeseries`   | no       | Override `defaults.timeseries` for this metric — see [History and charts](#history-and-charts) |
+| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this metric — see [Caching](#caching)                     |
 
 ### Defaults
 
@@ -154,67 +150,63 @@ metrics:
           offset: "7d" # shift the window back; here: 14d ago .. 7d ago (default: ends now)
           step: "1h" # resolution (default: last/100, min 1m)
           reduce: avg # last (default), first, avg, min, max, sum
-      suffix: "%"
+      value: string(result) + "%"
 ```
 
 `reduce` collapses each series to one value; non-finite samples (NaN/Inf) are skipped. This is
 independent of the [history/chart output formats](#history-and-charts) — a `range` metric still
 returns a single value.
 
-### Colors
+### Value and color
 
-Assign a badge color based on the numeric value. Use `display` to replace the shown value text
-entirely.
+`value` and `color` are [CEL](https://cel.dev) expressions. CEL is sandboxed (no environment, file,
+or network access) and compiled once at startup, so a malformed expression fails fast rather than per
+request. Each expression receives two variables:
+
+| Variable | Type                  | Description                                              |
+| -------- | --------------------- | -------------------------------------------------------- |
+| `result` | `double`              | The sample value (for `type: range`, the reduced value). |
+| `labels` | `map(string, string)` | The sample's labels, e.g. `labels["instance"]`.          |
+
+- **`value`** must return a string — the message shown on the badge/endpoint. Defaults to
+  `string(result)`.
+- **`color`** must return a string — a [shields.io color name](https://shields.io) (`green`,
+  `orange`, `red`, `blue`, `grey`, …) or a hex value like `"#e05d44"`. Omit for no color.
 
 ```yaml
 metrics:
-    - name: node_cpu_usage
-      query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"
-      suffix: "%"
-      colors:
-          - { color: "green", min: 0, max: 35 }
-          - { color: "orange", min: 36, max: 75 }
-          - { color: "red", min: 76, max: 1000 }
+    # numeric value with a unit + threshold coloring
+    - name: cpu
+      query: "round(avg(...) * 100, 0.1)"
+      value: string(result) + "%"
+      color: 'result < 35.0 ? "green" : result < 75.0 ? "orange" : "red"'
 
+    # value taken from a label
+    - name: version
+      query: 'label_replace(build_info, "v", "$1", "version", "v(.+)")'
+      value: labels["v"]
+
+    # enum → text + color
     - name: ceph_health
-      query: "ceph_health_status{}"
-      colors:
-          - { color: "green", min: 0, max: 0, display: "Healthy" }
-          - { color: "orange", min: 1, max: 1, display: "Warning" }
-          - { color: "red", min: 2, max: 2, display: "Critical" }
+      query: ceph_health_status
+      value: 'result == 0.0 ? "Healthy" : result == 1.0 ? "Warning" : "Critical"'
+      color: 'result == 0.0 ? "green" : result == 1.0 ? "orange" : "red"'
 ```
 
-Supported color names: `blue`, `brightgreen`, `green`, `grey`, `lightgrey`, `orange`, `red`,
-`yellow`, `yellowgreen`, `success`, `important`, `critical`, `informational`, `inactive`. Hex values
-(e.g. `#e05d44`) are also accepted.
+Besides CEL's built-ins (arithmetic, comparisons, ternary `?:`, `in`, the `strings` extension —
+`startsWith`, `matches`, `upperAscii`, …) these humanizer functions are available:
 
-### Value templates
+| Function                    | Example                       | Result    |
+| --------------------------- | ----------------------------- | --------- |
+| `simplifyDays(result)`      | `simplifyDays(1159.0)`        | `3y64d`   |
+| `humanBytes(result)`        | `humanBytes(1572864.0)`       | `1.5MiB`  |
+| `humanSIBytes(result)`      | `humanSIBytes(1500000.0)`     | `1.5MB`   |
+| `humanDuration(result)`     | `humanDuration(9000.0)`       | `2h30m`   |
+| `humanizeThousands(result)` | `humanizeThousands(157121.0)` | `157,121` |
 
-The `valueTemplate` field applies a [Go template](https://pkg.go.dev/text/template) to the raw
-Prometheus value before `prefix` and `suffix` are added.
-
-| Function            | Example input | Example output | Description                                                     |
-| ------------------- | ------------- | -------------- | --------------------------------------------------------------- |
-| `simplifyDays`      | `"1159"`      | `3y64d`        | Converts a day count to years and days                          |
-| `humanBytes`        | `"1572864"`   | `1.5MiB`       | Bytes → human size with IEC binary units (KiB, MiB, GiB...)     |
-| `humanSIBytes`      | `"1500000"`   | `1.5MB`        | Bytes → human size with SI decimal units (÷1000, kB, MB, GB...) |
-| `humanDuration`     | `"9000"`      | `2h30m`        | Converts seconds to a compact duration string                   |
-| `humanizeThousands` | `"157121"`    | `157,121`      | Adds comma thousands separators                                 |
-| `toUpper`           | `"v1.31.0"`   | `V1.31.0`      | Uppercases the string                                           |
-| `toLower`           | `"HEALTHY"`   | `healthy`      | Lowercases the string                                           |
-| `trim`              | `" ok "`      | `ok`           | Strips leading and trailing whitespace                          |
-
-`valueTemplate` is always an inline template. To reuse one across metrics, use a YAML anchor:
-
-```yaml
-metrics:
-    - name: cluster_age
-      query: "floor((time() - k8s_cluster_created_timestamp) / 86400)"
-      valueTemplate: &simplifyDays "{{ . | simplifyDays }}"
-    - name: node_age
-      query: "floor((time() - node_created_timestamp) / 86400)"
-      valueTemplate: *simplifyDays
-```
+Two gotchas: CEL is strictly typed, so compare `result` against **decimal** literals (`result <
+35.0`, not `35`); and indexing a missing label errors — use `"k" in labels ? labels["k"] : "n/a"`
+when a label may be absent.
 
 ### History and charts
 
@@ -476,16 +468,16 @@ cosign verify ghcr.io/home-operations/kromgo:<tag> \
 This fork is functionally compatible — metric config, query semantics, and response
 formats are unchanged — but a few deployment details changed:
 
-| Change                                                                                                                                                                                                                                                                                                                                                         | Action                                                                                                                                                                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Image moved** to `ghcr.io/home-operations/kromgo`.                                                                                                                                                                                                                                                                                                           | Update your image reference (and the cosign identity, if you verify).                                                                                                                 |
-| **Badge font no longer bundled.** The image no longer ships `Verdana.ttf`; kromgo now uses an embedded default font. A config still pointing `badge.font` at `Verdana.ttf` will fail at startup.                                                                                                                                                               | Remove `badge.font` to use the embedded font, or mount a TrueType font and point `badge.font` at its path.                                                                            |
-| **`LOG_FORMAT=test` renamed to `LOG_FORMAT=text`.**                                                                                                                                                                                                                                                                                                            | Set `LOG_FORMAT=text` for human-readable logs (default remains JSON).                                                                                                                 |
-| **Built-in rate limiting removed** (`RATELIMIT_*` env vars).                                                                                                                                                                                                                                                                                                   | Rate limit at your reverse proxy — see [Rate limiting](#rate-limiting).                                                                                                               |
-| **Config schema reorganized.** Top-level `hideAll`/`history`/`cacheSeconds` defaults moved under a `defaults:` block (`defaults.hidden`, `defaults.timeseries`, `defaults.cacheSeconds`); per-metric `history` is now `timeseries`; the named-`templates` map was removed. (`range` is now a metric query [type](#range-queries), not the history/chart gate.) | Move global defaults under `defaults:`, rename per-metric `history` → `timeseries`, and inline value templates (use a YAML anchor to reuse one). See [Configuration](#configuration). |
-| **Per-metric keys renamed** for clarity: `label` → `fromLabel`, and a color's `valueOverride` → `display`.                                                                                                                                                                                                                                                     | Rename those keys in your metric definitions.                                                                                                                                         |
-| **Missing `PROMETHEUS_URL` now fails fast** instead of starting degraded.                                                                                                                                                                                                                                                                                      | Ensure `PROMETHEUS_URL` (or `prometheus` in config) is set.                                                                                                                           |
-| **Schema URL** in `config.yaml` examples.                                                                                                                                                                                                                                                                                                                      | Point `# yaml-language-server: $schema=` at `home-operations/kromgo`.                                                                                                                 |
+| Change                                                                                                                                                                                                                                                                                                                                                         | Action                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Image moved** to `ghcr.io/home-operations/kromgo`.                                                                                                                                                                                                                                                                                                           | Update your image reference (and the cosign identity, if you verify).                                                                                                                                                           |
+| **Badge font no longer bundled.** The image no longer ships `Verdana.ttf`; kromgo now uses an embedded default font. A config still pointing `badge.font` at `Verdana.ttf` will fail at startup.                                                                                                                                                               | Remove `badge.font` to use the embedded font, or mount a TrueType font and point `badge.font` at its path.                                                                                                                      |
+| **`LOG_FORMAT=test` renamed to `LOG_FORMAT=text`.**                                                                                                                                                                                                                                                                                                            | Set `LOG_FORMAT=text` for human-readable logs (default remains JSON).                                                                                                                                                           |
+| **Built-in rate limiting removed** (`RATELIMIT_*` env vars).                                                                                                                                                                                                                                                                                                   | Rate limit at your reverse proxy — see [Rate limiting](#rate-limiting).                                                                                                                                                         |
+| **Config schema reorganized.** Top-level `hideAll`/`history`/`cacheSeconds` defaults moved under a `defaults:` block (`defaults.hidden`, `defaults.timeseries`, `defaults.cacheSeconds`); per-metric `history` is now `timeseries`; the named-`templates` map was removed. (`range` is now a metric query [type](#range-queries), not the history/chart gate.) | Move global defaults under `defaults:`, rename per-metric `history` → `timeseries`, and inline value templates (use a YAML anchor to reuse one). See [Configuration](#configuration).                                           |
+| **Value/color logic is now [CEL](https://cel.dev).** `prefix`, `suffix`, `valueTemplate`, `fromLabel`, and `colors` (`min`/`max`/`display`) are replaced by two CEL expressions, `value` and `color` (vars: `result`, `labels`).                                                                                                                               | Rewrite display logic as expressions: `suffix: "%"` → `value: string(result) + "%"`; `fromLabel: x` → `value: labels["x"]`; color ranges → `color: 'result < 75.0 ? "green" : "red"'`. See [Value and color](#value-and-color). |
+| **Missing `PROMETHEUS_URL` now fails fast** instead of starting degraded.                                                                                                                                                                                                                                                                                      | Ensure `PROMETHEUS_URL` (or `prometheus` in config) is set.                                                                                                                                                                     |
+| **Schema URL** in `config.yaml` examples.                                                                                                                                                                                                                                                                                                                      | Point `# yaml-language-server: $schema=` at `home-operations/kromgo`.                                                                                                                                                           |
 
 Release tags drop the `v` prefix (e.g. `0.11.0`, not `v0.11.0`); pin image tags accordingly.
 
