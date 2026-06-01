@@ -11,27 +11,6 @@ Safely expose individual Prometheus metric values to the public web. Define name
 
 Works out of the box with [shields.io Endpoint Badges](https://shields.io/badges/endpoint-badge).
 
-## Contents
-
-- [How it works](#how-it-works)
-- [Quick start](#quick-start)
-- [Configuration](#configuration)
-    - [Environment variables](#environment-variables)
-    - [Metrics](#metrics)
-    - [Defaults](#defaults)
-    - [Range queries](#range-queries)
-    - [Value and color](#value-and-color)
-    - [History and charts](#history-and-charts)
-    - [Badge font](#badge-font)
-- [Index page](#index-page)
-- [API reference](#api-reference)
-- [Ports](#ports)
-- [Rate limiting](#rate-limiting)
-- [Caching](#caching)
-- [Image verification](#image-verification)
-- [Upgrading from kashalls/kromgo](#upgrading-from-kashallskromgo)
-- [Community](#community)
-
 ## How it works
 
 kromgo sits between the public web and your Prometheus. Each configured metric maps a URL path
@@ -476,7 +455,8 @@ on successful responses and includes `cacheSeconds` in the shields.io endpoint J
 sent `no-store`. Caching is off by default (`cacheSeconds: 0`).
 
 ```yaml
-cacheSeconds: 300 # global default for every metric
+defaults:
+    cacheSeconds: 300 # default for every metric
 
 metrics:
     - name: node_cpu_usage # changes every scrape — short TTL
