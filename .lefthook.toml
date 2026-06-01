@@ -2,3 +2,9 @@
 git_url = "https://github.com/home-operations/.github"
 ref = "main"
 configs = ["lefthook.common.toml"]
+
+# Regenerate the committed JSON schema whenever the config model (or its generator)
+# changes, so config.schema.json stays in sync within the same commit. CI verifies it.
+[pre-commit.commands.config-schema]
+glob = ["internal/config/*.go", "cmd/schema/*.go"]
+run = "mise run generate && git add config.schema.json"

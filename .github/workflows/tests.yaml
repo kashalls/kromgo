@@ -41,5 +41,10 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
+      - name: Check generated schema is current
+        run: |
+          mise run generate
+          git diff --exit-code config.schema.json
+
       - name: Run unit tests
         run: mise run test

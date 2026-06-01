@@ -13,6 +13,10 @@ run = "go fmt ./..."
 description = "Run go vet against code"
 run = "go vet ./..."
 
+[tasks.generate]
+description = "Regenerate committed generated files (config.schema.json)"
+run = "go run ./cmd/schema > config.schema.json && oxfmt config.schema.json"
+
 [tasks.test]
 description = "Run tests with coverage"
 run = "go test $(go list ./...) -coverprofile cover.out"
