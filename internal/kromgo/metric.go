@@ -111,10 +111,15 @@ func resolveRangeQuery(m config.Metric) (*rangeQuery, error) {
 			return nil, fmt.Errorf("metric %q range.step: %w", m.Name, err)
 		}
 	} else {
-		rq.step = max(last/100, minRangeStep)
+		rq.step = autoStep(last)
 	}
 
 	return rq, nil
+}
+
+// autoStep picks a default range-query step: 1/100th of the window, clamped to minRangeStep.
+func autoStep(window time.Duration) time.Duration {
+	return max(window/100, minRangeStep)
 }
 
 // effectiveMaxDuration returns the metric's timeseries max-duration string (per-metric

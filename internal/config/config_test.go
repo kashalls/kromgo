@@ -58,15 +58,6 @@ func TestLoad_InvalidDuration(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestMetricsByName(t *testing.T) {
-	cfg := KromgoConfig{Metrics: []Metric{{Name: "a"}, {Name: "b"}}}
-	idx := cfg.MetricsByName()
-	assert.Len(t, idx, 2)
-	assert.Equal(t, "a", idx["a"].Name)
-	_, ok := idx["missing"]
-	assert.False(t, ok)
-}
-
 func TestLoadServer_Defaults(t *testing.T) {
 	// Clear any inherited env so envDefault applies. t.Setenv registers the
 	// restore; os.Unsetenv then removes the var for the duration of the test.

@@ -81,14 +81,12 @@ func parseHistoryParams(r *http.Request) (start, end time.Time, step time.Durati
 		}
 	}
 
-	// Auto step is 1/100th of the window, clamped to a 1m minimum.
-	minStep := time.Minute
-	step = max(end.Sub(start)/100, minStep)
+	step = autoStep(end.Sub(start))
 	if s := q.Get("step"); s != "" {
 		if step, err = config.ParseDuration(s); err != nil {
 			return start, end, step, err
 		}
-		step = max(step, minStep)
+		step = max(step, minRangeStep)
 	}
 
 	return start, end, step, nil
@@ -129,10 +127,7 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request, metric *
 
 	series := make([]HistorySeries, 0, len(matrix))
 	for _, stream := range matrix {
-		labels := make(map[string]string, len(stream.Metric))
-		for k, v := range stream.Metric {
-			labels[string(k)] = string(v)
-		}
+		labels := labelMap(stream.Metric)
 		data := make([]HistoryDataPoint, 0, len(stream.Values))
 		for _, point := range stream.Values {
 			data = append(data, HistoryDataPoint{

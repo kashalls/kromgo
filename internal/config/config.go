@@ -123,15 +123,6 @@ func Load(path string) (KromgoConfig, error) {
 	return cfg, nil
 }
 
-// MetricsByName indexes the configured metrics by their Name for O(1) lookup.
-func (c KromgoConfig) MetricsByName() map[string]Metric {
-	out := make(map[string]Metric, len(c.Metrics))
-	for _, m := range c.Metrics {
-		out[m.Name] = m
-	}
-	return out
-}
-
 // Query type and range-reduce values.
 const (
 	TypeInstant = "instant"

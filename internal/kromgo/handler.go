@@ -69,12 +69,18 @@ func (h *Handler) serveMetric(w http.ResponseWriter, r *http.Request) {
 	if name == "query" {
 		name = r.URL.Query().Get("metric")
 	}
+
 	format := r.URL.Query().Get("format")
-	if format == "" {
-		format = "json"
+	switch format {
+	case "raw", "badge", "chart", "history": // recognized formats
+	default:
+		format = "json" // empty or unknown falls through to JSON
 	}
 
-	defer requestsTotal.WithLabelValues(name, format).Inc()
+	// metricLabel is bounded to configured names (plus "unknown") rather than the
+	// raw request path, so arbitrary URLs can't explode the counter's cardinality.
+	metricLabel := "unknown"
+	defer func() { requestsTotal.WithLabelValues(metricLabel, format).Inc() }()
 	log := requestLogger(r, name, format)
 
 	if name == "" {
@@ -88,6 +94,7 @@ func (h *Handler) serveMetric(w http.ResponseWriter, r *http.Request) {
 		writeError(w, name, "Not Found", http.StatusNotFound)
 		return
 	}
+	metricLabel = name
 
 	// Set the cache policy up front; writeError overrides it with no-store on failures.
 	if metric.cacheSeconds > 0 {
@@ -168,10 +175,7 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric *
 // a failing color expression is logged and treated as no color.
 func (h *Handler) evalDisplay(metric *resolvedMetric, sample *model.Sample, log *slog.Logger) (message, color string, ok bool) {
 	result := float64(sample.Value)
-	labels := make(map[string]string, len(sample.Metric))
-	for k, v := range sample.Metric {
-		labels[string(k)] = string(v)
-	}
+	labels := labelMap(sample.Metric)
 
 	message, err := evalStringExpr(metric.valueProg, result, labels)
 	if err != nil {
@@ -205,6 +209,15 @@ func (h *Handler) queryValue(ctx context.Context, metric *resolvedMetric) (model
 		return nil, fmt.Errorf("range query returned %s, want matrix", value.Type())
 	}
 	return reduceMatrix(matrix, rq.reduce), nil
+}
+
+// labelMap converts a Prometheus label set to a plain string map for CEL/JSON use.
+func labelMap(m model.Metric) map[string]string {
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[string(k)] = string(v)
+	}
+	return out
 }
 
 // metricTitle returns the display title for a metric (its Title, falling back to Name).

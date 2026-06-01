@@ -10,6 +10,8 @@ import (
 	"github.com/home-operations/kromgo/internal/config"
 	"github.com/home-operations/kromgo/internal/prometheus"
 	"github.com/home-operations/kromgo/internal/promtest"
+	promclient "github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,6 +52,27 @@ func doGet(t *testing.T, h *Handler, target string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	h.Mux().ServeHTTP(w, req)
 	return w
+}
+
+func counterValue(t *testing.T, c promclient.Counter) float64 {
+	t.Helper()
+	var m dto.Metric
+	require.NoError(t, c.Write(&m))
+	return m.GetCounter().GetValue()
+}
+
+// An unknown metric path and an unknown ?format= value must both fold into the
+// bounded ("unknown","json") counter series rather than minting new label values.
+func TestServeMetric_CounterCardinalityBounded(t *testing.T) {
+	srv := mockProm(t, "1", nil)
+	h := newHandlerForTest(t, baseConfig(), srv.URL)
+
+	before := counterValue(t, requestsTotal.WithLabelValues("unknown", "json"))
+	doGet(t, h, "/does-not-exist")
+	doGet(t, h, "/also-missing?format=bogus")
+	after := counterValue(t, requestsTotal.WithLabelValues("unknown", "json"))
+
+	assert.Equal(t, before+2, after)
 }
 
 func TestServeMetric_JSON(t *testing.T) {
