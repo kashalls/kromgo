@@ -15,9 +15,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write # cosign keyless signing
-    # Docker's official reusable workflow: native per-platform runners (arm64 →
-    # ubuntu-24.04-arm by default), manifest merge, SBOM, and cosign signing.
+      id-token: write # cosign signing
     uses: docker/github-builder/.github/workflows/build.yml@17bd7d64200cae4ba58ffc099934e8012ae320f2 # v1.10.0
     with:
       output: image
@@ -26,10 +24,7 @@ jobs:
       sbom: true
       sign: true
       meta-images: ghcr.io/${{ github.repository }}
-      # main push → the branch name ("main"); release → the semver version
-      # (e.g. 0.12.0) plus "rolling" (a moving pointer to the latest release).
-      # event=branch fires only on a branch push and semver/rolling only on a
-      # release, so the sets never collide.
+      # main push → "main"; release → the version + "rolling"
       meta-tags: |
         type=semver,pattern={{version}}
         type=raw,value=rolling,enable=${{ github.event_name == 'release' }}
