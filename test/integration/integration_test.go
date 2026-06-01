@@ -32,31 +32,29 @@ func newHandler(t *testing.T) *kromgo.Handler {
 	require.NoError(t, err)
 
 	cfg := config.KromgoConfig{
-		Metrics: []config.Metric{
-			{Name: "up", Query: "sum(up)"},
-		},
-		Defaults: config.Defaults{Timeseries: config.TimeseriesConfig{Enabled: true, MaxDuration: "24h"}},
+		Badges: []config.Badge{{ID: "up", Query: "sum(up)"}},
+		Graphs: []config.Graph{{ID: "up", Query: "sum(up)", MaxDuration: "24h"}},
 	}
 	h, err := kromgo.New(cfg, client)
 	require.NoError(t, err)
 	return h
 }
 
-func TestIntegration_JSON(t *testing.T) {
+func TestIntegration_Shields(t *testing.T) {
 	h := newHandler(t)
 
-	w := promtest.Get(t, h.Mux(), "/up")
+	w := promtest.Get(t, h.Mux(), "/badges/up?format=shields")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	assert.Contains(t, w.Body.String(), `"label":"up"`)
 }
 
-func TestIntegration_History(t *testing.T) {
+func TestIntegration_GraphJSON(t *testing.T) {
 	h := newHandler(t)
 
-	w := promtest.Get(t, h.Mux(), "/up?format=history&last=1h")
+	w := promtest.Get(t, h.Mux(), "/graphs/up?format=json&last=1h")
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"metric":"up"`)
+	assert.Contains(t, w.Body.String(), `"id":"up"`)
 }

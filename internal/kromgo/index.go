@@ -3,8 +3,6 @@ package kromgo
 import (
 	"html/template"
 	"net/http"
-
-	"github.com/home-operations/kromgo/internal/config"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
@@ -12,7 +10,7 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 <body>
 {{- if .}}
 {{- range .}}
-<a href="/{{.Name}}">{{.Name}}</a><br>
+<a href="{{.Href}}">{{.Label}}</a><br>
 {{- end}}
 {{- else}}
 <i>page intentionally blank</i>
@@ -20,26 +18,36 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 </body>
 </html>`))
 
-// index renders an HTML page listing all visible metrics.
+type indexLink struct {
+	Href  string
+	Label string
+}
+
+// index renders an HTML page listing all visible badges and graphs.
 func (h *Handler) index(w http.ResponseWriter, _ *http.Request) {
-	var visible []config.Metric
-	for _, m := range h.cfg.Metrics {
-		if !isHidden(m, h.cfg.Defaults.Hidden) {
-			visible = append(visible, m)
+	var links []indexLink
+	for _, b := range h.cfg.Badges {
+		if !hidden(b.Hidden, h.cfg.Defaults.Hidden) {
+			links = append(links, indexLink{Href: "/badges/" + b.ID, Label: displayTitle(b.Title, b.ID)})
+		}
+	}
+	for _, g := range h.cfg.Graphs {
+		if !hidden(g.Hidden, h.cfg.Defaults.Hidden) {
+			links = append(links, indexLink{Href: "/graphs/" + g.ID, Label: displayTitle(g.Title, g.ID)})
 		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = indexTmpl.Execute(w, visible)
+	_ = indexTmpl.Execute(w, links)
 }
 
-// isHidden reports whether a metric should be hidden from the index page, given the
-// default visibility (defaults.hidden). Defaults to hidden when neither is set.
-func isHidden(m config.Metric, defaultHidden *bool) bool {
-	if m.Hidden != nil {
-		return *m.Hidden
+// hidden reports whether an endpoint should be hidden from the index, given its own
+// override and the default. Defaults to hidden when neither is set.
+func hidden(item, def *bool) bool {
+	if item != nil {
+		return *item
 	}
-	if defaultHidden != nil {
-		return *defaultHidden
+	if def != nil {
+		return *def
 	}
 	return true // default: hide all when not specified
 }

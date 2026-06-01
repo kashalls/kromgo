@@ -9,26 +9,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// --- isHidden ---
+// --- hidden ---
 
-func TestIsHidden(t *testing.T) {
+func TestHidden(t *testing.T) {
 	cases := []struct {
-		name          string
-		metric        config.Metric
-		defaultHidden *bool
-		want          bool
+		name string
+		item *bool
+		def  *bool
+		want bool
 	}{
-		{"no global, no per-metric defaults to hidden", config.Metric{Name: "foo"}, nil, true},
-		{"global false, no per-metric is visible", config.Metric{Name: "foo"}, new(false), false},
-		{"global true, no per-metric is hidden", config.Metric{Name: "foo"}, new(true), true},
-		{"per-metric true overrides global false", config.Metric{Name: "foo", Hidden: new(true)}, new(false), true},
-		{"per-metric false overrides global true", config.Metric{Name: "foo", Hidden: new(false)}, new(true), false},
-		{"per-metric false, no global", config.Metric{Name: "foo", Hidden: new(false)}, nil, false},
-		{"per-metric true, no global", config.Metric{Name: "foo", Hidden: new(true)}, nil, true},
+		{"no item, no default → hidden", nil, nil, true},
+		{"default false, no item → visible", nil, new(false), false},
+		{"default true, no item → hidden", nil, new(true), true},
+		{"item true over default false → hidden", new(true), new(false), true},
+		{"item false over default true → visible", new(false), new(true), false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, isHidden(tc.metric, tc.defaultHidden))
+			assert.Equal(t, tc.want, hidden(tc.item, tc.def))
 		})
 	}
 }
@@ -41,7 +39,7 @@ func newTestHandler(cfg config.KromgoConfig) *Handler {
 
 func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{{Name: "cpu"}, {Name: "mem"}},
+		Badges: []config.Badge{{ID: "cpu"}, {ID: "mem"}},
 		// Defaults.Hidden nil → defaults to true (hidden)
 	})
 
@@ -55,9 +53,10 @@ func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {
 	assert.NotContains(t, w.Body.String(), "<a href")
 }
 
-func TestIndexHandler_AllVisible_AllLinksPresent(t *testing.T) {
+func TestIndexHandler_BadgesAndGraphs_LinksPresent(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Metrics:  []config.Metric{{Name: "cpu"}, {Name: "mem"}},
+		Badges:   []config.Badge{{ID: "cpu", Title: "CPU"}},
+		Graphs:   []config.Graph{{ID: "cpu"}},
 		Defaults: config.Defaults{Hidden: new(false)},
 	})
 
@@ -67,16 +66,16 @@ func TestIndexHandler_AllVisible_AllLinksPresent(t *testing.T) {
 
 	body := w.Body.String()
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
-	assert.Contains(t, body, `<a href="/mem">mem</a>`)
+	assert.Contains(t, body, `<a href="/badges/cpu">CPU</a>`)
+	assert.Contains(t, body, `<a href="/graphs/cpu">cpu</a>`)
 	assert.NotContains(t, body, "page intentionally blank")
 }
 
 func TestIndexHandler_MixedVisibility(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{
-			{Name: "cpu", Hidden: new(false)},
-			{Name: "mem"}, // hidden by global default
+		Badges: []config.Badge{
+			{ID: "cpu", Hidden: new(false)},
+			{ID: "mem"}, // hidden by global default
 		},
 	})
 
@@ -85,15 +84,15 @@ func TestIndexHandler_MixedVisibility(t *testing.T) {
 	h.index(w, req)
 
 	body := w.Body.String()
-	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
-	assert.NotContains(t, body, `<a href="/mem">`)
+	assert.Contains(t, body, `<a href="/badges/cpu">cpu</a>`)
+	assert.NotContains(t, body, `/badges/mem`)
 }
 
-func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
+func TestIndexHandler_GlobalFalse_PerEndpointOverrideHidden(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{
-			{Name: "cpu"},
-			{Name: "secret", Hidden: new(true)},
+		Badges: []config.Badge{
+			{ID: "cpu"},
+			{ID: "secret", Hidden: new(true)},
 		},
 		Defaults: config.Defaults{Hidden: new(false)},
 	})
@@ -103,15 +102,12 @@ func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
 	h.index(w, req)
 
 	body := w.Body.String()
-	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
-	assert.NotContains(t, body, `<a href="/secret">`)
+	assert.Contains(t, body, `<a href="/badges/cpu">cpu</a>`)
+	assert.NotContains(t, body, `/badges/secret`)
 }
 
-func TestIndexHandler_NoMetrics_ShowsIntentionallyBlank(t *testing.T) {
-	h := newTestHandler(config.KromgoConfig{
-		Metrics:  []config.Metric{},
-		Defaults: config.Defaults{Hidden: new(false)},
-	})
+func TestIndexHandler_NoEndpoints_ShowsIntentionallyBlank(t *testing.T) {
+	h := newTestHandler(config.KromgoConfig{Defaults: config.Defaults{Hidden: new(false)}})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()

@@ -2,6 +2,7 @@ package kromgo
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -29,6 +30,14 @@ func writeJSON(w http.ResponseWriter, v any) error {
 func writeSVG(w http.ResponseWriter, svg []byte) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	_, _ = w.Write(svg)
+}
+
+// writeJSONOr writes v as JSON, falling back to a 500 error response on marshal failure.
+func writeJSONOr(w http.ResponseWriter, log *slog.Logger, id string, v any) {
+	if err := writeJSON(w, v); err != nil {
+		log.Error("error writing json response", "error", err)
+		writeError(w, id, "Error", http.StatusInternalServerError)
+	}
 }
 
 // writeError writes a shields.io-compatible error response with the given status code.

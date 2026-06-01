@@ -7,16 +7,18 @@
 [![License](https://img.shields.io/github/license/home-operations/kromgo)](LICENSE)
 [![Discord](https://img.shields.io/discord/673534664354430999?label=discord&logo=discord&logoColor=white&color=blue)](https://discord.gg/home-operations)
 
-Safely expose individual Prometheus metric values to the public web. Define named metrics backed by PromQL queries and serve them as JSON, SVG badges, sparkline charts, or raw Prometheus data — without exposing your Prometheus instance directly.
+Safely expose individual Prometheus metric values to the public web. Define named endpoints backed by PromQL queries and serve them as SVG badges, sparkline graphs, or JSON — without exposing your Prometheus instance directly.
 
-Works out of the box with [shields.io Endpoint Badges](https://shields.io/badges/endpoint-badge).
+Badges render as shields.io-style SVG, so you can embed `/badges/{id}` straight into an `<img>` tag — no shields.io round-trip required (though it's still supported via `?format=shields`).
 
 ## How it works
 
-kromgo sits between the public web and your Prometheus. Each configured metric maps a URL path
-(`/{name}`) to a PromQL query; a request runs the query and renders the result in the format you ask
-for (`json`, `raw`, `badge`, `chart`, or `history`). Only the metrics you define are reachable —
-Prometheus itself is never exposed.
+kromgo sits between the public web and your Prometheus. You define two kinds of endpoint:
+
+- **Badges** (`/badges/{id}`) render an instant value as an SVG badge, shields.io JSON, or kromgo JSON.
+- **Graphs** (`/graphs/{id}`) render a time series as an SVG sparkline or JSON.
+
+Each maps a URL path to a PromQL query. Only the endpoints you define are reachable — Prometheus itself is never exposed.
 
 ## Quick start
 
@@ -28,10 +30,10 @@ docker run -d \
   ghcr.io/home-operations/kromgo:latest
 ```
 
-Then query a metric:
+Then embed or query a badge:
 
-```
-GET http://localhost:8080/node_cpu_usage
+```html
+<img src="http://localhost:8080/badges/node_cpu_usage" />
 ```
 
 ### Docker Compose
@@ -50,20 +52,19 @@ services:
 
 ## Configuration
 
-kromgo reads its metric definitions from `/kromgo/config.yaml` inside the container. Mount your
+kromgo reads its endpoint definitions from `/kromgo/config.yaml` inside the container. Mount your
 config file there (or pass `-config /path/to/config.yaml`).
 
 **Minimal example:**
 
 ```yaml
-metrics:
-    - name: node_cpu_usage
+badges:
+    - id: node_cpu_usage
       query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"
       value: string(result) + "%"
 ```
 
-See the sections below for the full set of options — value/color expressions, range queries,
-history/charts, and badges. A JSON Schema for editor validation is published at [config.schema.json](./config.schema.json);
+A JSON Schema for editor validation is published at [config.schema.json](./config.schema.json);
 point your editor's YAML language server at it for inline completion and validation.
 
 ### Environment variables
@@ -82,46 +83,53 @@ point your editor's YAML language server at it for inline completion and validat
 | `LOG_LEVEL`            | no       | `info`    | Log level: `debug`, `info`, `warn`, `error` |
 | `LOG_FORMAT`           | no       | `json`    | Log format: `json` or `text`                |
 
-### Metrics
-
-Each entry under `metrics:` defines one queryable endpoint at `/{name}`.
-
-| Field          | Required | Description                                                                                    |
-| -------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `name`         | yes      | URL path segment — `node_cpu_usage` → `GET /node_cpu_usage`                                    |
-| `query`        | yes      | PromQL expression, must return a single scalar or vector value                                 |
-| `type`         | no       | `instant` (default) or `range` — see [Range queries](#range-queries)                           |
-| `range`        | no\*     | Range-query window when `type: range` — see [Range queries](#range-queries)                    |
-| `title`        | no       | Display label in badge/endpoint responses (defaults to `name`)                                 |
-| `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)              |
-| `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)                         |
-| `hidden`       | no       | Override `defaults.hidden` for this metric — see [Index page](#index-page)                     |
-| `timeseries`   | no       | Override `defaults.timeseries` for this metric — see [History and charts](#history-and-charts) |
-| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this metric — see [Caching](#caching)                     |
-
 ### Defaults
 
-`defaults` sets the baseline for the per-metric fields that support it; each metric overrides the
+`defaults` sets the baseline for the per-endpoint fields that support it; each endpoint overrides the
 same-named field. All keys are optional.
 
 ```yaml
 defaults:
-    hidden: true # index visibility — true (default) hides every metric unless it opts in
+    hidden: true # index visibility — true (default) hides every endpoint unless it opts in
     cacheSeconds: 0 # Cache-Control max-age in seconds; 0 disables caching
-    timeseries: # gates the time-series output formats (format=history and format=chart)
-        enabled: false
-        maxDuration: 1h
+    badge:
+        font: Verdana.ttf # optional TrueType font path; defaults to an embedded font
+        size: 11 # badge font size in points
+        style: flat # flat (default), flat-square, or plastic
+    graph:
+        maxDuration: 1h # cap on a graph's requested window ("0" = unlimited)
+        width: 300 # sparkline width in px
+        height: 80 # sparkline height in px
+        stroke: 2 # line width
+        legend: true # show the series legend
 ```
 
-### Range queries
+### Badges
 
-By default a metric's value comes from an **instant** query at "now". Set `type: range` to instead
-run a **range query** over a window and reduce it to a single value — useful for averages, peaks, or
+Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
+
+| Field          | Required | Description                                                                       |
+| -------------- | -------- | --------------------------------------------------------------------------------- |
+| `id`           | yes      | URL path segment — `cpu` → `GET /badges/cpu`                                      |
+| `query`        | yes      | PromQL expression returning a single scalar or vector value                       |
+| `title`        | no       | Display label on the badge (defaults to `id`)                                     |
+| `type`         | no       | `instant` (default) or `range` — see [Range badges](#range-badges)                |
+| `range`        | no\*     | Range-query window when `type: range`                                             |
+| `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color) |
+| `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)            |
+| `style`        | no       | `flat` (default), `flat-square`, or `plastic`                                     |
+| `hidden`       | no       | Override `defaults.hidden` for this badge                                         |
+| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this badge                                   |
+
+#### Range badges
+
+By default a badge's value comes from an **instant** query at "now". Set `type: range` to instead run
+a **range query** over a window and reduce it to a single value — useful for averages, peaks, or
 comparing against an earlier period. The window is `end = now - offset`, `start = end - last`.
 
 ```yaml
-metrics:
-    - name: cpu_prev_week_avg
+badges:
+    - id: cpu_prev_week_avg
       type: range
       query: "cluster:node_cpu:ratio_rate5m * 100"
       range:
@@ -132,9 +140,7 @@ metrics:
       value: string(result) + "%"
 ```
 
-`reduce` collapses each series to one value; non-finite samples (NaN/Inf) are skipped. This is
-independent of the [history/chart output formats](#history-and-charts) — a `range` metric still
-returns a single value.
+`reduce` collapses each series to one value; non-finite samples (NaN/Inf) are skipped.
 
 ### Value and color
 
@@ -147,31 +153,30 @@ request. Each expression receives two variables:
 | `result` | `double`              | The sample value (for `type: range`, the reduced value). |
 | `labels` | `map(string, string)` | The sample's labels, e.g. `labels["instance"]`.          |
 
-- **`value`** must return a string — the message shown on the badge/endpoint. Defaults to
-  `string(result)`.
+- **`value`** must return a string — the message shown on the badge. Defaults to `string(result)`.
 - **`color`** must return a string — a [shields.io color name](https://shields.io) (`green`,
   `orange`, `red`, `blue`, `grey`, …) or a hex value like `"#e05d44"`. Omit for no color.
 
 ```yaml
-metrics:
+badges:
     # numeric value with a unit + threshold coloring
-    - name: cpu
+    - id: cpu
       query: "round(avg(...) * 100, 0.1)"
       value: string(result) + "%"
       color: 'result < 35 ? "green" : result < 75 ? "orange" : "red"'
 
     # value taken from a label, falling back if it's absent
-    - name: version
+    - id: version
       query: 'label_replace(build_info, "v", "$1", "version", "v(.+)")'
       value: labels[?"v"].orValue("unknown")
 
     # guard a possibly-NaN ratio (e.g. divide-by-zero) before formatting
-    - name: hit_ratio
+    - id: hit_ratio
       query: cache_hits / (cache_hits + cache_misses)
       value: 'math.isNaN(result) ? "n/a" : humanizeFloat(math.round(result * 100.0)) + "%"'
 
     # enum → text + color
-    - name: ceph_health
+    - id: ceph_health
       query: ceph_health_status
       value: 'result == 0.0 ? "Healthy" : result == 1.0 ? "Warning" : "Critical"'
       color: 'result == 0.0 ? "green" : result == 1.0 ? "orange" : "red"'
@@ -201,41 +206,6 @@ adapts to the magnitude, emitting the up-to-three most-significant units — `90
 `2h30m`, `40348800` → `1y3mo12d`. Months render as `mo` so they never collide with minutes (`m`) in
 the same string.
 
-```yaml
-metrics:
-    # memory used → "12 GiB", red once it crosses 56 GiB (60129542144 bytes)
-    - name: memory_used
-      query: sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
-      value: humanizeBytes(result)
-      color: 'result < 60129542144 ? "green" : "red"'
-
-    # network egress on an SI-unit link → "1.5 MB"
-    - name: egress
-      query: sum(rate(node_network_transmit_bytes_total[5m]))
-      value: humanizeSIBytes(result)
-
-    # running pod count → "1,204"
-    - name: pods
-      query: count(kube_pod_info)
-      value: humanizeNumber(result)
-
-    # a ratio without trailing-zero noise → "1.5" (string(result) may give "1.5000001")
-    - name: replicas_ratio
-      query: avg(kube_deployment_status_replicas_available / kube_deployment_spec_replicas)
-      value: humanizeFloat(result)
-
-    # cluster uptime → "12d4h30m"
-    - name: uptime
-      query: time() - node_boot_time_seconds
-      value: humanizeDuration(result)
-
-    # node age → "1y3mo12d"; turn orange past a year
-    - name: node_age
-      query: time() - kube_node_created
-      value: humanizeDuration(result)
-      color: 'result < 31536000 ? "blue" : "orange"'
-```
-
 Two gotchas around `result` (a `double`):
 
 - **Numeric literals.** Ordered comparisons accept plain integers — `result < 35` works (kromgo
@@ -243,30 +213,37 @@ Two gotchas around `result` (a `double`):
   literal there, e.g. `result == 0.0` (not `== 0`) and `result * 100.0` (not `* 100`). A mismatch is
   a compile error caught at startup, not a runtime surprise.
 - **Missing labels.** Indexing a label that isn't present errors. Use optional indexing —
-  `labels[?"k"].orValue("n/a")` — or the ternary `"k" in labels ? labels["k"] : "n/a"` when a label
-  may be absent.
+  `labels[?"k"].orValue("n/a")` — or the ternary `"k" in labels ? labels["k"] : "n/a"`.
 
-### History and charts
+### Graphs
 
-The `chart` and `history` output formats return a time series. They are **disabled by default** and
-must be enabled — via `defaults.timeseries` and/or per metric — to limit what range data is exposed
-publicly. (This is separate from a metric's [`type: range`](#range-queries), which only affects how
-its single value is computed.)
+Each entry under `graphs:` defines a time-series endpoint at `/graphs/{id}`. Defining a graph is the
+opt-in to expose range data for that query — there is no separate enable flag.
+
+| Field          | Required | Description                                                          |
+| -------------- | -------- | -------------------------------------------------------------------- |
+| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                         |
+| `query`        | yes      | PromQL expression run as a range query                               |
+| `title`        | no       | Display label (defaults to `id`)                                     |
+| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`) |
+| `width`        | no       | SVG width in px (overrides `defaults.graph.width`)                   |
+| `height`       | no       | SVG height in px (overrides `defaults.graph.height`)                 |
+| `stroke`       | no       | Line width (overrides `defaults.graph.stroke`)                       |
+| `color`        | no       | Line color (shields.io name or hex); empty cycles a palette          |
+| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)           |
+| `hidden`       | no       | Override `defaults.hidden` for this graph                            |
+| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                      |
 
 ```yaml
-defaults:
-    timeseries:
-        enabled: true # allow format=history and format=chart
-        maxDuration: "7d" # cap the requested time window (default "1h"; "0" = unlimited)
-
-metrics:
-    - name: node_cpu_usage
-      query: "..."
-      timeseries:
-          maxDuration: "30d" # override just this metric (enabled inherited from defaults)
+graphs:
+    - id: node_cpu_usage
+      query: "cluster:node_cpu:ratio_rate5m * 100"
+      maxDuration: "30d"
+      width: 400
 ```
 
-Time-window query parameters (shared by `chart` and `history`):
+The time window is chosen by these query parameters (config fields set the rendering defaults; these
+fields cannot be overridden by the request):
 
 | Parameter | Default    | Description                                                              |
 | --------- | ---------- | ------------------------------------------------------------------------ |
@@ -275,85 +252,57 @@ Time-window query parameters (shared by `chart` and `history`):
 | `end`     | now        | Window end — Unix timestamp or RFC3339                                   |
 | `step`    | window/100 | Resolution between points (min `1m`); supports `s/m/h/d/y` units         |
 
-### Badge font
-
-Badges render with an embedded default font, so kromgo works out of the box with no font file. To use
-a custom TrueType font, mount it and point `badge.font` at it:
-
-```yaml
-badge:
-    font: /kromgo/Verdana.ttf # optional; defaults to an embedded font
-    size: 12 # optional; defaults to 11
-```
+`width`, `height`, `stroke`, `color`, and `legend` may also be overridden per request via query
+parameters.
 
 ## Index page
 
-`GET /` returns an HTML page listing all visible metrics as clickable links. By default all metrics
-are hidden.
+`GET /` returns an HTML page listing all visible badges and graphs as clickable links. By default all
+endpoints are hidden.
 
-Set `defaults.hidden: false` to show all metrics, then opt individual ones out with `hidden: true`;
-or keep the default and opt specific metrics in with `hidden: false`. When no metrics are visible,
-the page displays _page intentionally blank_.
+Set `defaults.hidden: false` to show everything, then opt individual endpoints out with
+`hidden: true`; or keep the default and opt specific ones in with `hidden: false`. When nothing is
+visible, the page displays _page intentionally blank_.
 
 ## API reference
 
-The format is selected with the `?format=` query parameter (default `json`).
+| Route              | Default response        | Variants                                                           |
+| ------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `GET /badges/{id}` | SVG badge (`?style=…`)  | `?format=shields` → shields.io JSON · `?format=json` → kromgo JSON |
+| `GET /graphs/{id}` | SVG sparkline           | `?format=json` → time-series data                                  |
+| `GET /`            | HTML index of endpoints |                                                                    |
 
-### Endpoint / JSON (default)
+**`/badges/{id}`** (default SVG):
 
-Compatible with the [shields.io Endpoint Badge](https://shields.io/badges/endpoint-badge).
-
+```html
+<img src="http://localhost:8080/badges/node_cpu_usage" />
 ```
-GET /node_cpu_usage
-```
+
+**`?format=shields`** — the [shields.io Endpoint Badge](https://shields.io/badges/endpoint-badge) schema:
 
 ```json
 { "schemaVersion": 1, "label": "node_cpu_usage", "message": "17.5%", "color": "green" }
 ```
 
-### Raw
-
-Returns the raw Prometheus query result.
-
-```
-GET /node_cpu_usage?format=raw
-```
-
-```json
-[{ "metric": {}, "value": [1702664619.78, "17.5"] }]
-```
-
-### Badge
-
-Returns an SVG badge directly. Styles: `flat` (default), `flat-square`, `plastic`.
-
-```
-GET /node_cpu_usage?format=badge
-GET /node_cpu_usage?format=badge&style=flat-square
-```
-
-### Chart
-
-Returns an SVG sparkline of the metric over time (requires history enabled — see
-[History and charts](#history-and-charts)). Extra parameters: `width` (default 300), `height`
-(default 80), `stroke` (default 2), `color` (override line color), `legend` (`false` to hide).
-
-```
-GET /node_cpu_usage?format=chart&last=24h&width=400
-```
-
-### History
-
-Returns the raw time series as JSON (requires history enabled).
-
-```
-GET /node_cpu_usage?format=history&last=24h
-```
+**`?format=json`** — kromgo's native JSON (rendered string plus the raw number and labels):
 
 ```json
 {
-    "metric": "node_cpu_usage",
-    "title": "node_cpu_usage",
+    "id": "node_cpu_usage",
+    "title": "CPU",
+    "value": "17.5%",
+    "color": "green",
+    "result": 17.5,
+    "labels": {}
+}
+```
+
+**`/graphs/{id}?format=json`** — the raw time series:
+
+```json
+{
+    "id": "node_cpu_usage",
+    "title": "CPU",
     "start": 1702578219,
     "end": 1702664619,
     "step": 60,
@@ -365,12 +314,12 @@ GET /node_cpu_usage?format=history&last=24h
 
 | Port   | Purpose                                                        |
 | ------ | -------------------------------------------------------------- |
-| `8080` | Main server — metric queries                                   |
+| `8080` | Main server — badge and graph endpoints                        |
 | `8888` | Health server — `/healthz`, `/readyz`, `/metrics` (Prometheus) |
 
 The health server's `/metrics` endpoint exposes Go runtime metrics plus
-`kromgo_requests_total{metric, format}` — a counter of requests handled, broken down by metric name
-and response format.
+`kromgo_requests_total{kind, id, format}` — a counter of requests handled, broken down by endpoint
+kind (`badge`/`graph`), id, and response format.
 
 ## Rate limiting
 
@@ -450,27 +399,28 @@ http:
 ## Caching
 
 Caching has two halves, and kromgo owns the half only it can know: **how long a value stays fresh**.
-Set `cacheSeconds` (globally and/or per metric) and kromgo emits `Cache-Control: public, max-age=N`
-on successful responses and includes `cacheSeconds` in the shields.io endpoint JSON. Errors are always
-sent `no-store`. Caching is off by default (`cacheSeconds: 0`).
+Set `cacheSeconds` (globally under `defaults` and/or per endpoint) and kromgo emits
+`Cache-Control: public, max-age=N` on successful responses and includes `cacheSeconds` in the
+shields.io endpoint JSON. Errors are always sent `no-store`. Caching is off by default
+(`cacheSeconds: 0`).
 
 ```yaml
 defaults:
-    cacheSeconds: 300 # default for every metric
+    cacheSeconds: 300 # default for every endpoint
 
-metrics:
-    - name: node_cpu_usage # changes every scrape — short TTL
+badges:
+    - id: node_cpu_usage # changes every scrape — short TTL
       query: "..."
       cacheSeconds: 30
-    - name: cluster_age # changes once a day — long TTL
+    - id: cluster_age # changes once a day — long TTL
       query: "..."
       cacheSeconds: 3600
 ```
 
 The **other half — actually storing responses — is the edge's job**, and any cache that honors
-`Cache-Control` (a CDN, Varnish, nginx `proxy_cache`) will then cache each metric for exactly the TTL
-kromgo advertised, with no per-metric tuning at the proxy. shields.io already respects `cacheSeconds`,
-so public badges are cached without any proxy at all.
+`Cache-Control` (a CDN, Varnish, nginx `proxy_cache`) will then cache each endpoint for exactly the
+TTL kromgo advertised. shields.io already respects `cacheSeconds`, so badges served through it are
+cached without any proxy at all.
 
 If you want the reverse proxy itself to cache, enable its HTTP cache and let it honor the origin
 headers — for example, nginx:
@@ -502,23 +452,30 @@ cosign verify ghcr.io/home-operations/kromgo:<tag> \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 ```
 
+## Upgrading 0.11 → 0.12
+
+0.12 splits the flat `metrics:` list into `badges:` and `graphs:` sections, with REST-style routes.
+A pre-0.12 config fails fast at startup with a pointer to this guide.
+
+| Change                                                                                                                                         | Action                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`metrics:` split into `badges:` and `graphs:`.** Instant-value endpoints go under `badges:`; time-series endpoints under `graphs:`.          | Move each metric to the section(s) it needs. A metric you served as both a badge and a chart becomes one entry in each (with the same `id`).     |
+| **`name` → `id`.**                                                                                                                             | Rename the key on every endpoint.                                                                                                                |
+| **Routes are namespaced.** `GET /{name}` + `?format=` → `GET /badges/{id}` and `GET /graphs/{id}`.                                             | Update embed URLs and shields.io endpoint URLs.                                                                                                  |
+| **Badge default is now the SVG image.** `?format=badge` → default; `?format=json` (shields schema) → `?format=shields`; `?format=raw` removed. | Embed `/badges/{id}` directly; point shields.io at `?format=shields`. `?format=json` now returns kromgo's native JSON (value + result + labels). |
+| **Graph formats.** `?format=chart` → `/graphs/{id}` (SVG default); `?format=history` → `/graphs/{id}?format=json`.                             | Switch to the `/graphs/` routes.                                                                                                                 |
+| **`defaults.timeseries` removed.** The `enabled` gate is gone — defining a `graphs:` entry _is_ the opt-in.                                    | Drop `timeseries.enabled`; move `maxDuration` to `defaults.graph.maxDuration` or per-graph `maxDuration`.                                        |
+| **Global `badge:` (font/size) → `defaults.badge`.** Badge `style` is now a config field too.                                                   | Move `badge.font`/`badge.size` under `defaults.badge`.                                                                                           |
+
+Release tags drop the `v` prefix (e.g. `0.12.0`, not `v0.12.0`); pin image tags accordingly.
+
 ## Upgrading from kashalls/kromgo
 
-This fork is functionally compatible — metric config, query semantics, and response
-formats are unchanged — but a few deployment details changed:
-
-| Change                                                                                                                                                                                                                                                                                                                                                         | Action                                                                                                                                                                                                                          |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Image moved** to `ghcr.io/home-operations/kromgo`.                                                                                                                                                                                                                                                                                                           | Update your image reference (and the cosign identity, if you verify).                                                                                                                                                           |
-| **Badge font no longer bundled.** The image no longer ships `Verdana.ttf`; kromgo now uses an embedded default font. A config still pointing `badge.font` at `Verdana.ttf` will fail at startup.                                                                                                                                                               | Remove `badge.font` to use the embedded font, or mount a TrueType font and point `badge.font` at its path.                                                                                                                      |
-| **`LOG_FORMAT=test` renamed to `LOG_FORMAT=text`.**                                                                                                                                                                                                                                                                                                            | Set `LOG_FORMAT=text` for human-readable logs (default remains JSON).                                                                                                                                                           |
-| **Built-in rate limiting removed** (`RATELIMIT_*` env vars).                                                                                                                                                                                                                                                                                                   | Rate limit at your reverse proxy — see [Rate limiting](#rate-limiting).                                                                                                                                                         |
-| **Config schema reorganized.** Top-level `hideAll`/`history`/`cacheSeconds` defaults moved under a `defaults:` block (`defaults.hidden`, `defaults.timeseries`, `defaults.cacheSeconds`); per-metric `history` is now `timeseries`; the named-`templates` map was removed. (`range` is now a metric query [type](#range-queries), not the history/chart gate.) | Move global defaults under `defaults:`, rename per-metric `history` → `timeseries`, and inline value templates (use a YAML anchor to reuse one). See [Configuration](#configuration).                                           |
-| **Value/color logic is now [CEL](https://cel.dev).** `prefix`, `suffix`, `valueTemplate`, `fromLabel`, and `colors` (`min`/`max`/`display`) are replaced by two CEL expressions, `value` and `color` (vars: `result`, `labels`).                                                                                                                               | Rewrite display logic as expressions: `suffix: "%"` → `value: string(result) + "%"`; `fromLabel: x` → `value: labels["x"]`; color ranges → `color: 'result < 75.0 ? "green" : "red"'`. See [Value and color](#value-and-color). |
-| **Missing `PROMETHEUS_URL` now fails fast** instead of starting degraded.                                                                                                                                                                                                                                                                                      | Ensure `PROMETHEUS_URL` (or `prometheus` in config) is set.                                                                                                                                                                     |
-| **Schema URL** in `config.yaml` examples.                                                                                                                                                                                                                                                                                                                      | Point `# yaml-language-server: $schema=` at `home-operations/kromgo`.                                                                                                                                                           |
-
-Release tags drop the `v` prefix (e.g. `0.11.0`, not `v0.11.0`); pin image tags accordingly.
+This fork began as [kashalls/kromgo](https://github.com/kashalls/kromgo). Beyond the schema changes
+above, note: the image moved to `ghcr.io/home-operations/kromgo`; the badge font is no longer bundled
+(an embedded font is used, with `defaults.badge.font` to override); `LOG_FORMAT=test` was corrected
+to `LOG_FORMAT=text`; built-in rate limiting was removed (see [Rate limiting](#rate-limiting)); and a
+missing `PROMETHEUS_URL` now fails fast instead of starting degraded.
 
 ## Community
 

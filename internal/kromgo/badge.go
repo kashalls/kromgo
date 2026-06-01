@@ -20,7 +20,7 @@ const defaultBadgeFontSize = 11
 type badgePool struct{ pool sync.Pool }
 
 // newBadgePool validates the configured (or embedded default) font and returns a pool.
-func newBadgePool(cfg config.Badge) (*badgePool, error) {
+func newBadgePool(cfg config.BadgeDefaults) (*badgePool, error) {
 	size := cfg.Size
 	if size <= 0 {
 		size = defaultBadgeFontSize

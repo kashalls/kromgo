@@ -3,7 +3,6 @@ package kromgo
 import (
 	"fmt"
 	"html"
-	"log/slog"
 	"math"
 	"net/http"
 	"slices"
@@ -30,8 +29,9 @@ const (
 	maxStrokeWidth    = 20.0
 )
 
-func parseChartParams(r *http.Request) chartParams {
-	p := chartParams{width: 300, height: 80, strokeWidth: 2, legend: true}
+// withOverrides returns the graph's resolved default params with any request query
+// parameters applied on top (width/height/stroke/color/legend).
+func (p chartParams) withOverrides(r *http.Request) chartParams {
 	q := r.URL.Query()
 	if s := q.Get("width"); s != "" {
 		if v, err := strconv.Atoi(s); err == nil && v > 0 {
@@ -48,9 +48,14 @@ func parseChartParams(r *http.Request) chartParams {
 			p.strokeWidth = min(v, maxStrokeWidth)
 		}
 	}
-	p.color = q.Get("color")
-	if q.Get("legend") == "false" {
+	if s := q.Get("color"); s != "" {
+		p.color = s
+	}
+	switch q.Get("legend") {
+	case "false":
 		p.legend = false
+	case "true":
+		p.legend = true
 	}
 	return p
 }
@@ -193,18 +198,4 @@ func renderSparkline(matrix model.Matrix, p chartParams) string {
 
 	sb.WriteString("</svg>")
 	return sb.String()
-}
-
-func (h *Handler) handleChart(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, log *slog.Logger) {
-	start, end, step, ok := h.validateHistoryAccess(w, r, metric)
-	if !ok {
-		return
-	}
-
-	matrix, ok := h.queryMatrix(w, r, metric, start, end, step, log)
-	if !ok {
-		return
-	}
-
-	writeSVG(w, []byte(renderSparkline(matrix, parseChartParams(r))))
 }

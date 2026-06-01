@@ -49,22 +49,22 @@ func TestValidate_Durations(t *testing.T) {
 		{
 			"valid",
 			KromgoConfig{
-				Defaults: Defaults{Timeseries: TimeseriesConfig{MaxDuration: "24h"}},
-				Metrics: []Metric{
-					{Name: "cpu", Timeseries: &MetricTimeseriesConfig{MaxDuration: "7d"}},
-					{Name: "mem"},
+				Defaults: Defaults{Graph: GraphDefaults{MaxDuration: "24h"}},
+				Graphs: []Graph{
+					{ID: "cpu", Query: "q", MaxDuration: "7d"},
+					{ID: "mem", Query: "q"},
 				},
 			},
 			false,
 		},
 		{
 			"invalid default maxDuration",
-			KromgoConfig{Defaults: Defaults{Timeseries: TimeseriesConfig{MaxDuration: "bogus"}}},
+			KromgoConfig{Defaults: Defaults{Graph: GraphDefaults{MaxDuration: "bogus"}}},
 			true,
 		},
 		{
-			"invalid metric maxDuration",
-			KromgoConfig{Metrics: []Metric{{Name: "cpu", Timeseries: &MetricTimeseriesConfig{MaxDuration: "not-a-duration"}}}},
+			"invalid graph maxDuration",
+			KromgoConfig{Graphs: []Graph{{ID: "cpu", Query: "q", MaxDuration: "not-a-duration"}}},
 			true,
 		},
 	}
@@ -81,18 +81,20 @@ func TestValidate_Durations(t *testing.T) {
 }
 
 func TestValidate_RangeType(t *testing.T) {
+	badge := func(b Badge) KromgoConfig { return KromgoConfig{Badges: []Badge{b}} }
 	cases := []struct {
 		name    string
 		cfg     KromgoConfig
 		wantErr bool
 	}{
-		{"valid range", KromgoConfig{Metrics: []Metric{{Name: "ok", Type: TypeRange, Range: &RangeQuery{Last: "7d", Offset: "1d", Step: "1h", Reduce: ReduceAvg}}}}, false},
-		{"type range without range block", KromgoConfig{Metrics: []Metric{{Name: "no-range", Type: TypeRange}}}, true},
-		{"missing last", KromgoConfig{Metrics: []Metric{{Name: "no-last", Type: TypeRange, Range: &RangeQuery{Step: "1h"}}}}, true},
-		{"unknown reducer", KromgoConfig{Metrics: []Metric{{Name: "bad-reduce", Type: TypeRange, Range: &RangeQuery{Last: "7d", Reduce: "median"}}}}, true},
-		{"bad duration", KromgoConfig{Metrics: []Metric{{Name: "bad-dur", Type: TypeRange, Range: &RangeQuery{Last: "soon"}}}}, true},
-		{"range block on instant", KromgoConfig{Metrics: []Metric{{Name: "range-on-instant", Range: &RangeQuery{Last: "7d"}}}}, true},
-		{"unknown type", KromgoConfig{Metrics: []Metric{{Name: "bad-type", Type: "scalar"}}}, true},
+		{"valid range", badge(Badge{ID: "ok", Query: "q", Type: TypeRange, Range: &RangeQuery{Last: "7d", Offset: "1d", Step: "1h", Reduce: ReduceAvg}}), false},
+		{"type range without range block", badge(Badge{ID: "no-range", Query: "q", Type: TypeRange}), true},
+		{"missing last", badge(Badge{ID: "no-last", Query: "q", Type: TypeRange, Range: &RangeQuery{Step: "1h"}}), true},
+		{"unknown reducer", badge(Badge{ID: "bad-reduce", Query: "q", Type: TypeRange, Range: &RangeQuery{Last: "7d", Reduce: "median"}}), true},
+		{"bad duration", badge(Badge{ID: "bad-dur", Query: "q", Type: TypeRange, Range: &RangeQuery{Last: "soon"}}), true},
+		{"range block on instant", badge(Badge{ID: "range-on-instant", Query: "q", Range: &RangeQuery{Last: "7d"}}), true},
+		{"unknown type", badge(Badge{ID: "bad-type", Query: "q", Type: "scalar"}), true},
+		{"unknown style", badge(Badge{ID: "bad-style", Query: "q", Style: "fancy"}), true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

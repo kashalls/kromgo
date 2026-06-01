@@ -11,18 +11,17 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-// The helpers below are the windowed range-query foundation shared by the history
-// and chart output formats: parameter parsing, access/window validation, and the
-// range query itself.
+// The helpers below are the windowed range-query foundation shared by the graph
+// output formats: parameter parsing, window validation, and the range query itself.
 
 var (
-	errStartAfterEnd       = &historyParamError{"start must be before end"}
-	errNonPositiveDuration = &historyParamError{"last must be a positive duration"}
+	errStartAfterEnd       = &graphParamError{"start must be before end"}
+	errNonPositiveDuration = &graphParamError{"last must be a positive duration"}
 )
 
-type historyParamError struct{ msg string }
+type graphParamError struct{ msg string }
 
-func (e *historyParamError) Error() string { return e.msg }
+func (e *graphParamError) Error() string { return e.msg }
 
 func parseTimeParam(s string) (time.Time, error) {
 	// Try Unix timestamp (integer) first, then fall back to RFC3339.
@@ -32,7 +31,7 @@ func parseTimeParam(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
-func parseHistoryParams(r *http.Request) (start, end time.Time, step time.Duration, err error) {
+func parseGraphParams(r *http.Request) (start, end time.Time, step time.Duration, err error) {
 	now := time.Now()
 	q := r.URL.Query()
 
@@ -77,22 +76,17 @@ func parseHistoryParams(r *http.Request) (start, end time.Time, step time.Durati
 	return start, end, step, nil
 }
 
-// validateHistoryAccess checks access control, parses time parameters, and enforces the
-// max duration cap. Returns ok=false if an error response was already written.
-func (h *Handler) validateHistoryAccess(w http.ResponseWriter, r *http.Request, metric *resolvedMetric) (start, end time.Time, step time.Duration, ok bool) {
-	if !metric.historyEnabled {
-		writeError(w, metric.Name, "History not enabled for this metric", http.StatusForbidden)
-		return start, end, step, false
-	}
-
-	start, end, step, err := parseHistoryParams(r)
+// validateGraphAccess parses the time parameters and enforces the graph's max-duration
+// cap. Returns ok=false if an error response was already written.
+func (h *Handler) validateGraphAccess(w http.ResponseWriter, r *http.Request, graph *resolvedGraph) (start, end time.Time, step time.Duration, ok bool) {
+	start, end, step, err := parseGraphParams(r)
 	if err != nil {
-		writeError(w, metric.Name, "Invalid parameter: "+err.Error(), http.StatusBadRequest)
+		writeError(w, graph.ID, "Invalid parameter: "+err.Error(), http.StatusBadRequest)
 		return start, end, step, false
 	}
 
-	if metric.historyMax > 0 && end.Sub(start) > metric.historyMax {
-		writeError(w, metric.Name, "Requested time window exceeds maximum allowed duration", http.StatusBadRequest)
+	if graph.maxDuration > 0 && end.Sub(start) > graph.maxDuration {
+		writeError(w, graph.ID, "Requested time window exceeds maximum allowed duration", http.StatusBadRequest)
 		return start, end, step, false
 	}
 
@@ -101,17 +95,17 @@ func (h *Handler) validateHistoryAccess(w http.ResponseWriter, r *http.Request, 
 
 // queryMatrix runs a range query and asserts the result is a matrix, writing an error
 // response and returning ok=false otherwise.
-func (h *Handler) queryMatrix(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, start, end time.Time, step time.Duration, log *slog.Logger) (model.Matrix, bool) {
-	value, err := h.prom.QueryRange(r.Context(), metric.Query, v1.Range{Start: start, End: end, Step: step})
+func (h *Handler) queryMatrix(w http.ResponseWriter, r *http.Request, graph *resolvedGraph, start, end time.Time, step time.Duration, log *slog.Logger) (model.Matrix, bool) {
+	value, err := h.prom.QueryRange(r.Context(), graph.Query, v1.Range{Start: start, End: end, Step: step})
 	if err != nil {
 		log.Error("error executing range query", "error", err)
-		writeError(w, metric.Name, "Query Error", http.StatusInternalServerError)
+		writeError(w, graph.ID, "Query Error", http.StatusInternalServerError)
 		return nil, false
 	}
 	matrix, ok := value.(model.Matrix)
 	if !ok {
 		log.Error("range query did not return a matrix", "type", value.Type().String())
-		writeError(w, metric.Name, "Unexpected result type", http.StatusInternalServerError)
+		writeError(w, graph.ID, "Unexpected result type", http.StatusInternalServerError)
 		return nil, false
 	}
 	return matrix, true

@@ -24,8 +24,15 @@ func bodyString(t *testing.T, resp *http.Response) string {
 func TestE2E(t *testing.T) {
 	h := start(t)
 
-	t.Run("json", func(t *testing.T) {
-		resp := h.get("/cpu")
+	t.Run("badge svg (default)", func(t *testing.T) {
+		resp := h.get("/badges/cpu")
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, "image/svg+xml", resp.Header.Get("Content-Type"))
+		assert.True(t, strings.HasPrefix(bodyString(t, resp), "<svg"))
+	})
+
+	t.Run("badge shields", func(t *testing.T) {
+		resp := h.get("/badges/cpu?format=shields")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 		var body map[string]any
@@ -35,39 +42,37 @@ func TestE2E(t *testing.T) {
 		assert.Equal(t, "green", body["color"])
 	})
 
-	t.Run("raw", func(t *testing.T) {
-		resp := h.get("/cpu?format=raw")
+	t.Run("badge json", func(t *testing.T) {
+		resp := h.get("/badges/cpu?format=json")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Contains(t, bodyString(t, resp), `"job":"node"`)
+		body := bodyString(t, resp)
+		assert.Contains(t, body, `"value":"17.5%"`)
+		assert.Contains(t, body, `"job":"node"`)
 	})
 
-	t.Run("badge", func(t *testing.T) {
-		resp := h.get("/cpu?format=badge")
+	t.Run("graph svg (default)", func(t *testing.T) {
+		resp := h.get("/graphs/cpu?last=1h")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "image/svg+xml", resp.Header.Get("Content-Type"))
 		assert.True(t, strings.HasPrefix(bodyString(t, resp), "<svg"))
 	})
 
-	t.Run("history", func(t *testing.T) {
-		resp := h.get("/cpu?format=history&last=1h")
+	t.Run("graph json", func(t *testing.T) {
+		resp := h.get("/graphs/cpu?format=json&last=1h")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Contains(t, bodyString(t, resp), `"metric":"cpu"`)
-	})
-
-	t.Run("chart", func(t *testing.T) {
-		resp := h.get("/cpu?format=chart&last=1h")
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Equal(t, "image/svg+xml", resp.Header.Get("Content-Type"))
+		assert.Contains(t, bodyString(t, resp), `"id":"cpu"`)
 	})
 
 	t.Run("index", func(t *testing.T) {
 		resp := h.get("/")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Contains(t, bodyString(t, resp), `<a href="/cpu">cpu</a>`)
+		body := bodyString(t, resp)
+		assert.Contains(t, body, `<a href="/badges/cpu">cpu</a>`)
+		assert.Contains(t, body, `<a href="/graphs/cpu">cpu</a>`)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		resp := h.get("/nope")
+		resp := h.get("/badges/nope")
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
 }

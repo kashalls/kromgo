@@ -29,7 +29,7 @@ func TestColorNameToHex(t *testing.T) {
 
 func TestNewBadgePool_DefaultFont(t *testing.T) {
 	// No font configured → embedded default font is used.
-	pool, err := newBadgePool(config.Badge{})
+	pool, err := newBadgePool(config.BadgeDefaults{})
 	require.NoError(t, err)
 	require.NotNil(t, pool)
 
@@ -38,6 +38,6 @@ func TestNewBadgePool_DefaultFont(t *testing.T) {
 }
 
 func TestNewBadgePool_MissingFontFile(t *testing.T) {
-	_, err := newBadgePool(config.Badge{Font: "/no/such/font.ttf"})
+	_, err := newBadgePool(config.BadgeDefaults{Font: "/no/such/font.ttf"})
 	assert.Error(t, err)
 }

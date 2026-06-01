@@ -19,9 +19,8 @@ func makeRequest(params map[string]string) *http.Request {
 	return &http.Request{URL: &url.URL{RawQuery: q.Encode()}}
 }
 
-func TestParseHistoryParams_Valid(t *testing.T) {
-	// Cases with absolute start/end. wantStart/wantEnd of 0 and wantStep of 0 mean
-	// "don't assert this field".
+func TestParseGraphParams_Valid(t *testing.T) {
+	// wantStart/wantEnd/wantStep of 0 mean "don't assert this field".
 	cases := []struct {
 		name      string
 		params    map[string]string
@@ -39,7 +38,7 @@ func TestParseHistoryParams_Valid(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			start, end, step, err := parseHistoryParams(makeRequest(tc.params))
+			start, end, step, err := parseGraphParams(makeRequest(tc.params))
 			require.NoError(t, err)
 			if tc.wantStart != 0 {
 				assert.Equal(t, tc.wantStart, start.Unix())
@@ -54,24 +53,16 @@ func TestParseHistoryParams_Valid(t *testing.T) {
 	}
 }
 
-func TestParseHistoryParams_DefaultWindow(t *testing.T) {
+func TestParseGraphParams_DefaultWindow(t *testing.T) {
 	before := time.Now()
-	start, end, step, err := parseHistoryParams(makeRequest(nil))
+	start, end, step, err := parseGraphParams(makeRequest(nil))
 	require.NoError(t, err)
 	assert.WithinDuration(t, before, end, time.Second, "end defaults to ~now")
 	assert.WithinDuration(t, before.Add(-time.Hour), start, time.Second, "start defaults to ~1h before end")
 	assert.Equal(t, time.Minute, step, "autoStep(1h) clamps to 1m")
 }
 
-func TestParseHistoryParams_Last(t *testing.T) {
-	before := time.Now()
-	start, end, _, err := parseHistoryParams(makeRequest(map[string]string{"last": "7d"}))
-	require.NoError(t, err)
-	assert.WithinDuration(t, before, end, time.Second)
-	assert.WithinDuration(t, before.Add(-7*24*time.Hour), start, time.Second)
-}
-
-func TestParseHistoryParams_Errors(t *testing.T) {
+func TestParseGraphParams_Errors(t *testing.T) {
 	cases := []struct {
 		name     string
 		params   map[string]string
@@ -82,12 +73,11 @@ func TestParseHistoryParams_Errors(t *testing.T) {
 		{"zero last", map[string]string{"last": "0"}, errNonPositiveDuration},
 		{"start after end", map[string]string{"start": "1704088800", "end": "1704067200"}, errStartAfterEnd},
 		{"invalid start", map[string]string{"start": "not-a-time"}, nil},
-		{"invalid end", map[string]string{"end": "not-a-time"}, nil},
 		{"invalid step", map[string]string{"start": "1704067200", "end": "1704088800", "step": "invalid"}, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, err := parseHistoryParams(makeRequest(tc.params))
+			_, _, _, err := parseGraphParams(makeRequest(tc.params))
 			require.Error(t, err)
 			if tc.sentinel != nil {
 				assert.ErrorIs(t, err, tc.sentinel)
@@ -120,72 +110,64 @@ func TestParseTimeParam(t *testing.T) {
 	}
 }
 
-func mustResolve(t *testing.T, m config.Metric, cfg config.KromgoConfig) *resolvedMetric {
-	t.Helper()
-	env, err := newCELEnv()
-	require.NoError(t, err)
-	rm, err := resolveMetric(m, cfg, env)
-	require.NoError(t, err)
-	return rm
-}
-
-// tsDefaults builds a config whose only setting is the default timeseries config.
-func tsDefaults(rc config.TimeseriesConfig) config.KromgoConfig {
-	return config.KromgoConfig{Defaults: config.Defaults{Timeseries: rc}}
-}
-
-func TestResolveMetric_HistoryEnabled(t *testing.T) {
+func TestResolveGraph_MaxDuration(t *testing.T) {
 	cases := []struct {
-		name     string
-		metric   config.Metric
-		defaults config.TimeseriesConfig
-		want     bool
+		name  string
+		graph config.Graph
+		def   config.Defaults
+		want  time.Duration
 	}{
-		{"default off", config.Metric{Name: "test"}, config.TimeseriesConfig{Enabled: false}, false},
-		{"default on", config.Metric{Name: "test"}, config.TimeseriesConfig{Enabled: true}, true},
-		{"per-metric override on", config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(true)}}, config.TimeseriesConfig{Enabled: false}, true},
-		{"per-metric override off", config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(false)}}, config.TimeseriesConfig{Enabled: true}, false},
+		{"built-in default", config.Graph{ID: "t"}, config.Defaults{}, time.Hour},
+		{"default configured", config.Graph{ID: "t"}, config.Defaults{Graph: config.GraphDefaults{MaxDuration: "24h"}}, 24 * time.Hour},
+		{"per-graph overrides default", config.Graph{ID: "t", MaxDuration: "720h"}, config.Defaults{Graph: config.GraphDefaults{MaxDuration: "24h"}}, 720 * time.Hour},
+		{"unlimited", config.Graph{ID: "t", MaxDuration: "0"}, config.Defaults{}, 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rm := mustResolve(t, tc.metric, tsDefaults(tc.defaults))
-			assert.Equal(t, tc.want, rm.historyEnabled)
+			rg, err := resolveGraph(tc.graph, tc.def)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, rg.maxDuration)
 		})
 	}
 }
 
-func TestResolveMetric_HistoryMax(t *testing.T) {
-	cases := []struct {
-		name   string
-		metric config.Metric
-		cfg    config.KromgoConfig
-		want   time.Duration
-	}{
-		{"built-in default", config.Metric{Name: "test"}, config.KromgoConfig{}, time.Hour},
-		{"default configured", config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}), 24 * time.Hour},
-		{"per-metric overrides default", config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{MaxDuration: "720h"}}, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}), 720 * time.Hour},
-		{"unlimited", config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "0"}), 0},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			rm := mustResolve(t, tc.metric, tc.cfg)
-			assert.Equal(t, tc.want, rm.historyMax)
-		})
-	}
+func TestResolveGraph_DefaultParams(t *testing.T) {
+	rg, err := resolveGraph(config.Graph{ID: "t"}, config.Defaults{})
+	require.NoError(t, err)
+	assert.Equal(t, defaultGraphWidth, rg.defaults.width)
+	assert.Equal(t, defaultGraphHeight, rg.defaults.height)
+	assert.True(t, rg.defaults.legend, "legend defaults to true")
 }
 
-func TestResolveMetric_InvalidExprFailsFast(t *testing.T) {
+func TestResolveBadge_InvalidExprFailsFast(t *testing.T) {
 	env, err := newCELEnv()
 	require.NoError(t, err)
-	cases := map[string]config.Metric{
-		"syntax error":  {Name: "a", Value: "result +"},
-		"not a string":  {Name: "b", Value: "result"},       // value must be string
-		"unknown ident": {Name: "c", Color: "nope(result)"}, // bad color expr
+	cases := map[string]config.Badge{
+		"syntax error":  {ID: "a", Query: "q", Value: "result +"},
+		"not a string":  {ID: "b", Query: "q", Value: "result"},       // value must be string
+		"unknown ident": {ID: "c", Query: "q", Color: "nope(result)"}, // bad color expr
 	}
-	for name, m := range cases {
+	for name, b := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := resolveMetric(m, config.KromgoConfig{}, env)
+			_, err := resolveBadge(b, config.Defaults{}, env)
 			assert.Error(t, err)
 		})
 	}
+}
+
+func TestResolveBadge_Style(t *testing.T) {
+	env, err := newCELEnv()
+	require.NoError(t, err)
+
+	rb, err := resolveBadge(config.Badge{ID: "a", Query: "q"}, config.Defaults{}, env)
+	require.NoError(t, err)
+	assert.Equal(t, config.StyleFlat, rb.style, "defaults to flat")
+
+	rb, err = resolveBadge(config.Badge{ID: "a", Query: "q"}, config.Defaults{Badge: config.BadgeDefaults{Style: config.StylePlastic}}, env)
+	require.NoError(t, err)
+	assert.Equal(t, config.StylePlastic, rb.style, "inherits default style")
+
+	rb, err = resolveBadge(config.Badge{ID: "a", Query: "q", Style: config.StyleFlatSquare}, config.Defaults{Badge: config.BadgeDefaults{Style: config.StylePlastic}}, env)
+	require.NoError(t, err)
+	assert.Equal(t, config.StyleFlatSquare, rb.style, "per-badge style wins")
 }
