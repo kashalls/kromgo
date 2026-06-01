@@ -91,10 +91,13 @@ func TestGallery(t *testing.T) {
 		}
 	})
 	group(&b, "Badge styles", func() {
-		for _, style := range []string{"flat", "flat-square", "plastic"} {
-			bd := byID["mem"]
-			bd.Style = style
-			cell(t, h, &b, "Style: "+style, "/badges/mem?style="+style, true, yamlFor("badges", bd))
+		// A different badge per style so they're easy to tell apart.
+		for _, sb := range []struct{ style, id string }{
+			{"flat", "cpu"}, {"flat-square", "pods"}, {"plastic", "mem"},
+		} {
+			bd := byID[sb.id]
+			bd.Style = sb.style
+			cell(t, h, &b, "Style: "+sb.style, "/badges/"+sb.id+"?style="+sb.style, true, yamlFor("badges", bd))
 		}
 	})
 	group(&b, "Graph themes (PNG)", func() {
