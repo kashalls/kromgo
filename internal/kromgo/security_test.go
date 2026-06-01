@@ -1,7 +1,6 @@
 package kromgo
 
 import (
-	"net/http/httptest"
 	"testing"
 
 	"github.com/home-operations/kromgo/internal/config"
@@ -15,13 +14,10 @@ const xssPayload = `</text><script>alert(1)</script>`
 // Badge text comes from a CEL value or a metric label; it must never reach the SVG
 // unescaped, or opening the badge as a top-level document would execute script.
 func TestSecurity_BadgeEscapesSVG(t *testing.T) {
-	pool, err := newBadgePool(config.BadgeDefaults{})
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
 	require.NoError(t, err)
 
-	w := httptest.NewRecorder()
-	pool.write(w, "flat", "label", xssPayload, "green")
-
-	body := w.Body.String()
+	body := string(r.render(config.StyleFlat, "", "label", xssPayload, "green"))
 	assert.NotContains(t, body, "<script>")
 	assert.Contains(t, body, "&lt;script&gt;")
 }

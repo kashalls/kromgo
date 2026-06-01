@@ -27,6 +27,7 @@ type resolvedBadge struct {
 	colorProg    cel.Program // compiled Color expression; nil when none
 	cacheSeconds int
 	style        string
+	iconPath     string      // resolved SVG path data for Icon; "" when none
 	rangeQuery   *rangeQuery // non-nil when Type == range
 }
 
@@ -49,13 +50,18 @@ type rangeQuery struct {
 
 // resolveBadge precomputes a badge's request-time values.
 func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedBadge, error) {
+	iconPath, err := resolveIcon(b.Icon)
+	if err != nil {
+		return nil, fmt.Errorf("badge %q: %w", b.ID, err)
+	}
+
 	rb := &resolvedBadge{
 		Badge:        b,
 		cacheSeconds: intOr(b.CacheSeconds, def.CacheSeconds),
 		style:        cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
+		iconPath:     iconPath,
 	}
 
-	var err error
 	if rb.valueProg, err = compileStringExpr(env, b.ID, "value", cmp.Or(b.Value, defaultValueExpr)); err != nil {
 		return nil, err
 	}

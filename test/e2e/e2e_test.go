@@ -24,11 +24,13 @@ func bodyString(t *testing.T, resp *http.Response) string {
 func TestE2E(t *testing.T) {
 	h := start(t)
 
-	t.Run("badge svg (default)", func(t *testing.T) {
+	t.Run("badge svg (default, with icon)", func(t *testing.T) {
 		resp := h.get("/badges/cpu")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "image/svg+xml", resp.Header.Get("Content-Type"))
-		assert.True(t, strings.HasPrefix(bodyString(t, resp), "<svg"))
+		body := bodyString(t, resp)
+		assert.True(t, strings.HasPrefix(body, "<svg"))
+		assert.Contains(t, body, "<path fill=\"#fff\"", "mdi icon rendered")
 	})
 
 	t.Run("badge shields", func(t *testing.T) {

@@ -79,6 +79,8 @@ type Badge struct {
 	Color string `yaml:"color,omitempty" json:"color,omitempty"`
 	// Style overrides defaults.badge.style for this badge.
 	Style string `yaml:"style,omitempty" json:"style,omitempty"`
+	// Icon renders a Material Design Icon on the SVG badge, e.g. "mdi:server-outline".
+	Icon string `yaml:"icon,omitempty" json:"icon,omitempty"`
 	// Hidden overrides defaults.hidden for this badge.
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// CacheSeconds overrides defaults.cacheSeconds for this badge.

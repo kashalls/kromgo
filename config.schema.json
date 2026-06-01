@@ -29,6 +29,9 @@
         "style": {
           "type": "string"
         },
+        "icon": {
+          "type": "string"
+        },
         "hidden": {
           "type": "boolean"
         },

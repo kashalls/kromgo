@@ -85,7 +85,13 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 			ID: badge.ID, Title: title, Value: message, Color: color, Result: result, Labels: labels,
 		})
 	default: // svg
-		h.gen.write(w, cmp.Or(r.URL.Query().Get("style"), badge.style), title, message, color)
+		// Label text: explicit Title, else the id — unless an icon stands in for it.
+		labelText := badge.Title
+		if labelText == "" && badge.iconPath == "" {
+			labelText = badge.ID
+		}
+		style := cmp.Or(r.URL.Query().Get("style"), badge.style)
+		writeSVG(w, h.gen.render(style, badge.iconPath, labelText, message, color))
 	}
 }
 

@@ -1,9 +1,9 @@
 package kromgo
 
 import (
+	"strings"
 	"testing"
 
-	"github.com/essentialkaos/go-badge"
 	"github.com/home-operations/kromgo/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,14 +11,14 @@ import (
 
 func TestColorNameToHex(t *testing.T) {
 	cases := map[string]string{
-		"":          badge.COLOR_BLUE, // default
-		"blue":      badge.COLOR_BLUE,
-		"green":     badge.COLOR_GREEN,
-		"red":       badge.COLOR_RED,
-		"inactive":  badge.COLOR_INACTIVE,
-		"#a1b2c3":   "#a1b2c3",         // valid hex passes through
-		"#zzz":      badge.COLOR_GREEN, // invalid hex → fallback
-		"notacolor": badge.COLOR_GREEN, // unknown name → fallback
+		"":          "#007ec6", // default blue
+		"blue":      "#007ec6",
+		"green":     "#97ca00",
+		"red":       "#e05d44",
+		"inactive":  "#9f9f9f",
+		"#a1b2c3":   "#a1b2c3", // valid hex passes through
+		"#zzz":      "#97ca00", // invalid hex → fallback green
+		"notacolor": "#97ca00", // unknown name → fallback green
 	}
 	for in, want := range cases {
 		t.Run(in, func(t *testing.T) {
@@ -27,23 +27,52 @@ func TestColorNameToHex(t *testing.T) {
 	}
 }
 
-func TestNewBadgePool_DefaultFont(t *testing.T) {
-	// No font configured → embedded default font is used.
-	pool, err := newBadgePool(config.BadgeDefaults{})
+func TestNewBadgeRenderer_DefaultFont(t *testing.T) {
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
 	require.NoError(t, err)
-	require.NotNil(t, pool)
-
-	gen := pool.pool.Get().(*badge.Generator)
-	assert.NotEmpty(t, gen.GenerateFlat("label", "msg", badge.COLOR_GREEN))
+	require.NotNil(t, r)
+	svg := string(r.render(config.StyleFlat, "", "label", "msg", "green"))
+	assert.True(t, strings.HasPrefix(svg, "<svg"))
+	assert.Contains(t, svg, ">label<")
+	assert.Contains(t, svg, ">msg<")
 }
 
-func TestNewBadgePool_UnknownFont(t *testing.T) {
-	_, err := newBadgePool(config.BadgeDefaults{Font: "not-a-font"})
+func TestNewBadgeRenderer_UnknownFont(t *testing.T) {
+	_, err := newBadgeRenderer(config.BadgeDefaults{Font: "not-a-font"})
 	assert.Error(t, err)
 }
 
-func TestNewBadgePool_NamedFont(t *testing.T) {
-	pool, err := newBadgePool(config.BadgeDefaults{Font: "go-bold"})
+func TestNewBadgeRenderer_NamedFont(t *testing.T) {
+	r, err := newBadgeRenderer(config.BadgeDefaults{Font: "go-bold"})
 	require.NoError(t, err)
-	require.NotNil(t, pool)
+	require.NotNil(t, r)
+}
+
+func TestBadgeRender_Icon(t *testing.T) {
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+
+	path, err := resolveIcon("mdi:server-outline")
+	require.NoError(t, err)
+	svg := string(r.render(config.StyleFlat, path, "", "online", "green"))
+
+	assert.Contains(t, svg, path, "icon path should be embedded")
+	assert.Contains(t, svg, `fill="#fff"`)
+	assert.Contains(t, svg, ">online<")
+}
+
+func TestResolveIcon(t *testing.T) {
+	path, err := resolveIcon("mdi:server-outline")
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(path, "M"))
+
+	empty, err := resolveIcon("")
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+
+	_, err = resolveIcon("mdi:does-not-exist")
+	assert.Error(t, err)
+
+	_, err = resolveIcon("server-outline") // missing mdi: prefix
+	assert.Error(t, err)
 }

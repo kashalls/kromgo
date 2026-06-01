@@ -123,6 +123,30 @@ func TestServeBadge_Styles(t *testing.T) {
 	}
 }
 
+func TestServeBadge_Icon(t *testing.T) {
+	cfg := config.KromgoConfig{Badges: []config.Badge{{
+		ID: "cpu", Query: "q", Icon: "mdi:server-outline", Value: `string(result) + "%"`,
+	}}}
+	srv := mockProm(t, "17.5", nil)
+	h := newHandlerForTest(t, cfg, srv.URL)
+
+	w := promtest.Get(t, h.Mux(), "/badges/cpu")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
+	assert.Contains(t, w.Body.String(), mdiIcons["server-outline"], "icon path embedded")
+}
+
+func TestNew_InvalidIconFailsFast(t *testing.T) {
+	cfg := config.KromgoConfig{Badges: []config.Badge{{ID: "x", Query: "q", Icon: "mdi:does-not-exist"}}}
+	srv := mockProm(t, "1", nil)
+	client, err := prometheus.New(srv.URL, 0)
+	require.NoError(t, err)
+
+	_, err = New(cfg, client)
+	assert.Error(t, err)
+}
+
 func TestServeBadge_NotFound(t *testing.T) {
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)

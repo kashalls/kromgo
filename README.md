@@ -119,8 +119,30 @@ Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
 | `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color) |
 | `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)            |
 | `style`        | no       | `flat` (default), `flat-square`, or `plastic`                                     |
+| `icon`         | no       | A Material Design Icon on the SVG badge, e.g. `mdi:server-outline` — see below    |
 | `hidden`       | no       | Override `defaults.hidden` for this badge                                         |
 | `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this badge                                   |
+
+#### Icons
+
+`icon` renders a [Material Design Icon](https://pictogrammers.com/library/mdi/) on the left of the SVG
+badge, written as `mdi:<name>` (e.g. `mdi:server-outline`). It is **SVG-only** — the `shields` and
+`json` formats have no icon field and ignore it. The icon sits left of the `title`; with an icon and
+no `title`, the badge shows just the icon and the value (the `id` fallback is suppressed).
+
+```yaml
+badges:
+    - id: nodes
+      query: count(kube_node_info)
+      icon: mdi:server-outline
+      title: Nodes
+```
+
+Icons are embedded in the binary (no network/disk). The bundled set covers common infra glyphs
+(`server`, `server-outline`, `database`, `kubernetes`, `memory`, `cpu-64-bit`, `harddisk`, `lan`,
+`flash`, `thermometer`, `clock-outline`, `alert-circle-outline`, `check-circle-outline`,
+`close-circle-outline`, `chart-line`, `fire`, `cloud-outline`, `heart-pulse`, `power`, `cog-outline`);
+add more by PRing the icon's path data into the registry. An unknown icon fails fast at startup.
 
 #### Range badges
 

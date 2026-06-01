@@ -25,14 +25,14 @@ type Handler struct {
 	badges map[string]*resolvedBadge
 	graphs map[string]*resolvedGraph
 	prom   *prometheus.Client
-	gen    *badgePool
+	gen    *badgeRenderer
 }
 
 // New builds a Handler from config and a Prometheus client. Per-endpoint CEL
 // expressions and durations are compiled/parsed here, so malformed config fails
 // at startup rather than on a request.
 func New(cfg config.KromgoConfig, prom *prometheus.Client) (*Handler, error) {
-	gen, err := newBadgePool(cfg.Defaults.Badge)
+	gen, err := newBadgeRenderer(cfg.Defaults.Badge)
 	if err != nil {
 		return nil, err
 	}
