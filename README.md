@@ -28,6 +28,7 @@ Works out of the box with [shields.io Endpoint Badges](https://shields.io/badges
 - [Rate limiting](#rate-limiting)
 - [Caching](#caching)
 - [Image verification](#image-verification)
+- [Upgrading from kashalls/kromgo](#upgrading-from-kashallskromgo)
 - [Community](#community)
 
 ## How it works
@@ -431,6 +432,22 @@ cosign verify ghcr.io/home-operations/kromgo:<tag> \
   --certificate-identity-regexp="https://github.com/home-operations/kromgo/" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 ```
+
+## Upgrading from kashalls/kromgo
+
+This fork is functionally compatible — metric config, query semantics, and response
+formats are unchanged — but a few deployment details changed:
+
+| Change                                                                                                                                                                                           | Action                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **Image moved** to `ghcr.io/home-operations/kromgo`.                                                                                                                                             | Update your image reference (and the cosign identity, if you verify).                                      |
+| **Badge font no longer bundled.** The image no longer ships `Verdana.ttf`; kromgo now uses an embedded default font. A config still pointing `badge.font` at `Verdana.ttf` will fail at startup. | Remove `badge.font` to use the embedded font, or mount a TrueType font and point `badge.font` at its path. |
+| **`LOG_FORMAT=test` renamed to `LOG_FORMAT=text`.**                                                                                                                                              | Set `LOG_FORMAT=text` for human-readable logs (default remains JSON).                                      |
+| **Built-in rate limiting removed** (`RATELIMIT_*` env vars).                                                                                                                                     | Rate limit at your reverse proxy — see [Rate limiting](#rate-limiting).                                    |
+| **Missing `PROMETHEUS_URL` now fails fast** instead of starting degraded.                                                                                                                        | Ensure `PROMETHEUS_URL` (or `prometheus` in config) is set.                                                |
+| **Schema URL** in `config.yaml` examples.                                                                                                                                                        | Point `# yaml-language-server: $schema=` at `home-operations/kromgo`.                                      |
+
+Release tags drop the `v` prefix (e.g. `0.11.0`, not `v0.11.0`); pin image tags accordingly.
 
 ## Community
 
