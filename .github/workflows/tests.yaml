@@ -36,6 +36,9 @@ jobs:
           experimental: true
           install_args: --locked
 
+      - name: Fetch build assets
+        run: mise run assets
+
       - name: Check go.mod tidiness
         run: |
           go mod tidy

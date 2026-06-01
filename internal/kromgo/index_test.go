@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,115 +10,213 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// --- isHidden ---
+// --- hidden ---
 
-func TestIsHidden(t *testing.T) {
+func TestHidden(t *testing.T) {
 	cases := []struct {
-		name          string
-		metric        config.Metric
-		defaultHidden *bool
-		want          bool
+		name string
+		item *bool
+		def  *bool
+		want bool
 	}{
-		{"no global, no per-metric defaults to hidden", config.Metric{Name: "foo"}, nil, true},
-		{"global false, no per-metric is visible", config.Metric{Name: "foo"}, new(false), false},
-		{"global true, no per-metric is hidden", config.Metric{Name: "foo"}, new(true), true},
-		{"per-metric true overrides global false", config.Metric{Name: "foo", Hidden: new(true)}, new(false), true},
-		{"per-metric false overrides global true", config.Metric{Name: "foo", Hidden: new(false)}, new(true), false},
-		{"per-metric false, no global", config.Metric{Name: "foo", Hidden: new(false)}, nil, false},
-		{"per-metric true, no global", config.Metric{Name: "foo", Hidden: new(true)}, nil, true},
+		{"no item, no default → shown", nil, nil, false},
+		{"default false, no item → visible", nil, new(false), false},
+		{"default true, no item → hidden", nil, new(true), true},
+		{"item true over default false → hidden", new(true), new(false), true},
+		{"item false over default true → visible", new(false), new(true), false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, isHidden(tc.metric, tc.defaultHidden))
+			assert.Equal(t, tc.want, hidden(tc.item, tc.def))
 		})
 	}
 }
 
-// --- index ---
+// --- baseURL ---
+
+func TestBaseURL(t *testing.T) {
+	req := func(host, xfp string, withTLS bool) *http.Request {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.Host = host
+		if xfp != "" {
+			r.Header.Set("X-Forwarded-Proto", xfp)
+		}
+		if withTLS {
+			r.TLS = &tls.ConnectionState{}
+		}
+		return r
+	}
+	cases := []struct {
+		name string
+		r    *http.Request
+		want string
+	}{
+		{"plain http", req("example.com", "", false), "http://example.com"},
+		{"host with port", req("example.com:8080", "", false), "http://example.com:8080"},
+		{"forwarded https", req("example.com", "https", false), "https://example.com"},
+		{"forwarded proto list takes first", req("example.com", "https, http", false), "https://example.com"},
+		{"tls connection", req("example.com", "", true), "https://example.com"},
+		{"ipv6 literal", req("[::1]:8080", "", false), "http://[::1]:8080"},
+		{"invalid host → relative", req("ex ample.com", "", false), ""},
+		{"injection host → relative", req("evil.com)![x](http://x", "", false), ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, baseURL(tc.r))
+		})
+	}
+}
+
+// --- markdownItem / mdEscapeAlt ---
+
+func TestMarkdownItem(t *testing.T) {
+	assert.Equal(t, "![CPU](http://example.com/badges/cpu)",
+		markdownItem("http://example.com", "badges", "cpu", "CPU").Markdown)
+	// Relative URL when the host is unusable.
+	assert.Equal(t, "![CPU](/badges/cpu)", markdownItem("", "badges", "cpu", "CPU").Markdown)
+	// Brackets in the alt text are escaped so they can't break the image syntax.
+	assert.Equal(t, `![a\[b\]](http://h/graphs/g)`, markdownItem("http://h", "graphs", "g", "a[b]").Markdown)
+}
+
+// --- index handler ---
 
 func newTestHandler(cfg config.KromgoConfig) *Handler {
 	return &Handler{cfg: cfg}
 }
 
-func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {
-	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{{Name: "cpu"}, {Name: "mem"}},
-		// Defaults.Hidden nil → defaults to true (hidden)
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+func getIndex(h *Handler) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodGet, "/", nil) // Host defaults to example.com
 	w := httptest.NewRecorder()
 	h.index(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "text/html; charset=utf-8", w.Header().Get("Content-Type"))
-	assert.Contains(t, w.Body.String(), "page intentionally blank")
-	assert.NotContains(t, w.Body.String(), "<a href")
+	return w
 }
 
-func TestIndexHandler_AllVisible_AllLinksPresent(t *testing.T) {
+func TestIndexHandler_GalleryHeadersAndAssets(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Metrics:  []config.Metric{{Name: "cpu"}, {Name: "mem"}},
-		Defaults: config.Defaults{Hidden: new(false)},
+		Badges: []config.Badge{{ID: "cpu", Title: "CPU"}},
 	})
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	h.index(w, req)
-
+	w := getIndex(h)
 	body := w.Body.String()
+
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
-	assert.Contains(t, body, `<a href="/mem">mem</a>`)
-	assert.NotContains(t, body, "page intentionally blank")
+	assert.Equal(t, mimeHTML, w.Header().Get("Content-Type"))
+	// CSP is relaxed for the page but stays free of unsafe-inline/eval and CDNs.
+	csp := w.Header().Get("Content-Security-Policy")
+	assert.Contains(t, csp, "script-src 'self'")
+	assert.Contains(t, csp, "frame-ancestors 'none'")
+	assert.NotContains(t, csp, "unsafe-inline")
+	assert.NotContains(t, csp, "unsafe-eval")
+	// Per-Host page must not be shared-cached.
+	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+	// Self-hosted assets, no external origins.
+	assert.Contains(t, body, `/assets/marked.js`)
+	assert.Contains(t, body, `/assets/github-markdown.css`)
+	assert.Contains(t, body, `/assets/gallery.js`)
+	assert.NotContains(t, body, "cdn.")
+}
+
+func TestIndexHandler_BadgesAndGraphs_SnippetsPresent(t *testing.T) {
+	h := newTestHandler(config.KromgoConfig{
+		Badges: []config.Badge{{ID: "cpu", Title: "CPU"}},
+		Graphs: []config.Graph{{ID: "cpu"}}, // no title → falls back to id
+	})
+	body := getIndex(h).Body.String()
+
+	assert.Contains(t, body, `![CPU](http://example.com/badges/cpu)`)
+	assert.Contains(t, body, `![cpu](http://example.com/graphs/cpu)`)
+	assert.Contains(t, body, "<h2>Badges</h2>")
+	assert.Contains(t, body, "<h2>Graphs</h2>")
+	assert.Contains(t, body, `class="copy"`)
+	assert.NotContains(t, body, "No endpoints to show")
+}
+
+func TestIndexHandler_AllHidden_ShowsEmptyState(t *testing.T) {
+	// Hide all badges via the per-type default.
+	h := newTestHandler(config.KromgoConfig{
+		Badges:   []config.Badge{{ID: "cpu"}, {ID: "mem"}},
+		Defaults: config.Defaults{Badge: config.BadgeDefaults{Gallery: config.GallerySettings{Hidden: new(true)}}},
+	})
+	body := getIndex(h).Body.String()
+
+	assert.Contains(t, body, "No endpoints to show")
+	assert.NotContains(t, body, "/badges/cpu)")
+	assert.NotContains(t, body, "<h2>Badges</h2>")
 }
 
 func TestIndexHandler_MixedVisibility(t *testing.T) {
+	// Badges hidden by default; cpu opts back in with gallery.hidden: false.
 	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{
-			{Name: "cpu", Hidden: new(false)},
-			{Name: "mem"}, // hidden by global default
+		Badges: []config.Badge{
+			{ID: "cpu", Gallery: config.GallerySettings{Hidden: new(false)}},
+			{ID: "mem"}, // hidden by the badge default
 		},
+		Defaults: config.Defaults{Badge: config.BadgeDefaults{Gallery: config.GallerySettings{Hidden: new(true)}}},
 	})
+	body := getIndex(h).Body.String()
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	h.index(w, req)
-
-	body := w.Body.String()
-	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
-	assert.NotContains(t, body, `<a href="/mem">`)
+	assert.Contains(t, body, `![cpu](http://example.com/badges/cpu)`)
+	assert.NotContains(t, body, `/badges/mem`)
 }
 
-func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
+func TestIndexHandler_PerEndpointHidden(t *testing.T) {
+	// Default is shown; a per-endpoint gallery.hidden: true hides just that one.
 	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{
-			{Name: "cpu"},
-			{Name: "secret", Hidden: new(true)},
+		Badges: []config.Badge{
+			{ID: "cpu"},
+			{ID: "secret", Gallery: config.GallerySettings{Hidden: new(true)}},
 		},
-		Defaults: config.Defaults{Hidden: new(false)},
 	})
+	body := getIndex(h).Body.String()
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	h.index(w, req)
-
-	body := w.Body.String()
-	assert.Contains(t, body, `<a href="/cpu">cpu</a>`)
-	assert.NotContains(t, body, `<a href="/secret">`)
+	assert.Contains(t, body, `![cpu](http://example.com/badges/cpu)`)
+	assert.NotContains(t, body, `/badges/secret`)
 }
 
-func TestIndexHandler_NoMetrics_ShowsIntentionallyBlank(t *testing.T) {
-	h := newTestHandler(config.KromgoConfig{
-		Metrics:  []config.Metric{},
-		Defaults: config.Defaults{Hidden: new(false)},
-	})
+func TestIndexHandler_NoEndpoints_ShowsEmptyState(t *testing.T) {
+	h := newTestHandler(config.KromgoConfig{})
+	body := getIndex(h).Body.String()
+	assert.Contains(t, body, "No endpoints to show")
+}
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	h.index(w, req)
+func TestIndexHandler_GalleryDisabled_ShowsLanding(t *testing.T) {
+	h := newTestHandler(config.KromgoConfig{
+		Badges:  []config.Badge{{ID: "cpu", Title: "CPU"}},
+		Gallery: config.Gallery{Enabled: new(false)},
+	})
+	w := getIndex(h)
+	body := w.Body.String()
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "page intentionally blank")
-	assert.NotContains(t, w.Body.String(), "<a href")
+	assert.Equal(t, mimeHTML, w.Header().Get("Content-Type"))
+	assert.Contains(t, body, `class="landing"`)
+	// The landing page lists no endpoints and renders no gallery grid.
+	assert.NotContains(t, body, "<h2>Badges</h2>")
+	assert.NotContains(t, body, "/badges/cpu")
+}
+
+// --- assets handler ---
+
+func TestAssetsHandler(t *testing.T) {
+	get := func(path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		assetsHandler().ServeHTTP(w, req)
+		return w
+	}
+
+	css := get("/assets/gallery.css")
+	assert.Equal(t, http.StatusOK, css.Code)
+	assert.Contains(t, css.Header().Get("Content-Type"), "text/css")
+	assert.Contains(t, css.Header().Get("Cache-Control"), "max-age=")
+	assert.Contains(t, css.Body.String(), ".grid")
+
+	js := get("/assets/marked.js")
+	assert.Equal(t, http.StatusOK, js.Code)
+	assert.Contains(t, js.Header().Get("Content-Type"), "javascript")
+
+	assert.Equal(t, http.StatusNotFound, get("/assets/mdi.txt.gz").Code, "icon data is embedded but not web-served")
+	assert.Equal(t, http.StatusNotFound, get("/assets/nope.txt").Code)
+	// No directory listing, and a traversal attempt cannot escape the embedded FS.
+	assert.Equal(t, http.StatusNotFound, get("/assets/").Code, "no directory listing")
+	assert.NotEqual(t, http.StatusOK, get("/assets/../handler.go").Code, "no path traversal")
 }

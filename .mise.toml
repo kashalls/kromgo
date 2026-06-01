@@ -2,8 +2,23 @@
 go = "1.26.3"
 golangci-lint = "2.12.2"
 lefthook = "2.1.9"
+node = "24.16.0"
+npm = "11.16.0"
 oxfmt = "0.52.0"
 zizmor = "1.25.2"
+
+# Vendor the npm packages and build the embedded assets. sources/outputs make this a
+# no-op until package-lock.json (or the generator) changes — e.g. a Renovate bump —
+# so the depends below stay cheap.
+[tasks.assets]
+description = "Vendor npm deps and build embedded assets (marked.js, github-markdown.css, full MDI set)"
+sources = ["package.json", "package-lock.json", "cmd/genassets/main.go"]
+outputs = [
+  "internal/kromgo/assets/marked.js",
+  "internal/kromgo/assets/github-markdown.css",
+  "internal/kromgo/assets/mdi.txt.gz",
+]
+run = "npm ci && go run ./cmd/genassets"
 
 [tasks.fmt]
 description = "Run go fmt against code"
@@ -11,6 +26,7 @@ run = "go fmt ./..."
 
 [tasks.vet]
 description = "Run go vet against code"
+depends = ["assets"]
 run = "go vet ./..."
 
 [tasks.generate]
@@ -19,22 +35,32 @@ run = "go run ./cmd/schema > config.schema.json && oxfmt config.schema.json"
 
 [tasks.test]
 description = "Run tests with coverage"
+depends = ["assets"]
 run = "go test $(go list ./...) -coverprofile cover.out"
 
 [tasks.test-e2e]
 description = "Run end-to-end tests (builds the binary, runs it against a mock Prometheus)"
+depends = ["assets"]
 run = "go test -tags e2e -timeout 5m -v ./test/e2e/..."
 
 [tasks.test-integration]
 description = "Run integration tests against a real Prometheus (set PROMETHEUS_URL)"
+depends = ["assets"]
 run = "go test -tags integration -timeout 5m -v ./test/integration/..."
+
+[tasks.gallery]
+description = "Render a badge/graph styling gallery to kromgo-gallery.html (set PROMETHEUS_URL)"
+depends = ["assets"]
+run = "go test -tags integration -count=1 -run TestGallery ./test/integration/..."
 
 [tasks.lint]
 description = "Run golangci-lint"
+depends = ["assets"]
 run = "golangci-lint run"
 
 [tasks.lint-fix]
 description = "Run golangci-lint with --fix"
+depends = ["assets"]
 run = "golangci-lint run --fix"
 
 [hooks]

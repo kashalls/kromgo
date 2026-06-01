@@ -14,6 +14,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSecureHeaders(t *testing.T) {
+	h := secureHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
+	assert.Contains(t, w.Header().Get("Content-Security-Policy"), "default-src 'none'")
+}
+
 func TestHealthMux(t *testing.T) {
 	mux := healthMux()
 	for _, path := range []string{"/healthz", "/-/health", "/readyz", "/-/ready", "/metrics"} {

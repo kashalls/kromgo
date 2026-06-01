@@ -1,0 +1,38 @@
+package kromgo
+
+import (
+	"bufio"
+	"bytes"
+	"compress/gzip"
+	_ "embed"
+	"strings"
+	"sync"
+)
+
+// mdiData is the full Material Design Icons set (https://pictogrammers.com/library/mdi/,
+// Apache-2.0): a gzipped, tab-separated "name\tpath" table, one 24x24 glyph path per
+// line. It is built from the @mdi/svg npm package by cmd/genassets (not committed) and
+// embedded; see the README's "Building from source".
+//
+//go:embed assets/mdi.txt.gz
+var mdiData []byte
+
+// mdiIcons lazily decodes mdiData into a name→path map on first use, so configs
+// without icons never pay the decode cost. The set is read-only after build.
+var mdiIcons = sync.OnceValue(func() map[string]string {
+	icons := map[string]string{}
+	zr, err := gzip.NewReader(bytes.NewReader(mdiData))
+	if err != nil {
+		return icons // embedded data is generated; a failure here just means "unknown icon"
+	}
+	defer func() { _ = zr.Close() }()
+
+	sc := bufio.NewScanner(zr)
+	sc.Buffer(make([]byte, 0, 64*1024), 256*1024) // a few glyph paths exceed the 64K default
+	for sc.Scan() {
+		if name, path, ok := strings.Cut(sc.Text(), "\t"); ok {
+			icons[name] = path
+		}
+	}
+	return icons
+})

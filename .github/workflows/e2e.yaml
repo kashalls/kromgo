@@ -36,5 +36,8 @@ jobs:
           experimental: true
           install_args: --locked
 
+      - name: Fetch build assets
+        run: mise run assets
+
       - name: Run e2e tests
         run: mise run test-e2e

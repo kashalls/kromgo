@@ -8,14 +8,29 @@ import (
 	"github.com/home-operations/kromgo/internal/config"
 )
 
-// withMiddleware wraps h with recovery and optional access logging. Middleware is
-// applied outermost-first: recover → access log → handler. Rate limiting is
-// intentionally left to a reverse proxy (see the README).
+// withMiddleware wraps h with recovery, security headers, and optional access
+// logging. Middleware is applied outermost-first: recover → access log → security
+// headers → handler. Rate limiting is intentionally left to a reverse proxy (see
+// the README).
 func withMiddleware(h http.Handler, sc config.ServerConfig) http.Handler {
+	h = secureHeaders(h)
 	if sc.ServerLogging {
 		h = accessLog(h)
 	}
 	return recoverer(h)
+}
+
+// secureHeaders sets defensive response headers. nosniff stops MIME confusion; the
+// CSP neutralizes any markup that slips into an SVG (responses carry no scripts and
+// only inline style attributes), so a metric label can't execute as script even if
+// the SVG is opened as a top-level document.
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // statusRecorder captures the response status code for access logging.

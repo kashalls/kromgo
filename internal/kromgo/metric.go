@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"cmp"
 	"fmt"
 	"time"
 
@@ -9,26 +10,37 @@ import (
 )
 
 const (
-	defaultHistoryMaxDuration = time.Hour
-	minRangeStep              = time.Minute
-	defaultValueExpr          = "string(result)"
+	defaultGraphMaxDuration = time.Hour
+	minRangeStep            = time.Minute
+	defaultValueExpr        = "string(result)"
+	defaultGraphWidth       = 600
+	defaultGraphHeight      = 200
 )
 
-// resolvedMetric is a config.Metric with its per-request values resolved once at
-// startup: the compiled value/color CEL programs, effective timeseries settings,
-// cache TTL, and (for type: range) the parsed range-query window. This keeps
-// compilation/parsing off the request hot path and surfaces bad config at startup.
-type resolvedMetric struct {
-	config.Metric
-	valueProg      cel.Program // compiled Value expression (always set)
-	colorProg      cel.Program // compiled Color expression; nil when none
-	historyEnabled bool
-	historyMax     time.Duration // 0 means unlimited
-	cacheSeconds   int
-	rangeQuery     *rangeQuery // non-nil when Type == range
+// resolvedBadge is a config.Badge with its per-request values resolved once at
+// startup: the compiled value/color CEL programs, effective style and cache TTL,
+// and (for type: range) the parsed range-query window. This keeps compilation off
+// the request hot path and surfaces bad config at startup.
+type resolvedBadge struct {
+	config.Badge
+	valueProg    cel.Program // compiled Value expression (always set)
+	colorProg    cel.Program // compiled Color expression; nil when none
+	cacheSeconds int
+	style        string
+	iconPath     string      // resolved SVG path data for Icon; "" when none
+	rangeQuery   *rangeQuery // non-nil when Type == range
 }
 
-// rangeQuery is the resolved window for a type: range metric.
+// resolvedGraph is a config.Graph with its cache TTL, window cap, and default
+// sparkline parameters resolved once at startup.
+type resolvedGraph struct {
+	config.Graph
+	cacheSeconds int
+	maxDuration  time.Duration // 0 means unlimited
+	defaults     chartParams   // request query params override these
+}
+
+// rangeQuery is the resolved window for a type: range badge.
 type rangeQuery struct {
 	last   time.Duration
 	offset time.Duration
@@ -36,84 +48,93 @@ type rangeQuery struct {
 	reduce string
 }
 
-// resolveMetric precomputes a metric's request-time values, returning an error if
-// its expressions, durations, or range query are invalid.
-func resolveMetric(m config.Metric, cfg config.KromgoConfig, env *cel.Env) (*resolvedMetric, error) {
-	rm := &resolvedMetric{
-		Metric:         m,
-		historyEnabled: cfg.Defaults.Timeseries.Enabled,
-		historyMax:     defaultHistoryMaxDuration,
-		cacheSeconds:   cfg.Defaults.CacheSeconds,
+// resolveBadge precomputes a badge's request-time values.
+func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedBadge, error) {
+	iconPath, err := resolveIcon(b.Icon)
+	if err != nil {
+		return nil, fmt.Errorf("badge %q: %w", b.ID, err)
 	}
 
-	valueExpr := m.Value
-	if valueExpr == "" {
-		valueExpr = defaultValueExpr
+	rb := &resolvedBadge{
+		Badge:        b,
+		cacheSeconds: firstSet(def.CacheSeconds, b.CacheSeconds),
+		style:        cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
+		iconPath:     iconPath,
 	}
-	var err error
-	if rm.valueProg, err = compileStringExpr(env, m.Name, "value", valueExpr); err != nil {
+
+	if rb.valueProg, err = compileStringExpr(env, b.ID, "value", cmp.Or(b.Value, defaultValueExpr)); err != nil {
 		return nil, err
 	}
-	if m.Color != "" {
-		if rm.colorProg, err = compileStringExpr(env, m.Name, "color", m.Color); err != nil {
+	if b.Color != "" {
+		if rb.colorProg, err = compileStringExpr(env, b.ID, "color", b.Color); err != nil {
 			return nil, err
 		}
 	}
-
-	if m.Timeseries != nil && m.Timeseries.Enabled != nil {
-		rm.historyEnabled = *m.Timeseries.Enabled
-	}
-
-	if maxStr := effectiveMaxDuration(m, cfg); maxStr != "" {
-		d, err := config.ParseDuration(maxStr)
-		if err != nil {
-			return nil, fmt.Errorf("metric %q timeseries.maxDuration: %w", m.Name, err)
-		}
-		rm.historyMax = d
-	}
-
-	if m.CacheSeconds != nil {
-		rm.cacheSeconds = *m.CacheSeconds
-	}
-
-	if m.Type == config.TypeRange {
-		rq, err := resolveRangeQuery(m)
-		if err != nil {
+	if b.Type == config.TypeRange {
+		if rb.rangeQuery, err = resolveRangeQuery(b); err != nil {
 			return nil, err
 		}
-		rm.rangeQuery = rq
 	}
-
-	return rm, nil
+	return rb, nil
 }
 
-// resolveRangeQuery parses the windowed range-query config (already validated by
-// config.validate) into concrete durations, defaulting step to last/100 (min 1m).
-func resolveRangeQuery(m config.Metric) (*rangeQuery, error) {
-	last, err := config.ParseDuration(m.Range.Last)
+// resolveGraph precomputes a graph's cache TTL, window cap, and default parameters.
+func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
+	theme := cmp.Or(g.Theme, def.Graph.Theme)
+	if theme != "" && !validTheme(theme) {
+		return nil, fmt.Errorf("graph %q: unknown theme %q", g.ID, theme)
+	}
+
+	font, err := resolveGraphFont(cmp.Or(g.Font, def.Graph.Font))
 	if err != nil {
-		return nil, fmt.Errorf("metric %q range.last: %w", m.Name, err)
+		return nil, fmt.Errorf("graph %q font: %w", g.ID, err)
 	}
 
-	rq := &rangeQuery{last: last, reduce: m.Range.Reduce}
-	if rq.reduce == "" {
-		rq.reduce = config.ReduceLast
+	rg := &resolvedGraph{
+		Graph:        g,
+		cacheSeconds: firstSet(def.CacheSeconds, g.CacheSeconds),
+		maxDuration:  defaultGraphMaxDuration,
+		defaults: chartParams{
+			width:  cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
+			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
+			legend: firstSet(true, g.Legend, def.Graph.Legend),
+			theme:  theme,
+			title:  displayTitle(g.Title, g.ID),
+			font:   font,
+			format: formatSVG,
+		},
+	}
+	if maxStr := cmp.Or(g.MaxDuration, def.Graph.MaxDuration); maxStr != "" {
+		d, err := config.ParseDuration(maxStr)
+		if err != nil {
+			return nil, fmt.Errorf("graph %q maxDuration: %w", g.ID, err)
+		}
+		rg.maxDuration = d
+	}
+	return rg, nil
+}
+
+// resolveRangeQuery parses a range badge's windowed query (already validated by
+// config.validate) into concrete durations, defaulting step to last/100 (min 1m).
+func resolveRangeQuery(b config.Badge) (*rangeQuery, error) {
+	last, err := config.ParseDuration(b.Range.Last)
+	if err != nil {
+		return nil, fmt.Errorf("badge %q range.last: %w", b.ID, err)
 	}
 
-	if m.Range.Offset != "" {
-		if rq.offset, err = config.ParseDuration(m.Range.Offset); err != nil {
-			return nil, fmt.Errorf("metric %q range.offset: %w", m.Name, err)
+	rq := &rangeQuery{last: last, reduce: cmp.Or(b.Range.Reduce, config.ReduceLast)}
+	if b.Range.Offset != "" {
+		if rq.offset, err = config.ParseDuration(b.Range.Offset); err != nil {
+			return nil, fmt.Errorf("badge %q range.offset: %w", b.ID, err)
 		}
 	}
-
-	if m.Range.Step != "" {
-		if rq.step, err = config.ParseDuration(m.Range.Step); err != nil {
-			return nil, fmt.Errorf("metric %q range.step: %w", m.Name, err)
+	if b.Range.Step != "" {
+		if rq.step, err = config.ParseDuration(b.Range.Step); err != nil {
+			return nil, fmt.Errorf("badge %q range.step: %w", b.ID, err)
 		}
 	} else {
 		rq.step = autoStep(last)
 	}
-
 	return rq, nil
 }
 
@@ -122,19 +143,19 @@ func autoStep(window time.Duration) time.Duration {
 	return max(window/100, minRangeStep)
 }
 
-// metricTitle returns the display title for a metric (its Title, falling back to Name).
-func metricTitle(metric *resolvedMetric) string {
-	if metric.Title != "" {
-		return metric.Title
-	}
-	return metric.Name
+// displayTitle returns title, falling back to id.
+func displayTitle(title, id string) string {
+	return cmp.Or(title, id)
 }
 
-// effectiveMaxDuration returns the metric's timeseries max-duration string (per-metric
-// override, else default), or "" when neither is set (caller uses the built-in default).
-func effectiveMaxDuration(m config.Metric, cfg config.KromgoConfig) string {
-	if m.Timeseries != nil && m.Timeseries.MaxDuration != "" {
-		return m.Timeseries.MaxDuration
+// firstSet returns the value of the first non-nil pointer, else fallback — the
+// "optional override(s) with a default" pattern used across config resolution
+// (a nil pointer means "unset", distinct from a zero value).
+func firstSet[T any](fallback T, ptrs ...*T) T {
+	for _, p := range ptrs {
+		if p != nil {
+			return *p
+		}
 	}
-	return cfg.Defaults.Timeseries.MaxDuration
+	return fallback
 }

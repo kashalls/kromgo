@@ -5,56 +5,7 @@
   "$defs": {
     "Badge": {
       "properties": {
-        "font": {
-          "type": "string"
-        },
-        "size": {
-          "type": "integer"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Defaults": {
-      "properties": {
-        "hidden": {
-          "type": "boolean"
-        },
-        "cacheSeconds": {
-          "type": "integer"
-        },
-        "timeseries": {
-          "$ref": "#/$defs/TimeseriesConfig"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "KromgoConfig": {
-      "properties": {
-        "prometheus": {
-          "type": "string"
-        },
-        "metrics": {
-          "items": {
-            "$ref": "#/$defs/Metric"
-          },
-          "type": "array"
-        },
-        "badge": {
-          "$ref": "#/$defs/Badge"
-        },
-        "defaults": {
-          "$ref": "#/$defs/Defaults"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": ["metrics"]
-    },
-    "Metric": {
-      "properties": {
-        "name": {
+        "id": {
           "type": "string"
         },
         "title": {
@@ -75,11 +26,14 @@
         "color": {
           "type": "string"
         },
-        "hidden": {
-          "type": "boolean"
+        "style": {
+          "type": "string"
         },
-        "timeseries": {
-          "$ref": "#/$defs/MetricTimeseriesConfig"
+        "icon": {
+          "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
         },
         "cacheSeconds": {
           "type": "integer"
@@ -87,15 +41,148 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["name", "query"]
+      "required": ["id", "query"]
     },
-    "MetricTimeseriesConfig": {
+    "BadgeDefaults": {
+      "properties": {
+        "font": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "style": {
+          "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Defaults": {
+      "properties": {
+        "cacheSeconds": {
+          "type": "integer"
+        },
+        "badge": {
+          "$ref": "#/$defs/BadgeDefaults"
+        },
+        "graph": {
+          "$ref": "#/$defs/GraphDefaults"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Gallery": {
       "properties": {
         "enabled": {
           "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GallerySettings": {
+      "properties": {
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Graph": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
         },
         "maxDuration": {
           "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "legend": {
+          "type": "boolean"
+        },
+        "theme": {
+          "type": "string"
+        },
+        "font": {
+          "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
+        },
+        "cacheSeconds": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["id", "query"]
+    },
+    "GraphDefaults": {
+      "properties": {
+        "maxDuration": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "legend": {
+          "type": "boolean"
+        },
+        "theme": {
+          "type": "string"
+        },
+        "font": {
+          "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KromgoConfig": {
+      "properties": {
+        "prometheus": {
+          "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/Gallery"
+        },
+        "defaults": {
+          "$ref": "#/$defs/Defaults"
+        },
+        "badges": {
+          "items": {
+            "$ref": "#/$defs/Badge"
+          },
+          "type": "array"
+        },
+        "graphs": {
+          "items": {
+            "$ref": "#/$defs/Graph"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -119,19 +206,6 @@
       "additionalProperties": false,
       "type": "object",
       "required": ["last"]
-    },
-    "TimeseriesConfig": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "maxDuration": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": ["enabled"]
     }
   }
 }

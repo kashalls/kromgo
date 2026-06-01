@@ -1,37 +1,41 @@
 package kromgo
 
 import (
+	"bytes"
 	"fmt"
 	"html"
-	"log/slog"
 	"math"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
+	charts "github.com/go-analyze/charts"
+	"github.com/golang/freetype/truetype"
 	"github.com/prometheus/common/model"
 )
 
-var chartColors = []string{
-	"#4c8bcd", "#e05e4c", "#4ccd8b", "#e0c04c", "#8b4ccd",
-}
-
-type chartParams struct {
-	width       int
-	height      int
-	strokeWidth float64
-	color       string
-	legend      bool
-}
-
 const (
 	maxChartDimension = 2048
-	maxStrokeWidth    = 20.0
+	formatPNG         = "png"
 )
 
-func parseChartParams(r *http.Request) chartParams {
-	p := chartParams{width: 300, height: 80, strokeWidth: 2, legend: true}
+// chartParams holds the resolved sparkline rendering parameters. The graph's
+// config provides the defaults; request query parameters override them.
+type chartParams struct {
+	width  int
+	height int
+	legend bool
+	theme  string
+	title  string         // chart title, rendered top-left
+	font   *truetype.Font // nil uses the chart library's default font
+	format string         // "svg" (default) or "png"
+}
+
+// withOverrides returns the graph's default params with request query parameters
+// applied on top (width/height/legend/theme/format).
+func (p chartParams) withOverrides(r *http.Request) chartParams {
 	q := r.URL.Query()
 	if s := q.Get("width"); s != "" {
 		if v, err := strconv.Atoi(s); err == nil && v > 0 {
@@ -43,23 +47,27 @@ func parseChartParams(r *http.Request) chartParams {
 			p.height = min(v, maxChartDimension)
 		}
 	}
-	if s := q.Get("stroke"); s != "" {
-		if v, err := strconv.ParseFloat(s, 64); err == nil && v > 0 {
-			p.strokeWidth = min(v, maxStrokeWidth)
-		}
-	}
-	p.color = q.Get("color")
-	if q.Get("legend") == "false" {
+	switch q.Get("legend") {
+	case "false":
 		p.legend = false
+	case "true":
+		p.legend = true
+	}
+	if s := q.Get("theme"); s != "" {
+		p.theme = s // unknown names fall back to the default in chartTheme
+	}
+	if q.Get("format") == formatPNG {
+		p.format = formatPNG
 	}
 	return p
 }
 
-func seriesColor(i int, override string) string {
-	if override != "" {
-		return colorNameToHex(override)
+// contentType returns the MIME type for the params' output format.
+func (p chartParams) contentType() string {
+	if p.format == formatPNG {
+		return mimePNG
 	}
-	return chartColors[i%len(chartColors)]
+	return mimeSVG
 }
 
 // seriesLabel returns a display label for a series by joining its non-__name__ label values.
@@ -81,130 +89,92 @@ func seriesLabel(stream *model.SampleStream) string {
 	return strings.Join(vals, ", ")
 }
 
-func renderSparkline(matrix model.Matrix, p chartParams) string {
-	const (
-		legendHeight       = 20
-		legendFontSize     = 11
-		legendIndicatorW   = 16
-		legendIndicatorGap = 5
-		legendItemMargin   = 12
-		legendCharWidth    = 6.5
-	)
+// renderChart draws the matrix as a themed line chart and returns the encoded image
+// (SVG or PNG). Non-finite samples (NaN/Inf) become gaps.
+func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
+	values := make([][]float64, len(matrix))
+	labels := make([]string, len(matrix))
+	haveLabels := false
+	var xAxis []string
 
-	pad := 4.0
-	w := float64(p.width) - 2*pad
-	h := float64(p.height) - 2*pad
-	bottom := pad + h
-
-	// Build legend items before rendering so we know total SVG height.
-	type legendItem struct {
-		color string
-		label string
-	}
-	var items []legendItem
-	if p.legend {
-		for i, stream := range matrix {
-			if label := seriesLabel(stream); label != "" {
-				items = append(items, legendItem{
-					color: seriesColor(i, p.color),
-					label: label,
-				})
-			}
-		}
-	}
-
-	totalHeight := p.height
-	if len(items) > 0 {
-		totalHeight += legendHeight
-	}
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">`,
-		p.width, totalHeight, p.width, totalHeight)
-
-	type point struct{ x, y float64 }
 	for i, stream := range matrix {
-		// Prometheus can return NaN/Inf samples (counter resets, staleness gaps);
-		// they would poison min/max and emit NaN SVG coordinates, so skip them. A
-		// single pass collects each finite sample's x (from its original index, so
-		// skipped samples leave a gap) and raw value while tracking min/max; y is
-		// finalized below once the range is known.
-		n := len(stream.Values)
-		pts := make([]point, 0, n)
-		minVal := math.Inf(1)
-		maxVal := math.Inf(-1)
+		row := make([]float64, len(stream.Values))
 		for j, pt := range stream.Values {
 			v := float64(pt.Value)
 			if math.IsNaN(v) || math.IsInf(v, 0) {
-				continue
+				v = charts.GetNullValue() // rendered as a gap
 			}
-			minVal = min(minVal, v)
-			maxVal = max(maxVal, v)
-			pts = append(pts, point{x: pad + float64(j)/float64(max(n-1, 1))*w, y: v})
+			row[j] = v
 		}
-		if len(pts) == 0 {
-			continue // no finite samples to plot
+		values[i] = row
+		if label := seriesLabel(stream); label != "" {
+			// Escape: the charting library writes legend labels into SVG <text>
+			// without escaping, so a metric label value could inject markup/script.
+			labels[i] = html.EscapeString(label)
+			haveLabels = true
 		}
-		valRange := maxVal - minVal
-		if valRange == 0 {
-			valRange = 1
-		}
-		for k := range pts {
-			pts[k].y = pad + (1-(pts[k].y-minVal)/valRange)*h
-		}
-
-		color := seriesColor(i, p.color)
-
-		// Filled area under the line.
-		var area strings.Builder
-		fmt.Fprintf(&area, "M %.2f,%.2f", pts[0].x, pts[0].y)
-		for _, pt := range pts[1:] {
-			fmt.Fprintf(&area, " L %.2f,%.2f", pt.x, pt.y)
-		}
-		fmt.Fprintf(&area, " L %.2f,%.2f L %.2f,%.2f Z", pts[len(pts)-1].x, bottom, pts[0].x, bottom)
-		fmt.Fprintf(&sb, `<path d="%s" fill="%s" fill-opacity="0.15" stroke="none"/>`, area.String(), color)
-
-		// Line.
-		var line strings.Builder
-		for j, pt := range pts {
-			if j > 0 {
-				line.WriteByte(' ')
-			}
-			fmt.Fprintf(&line, "%.2f,%.2f", pt.x, pt.y)
-		}
-		fmt.Fprintf(&sb, `<polyline points="%s" fill="none" stroke="%s" stroke-width="%.1f" stroke-linecap="round" stroke-linejoin="round"/>`,
-			line.String(), color, p.strokeWidth)
-	}
-
-	// Legend row.
-	if len(items) > 0 {
-		lineY := float64(p.height) + float64(legendHeight)/2
-		textY := lineY + float64(legendFontSize)/2 - 1
-		x := pad
-		for _, item := range items {
-			fmt.Fprintf(&sb, `<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="%s" stroke-width="2" stroke-linecap="round"/>`,
-				x, lineY, x+legendIndicatorW, lineY, item.color)
-			x += legendIndicatorW + legendIndicatorGap
-			fmt.Fprintf(&sb, `<text x="%.2f" y="%.2f" font-family="sans-serif" font-size="%d" fill="#666">%s</text>`,
-				x, textY, legendFontSize, html.EscapeString(item.label))
-			x += float64(len(item.label))*legendCharWidth + legendItemMargin
+		if xAxis == nil {
+			xAxis = timeAxisLabels(stream.Values)
 		}
 	}
 
-	sb.WriteString("</svg>")
-	return sb.String()
+	opt := charts.NewLineChartOptionWithData(values)
+	opt.Theme = chartTheme(p.theme)
+	opt.XAxis.Labels = xAxis
+	// One label per sample collides; cap the count by width so the library samples
+	// an evenly-spaced, non-overlapping subset.
+	if n := len(xAxis); n > 0 {
+		opt.XAxis.LabelCount = min(max(p.width/110, 2), n)
+	}
+	if p.title != "" {
+		opt.Title = charts.TitleOption{Text: p.title, Offset: charts.OffsetLeft}
+	}
+	if p.legend && haveLabels {
+		opt.Legend.SeriesNames = labels
+	} else {
+		hide := false
+		opt.Legend.Show = &hide
+	}
+
+	// Font is set on the painter (the non-deprecated default-font hook); nil leaves
+	// the chart library's default.
+	painter := charts.NewPainter(charts.PainterOptions{
+		OutputFormat: p.format, // "svg" or "png"
+		Width:        p.width,
+		Height:       p.height,
+		Font:         p.font,
+	})
+	if err := painter.LineChart(opt); err != nil {
+		return nil, err
+	}
+	out, err := painter.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	if p.format != formatPNG {
+		// The chart library emits SVG with only a viewBox; add explicit width/height
+		// so <img> embeds (and inline use) render at the requested pixel size rather
+		// than the browser's 300x150 default.
+		dims := fmt.Sprintf(`<svg width="%d" height="%d" `, p.width, p.height)
+		out = bytes.Replace(out, []byte("<svg "), []byte(dims), 1)
+	}
+	return out, nil
 }
 
-func (h *Handler) handleChart(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, log *slog.Logger) {
-	start, end, step, ok := h.validateHistoryAccess(w, r, metric)
-	if !ok {
-		return
+// timeAxisLabels formats one x-axis label per sample; the chart library samples
+// them to avoid crowding. The format adapts to the window span.
+func timeAxisLabels(values []model.SamplePair) []string {
+	if len(values) == 0 {
+		return nil
 	}
-
-	matrix, ok := h.queryMatrix(w, r, metric, start, end, step, log)
-	if !ok {
-		return
+	span := values[len(values)-1].Timestamp.Time().Sub(values[0].Timestamp.Time())
+	layout := "15:04"
+	if span >= 24*time.Hour {
+		layout = "01/02"
 	}
-
-	writeSVG(w, []byte(renderSparkline(matrix, parseChartParams(r))))
+	labels := make([]string, len(values))
+	for i, pt := range values {
+		labels[i] = pt.Timestamp.Time().Format(layout)
+	}
+	return labels
 }

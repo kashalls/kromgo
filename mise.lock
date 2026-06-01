@@ -110,6 +110,64 @@ checksum = "sha256:1f29681dfbc36b9bdde52139cca6c4668ea4d51fd81e9127a3b78f49369db
 url = "https://github.com/evilmartians/lefthook/releases/download/v2.1.9/lefthook_2.1.9_Windows_x86_64.gz"
 provenance = "github-attestations"
 
+[[tools.node]]
+version = "24.16.0"
+backend = "core:node"
+
+[tools.node."platforms.linux-arm64"]
+checksum = "sha256:589f5b6dd4fcfee4dfda73013903c966abaa8abd93dbc9d436544e472b4f0e74"
+url = "https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-arm64.tar.gz"
+
+[tools.node."platforms.linux-arm64-musl"]
+checksum = "sha256:85dde27aa73503b03dadfa0410a800067b4e3f702fb7fcaa3beaf284dfcc69e9"
+url = "https://unofficial-builds.nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-arm64-musl.tar.gz"
+
+[tools.node."platforms.linux-x64"]
+checksum = "sha256:2faf6a387e9b62b888e21c54f01249fb27537ffecf1842f29f4c919d0a59a0ff"
+url = "https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.gz"
+
+[tools.node."platforms.linux-x64-musl"]
+checksum = "sha256:50df5d8d474892d4f7b906167df36f77f5b93908f63dc532dc568219cab65841"
+url = "https://unofficial-builds.nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-x64-musl.tar.gz"
+
+[tools.node."platforms.macos-arm64"]
+checksum = "sha256:39189dab4eeb15706c424af0ac08a3044c9e48f7db12a7d77f6b7aafc7dd5df6"
+url = "https://nodejs.org/dist/v24.16.0/node-v24.16.0-darwin-arm64.tar.gz"
+
+[tools.node."platforms.macos-x64"]
+checksum = "sha256:298b4c7b3cb80765c8703e42b90324a4ece3b6634947b89e769c3c980ab55185"
+url = "https://nodejs.org/dist/v24.16.0/node-v24.16.0-darwin-x64.tar.gz"
+
+[tools.node."platforms.windows-x64"]
+checksum = "sha256:edaca9bd58ec8e92037dac4e877d52f6b8f430b81c18b57e264b4e2fb111cd56"
+url = "https://nodejs.org/dist/v24.16.0/node-v24.16.0-win-x64.zip"
+
+[[tools.npm]]
+version = "11.16.0"
+backend = "aqua:npm/cli"
+
+[tools.npm."platforms.linux-arm64"]
+url = "https://registry.npmjs.org/npm/-/npm-11.16.0.tgz"
+
+[tools.npm."platforms.linux-arm64-musl"]
+url = "https://registry.npmjs.org/npm/-/npm-11.16.0.tgz"
+
+[tools.npm."platforms.linux-x64"]
+url = "https://registry.npmjs.org/npm/-/npm-11.16.0.tgz"
+
+[tools.npm."platforms.linux-x64-musl"]
+url = "https://registry.npmjs.org/npm/-/npm-11.16.0.tgz"
+
+[tools.npm."platforms.macos-arm64"]
+checksum = "blake3:de47cefae7d6ff5e799ad3ef53f3ccddc67d82ecf19f91f723719cae0989169c"
+url = "https://registry.npmjs.org/npm/-/npm-11.16.0.tgz"
+
+[tools.npm."platforms.macos-x64"]
+url = "https://registry.npmjs.org/npm/-/npm-11.16.0.tgz"
+
+[tools.npm."platforms.windows-x64"]
+url = "https://registry.npmjs.org/npm/-/npm-11.16.0.tgz"
+
 [[tools.oxfmt]]
 version = "0.52.0"
 backend = "npm:oxfmt"

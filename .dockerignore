@@ -1,3 +1,11 @@
 # More info: https://docs.docker.com/engine/reference/builder/#dockerignore-file
 # Ignore build and test binaries.
 bin/
+
+# node_modules and the generated assets are produced inside the build (npm ci in the
+# assets stage, genassets in the builder), never copied from the host — keeps the
+# image build reproducible.
+node_modules/
+internal/kromgo/assets/marked.js
+internal/kromgo/assets/github-markdown.css
+internal/kromgo/assets/mdi.txt.gz

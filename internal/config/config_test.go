@@ -20,21 +20,38 @@ func writeConfig(t *testing.T, body string) string {
 func TestLoad_Valid(t *testing.T) {
 	path := writeConfig(t, `
 prometheus: http://prom:9090
-metrics:
-  - name: cpu
+gallery:
+  enabled: true
+defaults:
+  graph:
+    maxDuration: 7d
+    gallery:
+      hidden: true
+badges:
+  - id: cpu
     query: node_cpu
     value: string(result) + "%"
-defaults:
-  timeseries:
-    enabled: true
-    maxDuration: 7d
+    gallery:
+      hidden: false
+graphs:
+  - id: cpu
+    query: node_cpu
+    width: 400
 `)
 	cfg, err := Load(path)
 	require.NoError(t, err)
 	assert.Equal(t, "http://prom:9090", cfg.Prometheus)
-	require.Len(t, cfg.Metrics, 1)
-	assert.Equal(t, "cpu", cfg.Metrics[0].Name)
-	assert.True(t, cfg.Defaults.Timeseries.Enabled)
+	require.NotNil(t, cfg.Gallery.Enabled)
+	assert.True(t, *cfg.Gallery.Enabled)
+	require.Len(t, cfg.Badges, 1)
+	assert.Equal(t, "cpu", cfg.Badges[0].ID)
+	require.NotNil(t, cfg.Badges[0].Gallery.Hidden)
+	assert.False(t, *cfg.Badges[0].Gallery.Hidden, "per-badge gallery.hidden")
+	require.NotNil(t, cfg.Defaults.Graph.Gallery.Hidden)
+	assert.True(t, *cfg.Defaults.Graph.Gallery.Hidden, "per-type default gallery.hidden")
+	require.Len(t, cfg.Graphs, 1)
+	assert.Equal(t, 400, cfg.Graphs[0].Width)
+	assert.Equal(t, "7d", cfg.Defaults.Graph.MaxDuration)
 }
 
 func TestLoad_MissingFile(t *testing.T) {
@@ -43,19 +60,48 @@ func TestLoad_MissingFile(t *testing.T) {
 }
 
 func TestLoad_InvalidYAML(t *testing.T) {
-	_, err := Load(writeConfig(t, "metrics: [: bad"))
+	_, err := Load(writeConfig(t, "badges: [: bad"))
 	assert.Error(t, err)
 }
 
 func TestLoad_RejectsUnknownKey(t *testing.T) {
-	// A stale/typo'd key (here the removed top-level hideAll) must error, not be ignored.
-	_, err := Load(writeConfig(t, "metrics: []\nhideAll: true\n"))
+	// A non-legacy typo'd key must error under strict decoding.
+	_, err := Load(writeConfig(t, "badges: []\nbogus: true\n"))
 	assert.Error(t, err)
 }
 
+func TestLoad_LegacyConfigErrors(t *testing.T) {
+	// A pre-0.12 config (top-level metrics:) gets a pointed migration error.
+	_, err := Load(writeConfig(t, "metrics:\n  - name: cpu\n    query: q\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "0.12")
+}
+
 func TestLoad_InvalidDuration(t *testing.T) {
-	_, err := Load(writeConfig(t, "defaults:\n  timeseries:\n    maxDuration: bogus\n"))
+	_, err := Load(writeConfig(t, "defaults:\n  graph:\n    maxDuration: bogus\n"))
 	assert.Error(t, err)
+}
+
+func TestLoad_DuplicateID(t *testing.T) {
+	_, err := Load(writeConfig(t, "badges:\n  - id: cpu\n    query: q\n  - id: cpu\n    query: q\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+}
+
+func TestLoad_RangeBadgeRequiresLast(t *testing.T) {
+	_, err := Load(writeConfig(t, "badges:\n  - id: cpu\n    query: q\n    type: range\n"))
+	assert.Error(t, err)
+}
+
+func TestLoad_InvalidID(t *testing.T) {
+	// ids are URL path segments and gallery Markdown; reject unsafe characters.
+	_, err := Load(writeConfig(t, "badges:\n  - id: a/b\n    query: q\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "id must match")
+
+	_, err = Load(writeConfig(t, "graphs:\n  - id: 'a b'\n    query: q\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "id must match")
 }
 
 func TestLoadServer_Defaults(t *testing.T) {

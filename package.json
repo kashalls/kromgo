@@ -1,0 +1,12 @@
+{
+  "name": "kromgo-assets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Build-time assets embedded into the kromgo binary by cmd/genassets. Not published; managed here so Renovate keeps marked, github-markdown-css, and the Material Design Icons set up to date.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@mdi/svg": "7.4.47",
+    "github-markdown-css": "5.9.0",
+    "marked": "18.0.4"
+  }
+}

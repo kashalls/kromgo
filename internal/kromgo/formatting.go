@@ -70,3 +70,13 @@ func humanizeDuration(f float64) string {
 	}
 	return b.String()
 }
+
+// humanizeDays formats a number of seconds as a whole-day count, e.g. 5961600 -> "69d".
+// Unlike humanizeDuration it never rolls up to months/years — just total days.
+func humanizeDays(f float64) string {
+	days := int(f / 86400)
+	if days < 0 {
+		days = 0
+	}
+	return fmt.Sprintf("%dd", days)
+}

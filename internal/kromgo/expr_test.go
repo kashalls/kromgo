@@ -35,6 +35,7 @@ func TestCEL_Expressions(t *testing.T) {
 		{"humanizeBytes", `humanizeBytes(result)`, 1572864, nil, "1.5 MiB"},
 		{"humanizeDuration short", `humanizeDuration(result)`, 9000, nil, "2h30m"},
 		{"humanizeDuration long", `humanizeDuration(result)`, 467 * 86400, nil, "1y3mo12d"},
+		{"humanizeDays", `humanizeDays(result)`, 544 * 86400, nil, "544d"},
 		{"humanizeNumber", `humanizeNumber(result)`, 1000000, nil, "1,000,000"},
 		{"humanizeFloat", `humanizeFloat(result)`, 2.5, nil, "2.5"},
 		{"string method", `labels["x"].startsWith("v") ? "yes" : "no"`, 0, map[string]string{"x": "v1"}, "yes"},

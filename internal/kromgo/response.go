@@ -2,7 +2,16 @@ package kromgo
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+)
+
+// Response MIME types.
+const (
+	mimeJSON = "application/json"
+	mimeSVG  = "image/svg+xml"
+	mimePNG  = "image/png"
+	mimeHTML = "text/html; charset=utf-8"
 )
 
 // EndpointResponse is the shields.io-compatible JSON envelope returned for both
@@ -21,14 +30,22 @@ func writeJSON(w http.ResponseWriter, v any) error {
 	if err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", mimeJSON)
 	_, _ = w.Write(body)
 	return nil
 }
 
 func writeSVG(w http.ResponseWriter, svg []byte) {
-	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Content-Type", mimeSVG)
 	_, _ = w.Write(svg)
+}
+
+// writeJSONOr writes v as JSON, falling back to a 500 error response on marshal failure.
+func writeJSONOr(w http.ResponseWriter, log *slog.Logger, id string, v any) {
+	if err := writeJSON(w, v); err != nil {
+		log.Error("error writing json response", "error", err)
+		writeError(w, id, "Error", http.StatusInternalServerError)
+	}
 }
 
 // writeError writes a shields.io-compatible error response with the given status code.
@@ -44,7 +61,7 @@ func writeError(w http.ResponseWriter, metric, reason string, code int) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", mimeJSON)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
 	_, _ = w.Write(body)

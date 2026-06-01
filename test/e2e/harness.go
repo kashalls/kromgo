@@ -20,16 +20,20 @@ import (
 )
 
 const configYAML = `
+gallery:
+  enabled: true
 defaults:
-  hidden: false
-  timeseries:
-    enabled: true
+  graph:
     maxDuration: 24h
-metrics:
-  - name: cpu
+badges:
+  - id: cpu
     query: node_cpu_usage
     value: string(result) + "%"
     color: 'result <= 50.0 ? "green" : "red"'
+    icon: mdi:cpu-64-bit
+graphs:
+  - id: cpu
+    query: node_cpu_usage
 `
 
 type harness struct {

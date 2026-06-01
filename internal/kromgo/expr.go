@@ -46,6 +46,7 @@ func humanizerFuncs() []cel.EnvOption {
 		fn("humanizeNumber", humanizeNumber),
 		fn("humanizeFloat", humanizeFloat),
 		fn("humanizeDuration", humanizeDuration),
+		fn("humanizeDays", humanizeDays),
 	}
 }
 
