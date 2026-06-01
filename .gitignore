@@ -26,3 +26,8 @@ tmp/
 *.out
 kromgo-gallery.html
 kromgo-demo.yaml
+
+# Build-time assets fetched by `mise run assets` (cmd/genassets) — not committed.
+internal/kromgo/assets/marked.min.js
+internal/kromgo/assets/github-markdown.css
+internal/kromgo/assets/mdi.txt.gz

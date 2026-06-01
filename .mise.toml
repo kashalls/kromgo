@@ -5,44 +5,51 @@ lefthook = "2.1.9"
 oxfmt = "0.52.0"
 zizmor = "1.25.2"
 
+[tasks.assets]
+description = "Fetch the embedded build assets (marked.js, github-markdown.css, full MDI set); -force to refresh"
+run = "go run ./cmd/genassets"
+
 [tasks.fmt]
 description = "Run go fmt against code"
 run = "go fmt ./..."
 
 [tasks.vet]
 description = "Run go vet against code"
+depends = ["assets"]
 run = "go vet ./..."
 
 [tasks.generate]
 description = "Regenerate committed generated files (config.schema.json)"
 run = "go run ./cmd/schema > config.schema.json && oxfmt config.schema.json"
 
-[tasks.icons]
-description = "Regenerate the embedded Material Design Icons set from the pinned @mdi/svg release"
-run = "go run ./cmd/genicons"
-
 [tasks.test]
 description = "Run tests with coverage"
+depends = ["assets"]
 run = "go test $(go list ./...) -coverprofile cover.out"
 
 [tasks.test-e2e]
 description = "Run end-to-end tests (builds the binary, runs it against a mock Prometheus)"
+depends = ["assets"]
 run = "go test -tags e2e -timeout 5m -v ./test/e2e/..."
 
 [tasks.test-integration]
 description = "Run integration tests against a real Prometheus (set PROMETHEUS_URL)"
+depends = ["assets"]
 run = "go test -tags integration -timeout 5m -v ./test/integration/..."
 
 [tasks.gallery]
 description = "Render a badge/graph styling gallery to kromgo-gallery.html (set PROMETHEUS_URL)"
+depends = ["assets"]
 run = "go test -tags integration -count=1 -run TestGallery ./test/integration/..."
 
 [tasks.lint]
 description = "Run golangci-lint"
+depends = ["assets"]
 run = "golangci-lint run"
 
 [tasks.lint-fix]
 description = "Run golangci-lint with --fix"
+depends = ["assets"]
 run = "golangci-lint run --fix"
 
 [hooks]

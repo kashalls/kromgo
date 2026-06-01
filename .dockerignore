@@ -1,3 +1,9 @@
 # More info: https://docs.docker.com/engine/reference/builder/#dockerignore-file
 # Ignore build and test binaries.
 bin/
+
+# Build-time assets are fetched inside the builder by `go run ./cmd/genassets`,
+# never copied from the host — keeps the image build reproducible.
+internal/kromgo/assets/marked.min.js
+internal/kromgo/assets/github-markdown.css
+internal/kromgo/assets/mdi.txt.gz

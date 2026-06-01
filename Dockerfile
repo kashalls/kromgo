@@ -4,6 +4,9 @@ RUN apk add --no-cache upx ca-certificates
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
+# Fetch the embedded assets (gallery marked.js/CSS + full MDI set) at build time —
+# they are not committed to the repo; //go:embed bakes them into the binary.
+RUN go run ./cmd/genassets
 RUN CGO_ENABLED=0 go build -ldflags "-s -w" -trimpath -o /out/kromgo ./cmd/kromgo
 RUN upx --best --lzma /out/kromgo
 

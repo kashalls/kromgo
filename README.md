@@ -142,11 +142,11 @@ badges:
 ```
 
 The **entire** Material Design Icons set (~7,400 glyphs) is embedded in the binary — no network or
-disk access — so any `mdi:<name>` from [the library](https://pictogrammers.com/library/mdi/) works
-(e.g. `mdi:kubernetes`, `mdi:database-outline`, `mdi:rocket-launch`). The set is stored compressed
-(~0.8 MB) and decoded into memory on first use. An unknown name fails fast at startup. To bump the
-icon version, run `mise run icons` (regenerates from the pinned `@mdi/svg` release — see
-[`internal/kromgo/assets/ATTRIBUTION.md`](internal/kromgo/assets/ATTRIBUTION.md)).
+disk access at runtime — so any `mdi:<name>` from [the library](https://pictogrammers.com/library/mdi/)
+works (e.g. `mdi:kubernetes`, `mdi:database-outline`, `mdi:rocket-launch`). The set is stored
+compressed (~0.8 MB) and decoded into memory on first use. An unknown name fails fast at startup. The
+icon data is pulled from the pinned `@mdi/svg` release **at build time** (not committed) — see
+[Building from source](#building-from-source).
 
 #### Range badges
 
@@ -540,6 +540,22 @@ cosign verify ghcr.io/home-operations/kromgo:<tag> \
   --certificate-identity-regexp="https://github.com/home-operations/kromgo/" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 ```
+
+## Building from source
+
+The gallery's `marked.js` / `github-markdown.css` and the full Material Design Icons set are **fetched
+at build time** (from pinned upstream versions) rather than committed, then baked into the binary with
+`//go:embed`. So a build needs network access once to pull them — the resulting binary is still
+self-contained (nothing is fetched at runtime).
+
+```bash
+mise run assets   # fetch the embedded assets (skips any already present; -force re-fetches)
+go build ./cmd/kromgo
+```
+
+`mise run test` / `lint` / `test-e2e` depend on `assets`, so they fetch automatically; the Docker
+build and CI do the same. Bump a pinned version in [`cmd/genassets`](cmd/genassets/main.go), then
+`mise run assets -force`.
 
 ## Upgrading 0.11 → 0.12
 
