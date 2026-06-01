@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - main
+  release:
+    types:
+      - published
 
 jobs:
   build:
@@ -19,7 +22,7 @@ jobs:
             platform: linux/arm64
             arch: arm64
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.arch }}
+      group: ${{ github.workflow }}-${{ github.event_name }}-${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -102,8 +105,12 @@ jobs:
         uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         with:
           images: ghcr.io/${{ github.repository }}
+          # main push → <branch>-<sha>; release → the semver version (e.g. 0.12.0).
+          # is_default_branch is false on release/tag events, so the sha tag is
+          # main-only and the semver tag only appears on releases.
           tags: |
-            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=sha,prefix={{branch}}-,enable={{is_default_branch}}
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
