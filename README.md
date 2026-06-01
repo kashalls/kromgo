@@ -126,16 +126,20 @@ Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
 | `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)    |
 | `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)               |
 | `style`        | no       | `flat` (default), `flat-square`, or `plastic`                                        |
-| `icon`         | no       | A Material Design Icon on the SVG badge, e.g. `mdi:server-outline` — see below       |
+| `icon`         | no       | An icon on the SVG badge, e.g. `mdi:server-outline` or `si:kubernetes` — see below   |
 | `gallery`      | no       | Per-badge gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
 | `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this badge                                      |
 
 #### Icons
 
-`icon` renders a [Material Design Icon](https://pictogrammers.com/library/mdi/) on the left of the SVG
-badge, written as `mdi:<name>` (e.g. `mdi:server-outline`). It is **SVG-only** — the `shields` and
-`json` formats have no icon field and ignore it. The icon sits left of the `title`; with an icon and
-no `title`, the badge shows just the icon and the value (the `id` fallback is suppressed).
+`icon` renders an icon on the left of the SVG badge, written as `<set>:<name>` for one of two sets:
+
+- **`mdi:<name>`** — a [Material Design Icon](https://pictogrammers.com/library/mdi/), e.g. `mdi:server-outline`.
+- **`si:<slug>`** — a [Simple Icons](https://simpleicons.org/) brand logo, e.g. `si:kubernetes`.
+
+It is **SVG-only** — the `shields` and `json` formats have no icon field and ignore it. The icon is
+drawn in white and sits left of the `title`; with an icon and no `title`, the badge shows just the
+icon and the value (the `id` fallback is suppressed).
 
 ```yaml
 badges:
@@ -143,14 +147,19 @@ badges:
       query: count(kube_node_info)
       icon: mdi:server-outline
       title: Nodes
+    - id: version
+      query: kubernetes_build_info
+      icon: si:kubernetes
+      title: Kubernetes
 ```
 
-The **entire** Material Design Icons set (~7,400 glyphs) is embedded in the binary — no network or
-disk access at runtime — so any `mdi:<name>` from [the library](https://pictogrammers.com/library/mdi/)
-works (e.g. `mdi:kubernetes`, `mdi:database-outline`, `mdi:rocket-launch`). The set is stored
-compressed (~0.8 MB) and decoded into memory on first use. An unknown name fails fast at startup. The
-icon data is built from the `@mdi/svg` npm package **at build time** (not committed) — see
-[Building from source](#building-from-source).
+Both **entire** sets are embedded in the binary — no network or disk access at runtime — so any
+`mdi:<name>` from [the MDI library](https://pictogrammers.com/library/mdi/) (~7,400 glyphs, e.g.
+`mdi:database-outline`, `mdi:rocket-launch`) or any `si:<slug>` from [Simple Icons](https://simpleicons.org/)
+(~3,400 logos, e.g. `si:docker`, `si:grafana`, `si:prometheus`) works. The sets are stored compressed
+(~0.8 MB MDI, ~1.9 MB Simple Icons) and each is decoded into memory only on first use. An unknown set
+or name fails fast at startup. The icon data is built from the `@mdi/svg` and `simple-icons` npm
+packages **at build time** (not committed) — see [Building from source](#building-from-source).
 
 #### Range badges
 
@@ -571,11 +580,11 @@ summary.
 
 ## Building from source
 
-The gallery's `marked.js` / `github-markdown.css` and the full Material Design Icons set are vendored
-via npm (`package.json` + `package-lock.json`) and baked into the binary with `//go:embed` rather than
-committed. [`cmd/genassets`](cmd/genassets/main.go) reads `node_modules` and writes the embedded files,
-so a build runs `npm ci` once (network) and the resulting binary is self-contained (nothing fetched at
-runtime).
+The gallery's `marked.js` / `github-markdown.css` and the full Material Design Icons and Simple Icons
+sets are vendored via npm (`package.json` + `package-lock.json`) and baked into the binary with
+`//go:embed` rather than committed. [`cmd/genassets`](cmd/genassets/main.go) reads `node_modules` and
+writes the embedded files, so a build runs `npm ci` once (network) and the resulting binary is
+self-contained (nothing fetched at runtime).
 
 ```bash
 mise run assets   # npm ci + go run ./cmd/genassets (re-runs only when the lockfile changes)
@@ -584,7 +593,7 @@ go build ./cmd/kromgo
 
 `mise run test` / `lint` / `test-e2e` depend on `assets`, so they build it automatically; CI and the
 Docker build (a dedicated `node` stage) do the same. [Renovate](https://docs.renovatebot.com) keeps
-`marked`, `github-markdown-css`, and `@mdi/svg` current via PRs against `package.json`.
+`marked`, `github-markdown-css`, `@mdi/svg`, and `simple-icons` current via PRs against `package.json`.
 
 ## Upgrading 0.11 → 0.12
 

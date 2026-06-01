@@ -233,17 +233,28 @@ func colorNameToHex(color string) string {
 	return colorGreen
 }
 
-// resolveIcon parses an "mdi:<name>" reference into 24x24 SVG path data. Empty
-// input returns "". An unknown name or non-mdi prefix errors (fails fast at startup).
+// iconSets maps an icon-set prefix to its lazily-decoded name→path table.
+var iconSets = map[string]func() map[string]string{
+	"mdi": mdiIcons, // Material Design Icons (https://pictogrammers.com/library/mdi/)
+	"si":  siIcons,  // Simple Icons brand set (https://simpleicons.org/)
+}
+
+// resolveIcon parses a "<set>:<name>" reference (e.g. "mdi:server-outline" or
+// "si:kubernetes") into 24x24 SVG path data. Empty input returns "". An unknown set
+// or name errors (fails fast at startup).
 func resolveIcon(ref string) (string, error) {
 	if ref == "" {
 		return "", nil
 	}
-	name, ok := strings.CutPrefix(ref, "mdi:")
+	prefix, name, ok := strings.Cut(ref, ":")
 	if !ok {
-		return "", fmt.Errorf("icon %q: only mdi: icons are supported (e.g. mdi:server-outline)", ref)
+		return "", fmt.Errorf("icon %q: expected \"<set>:<name>\" (e.g. mdi:server-outline or si:kubernetes)", ref)
 	}
-	path, ok := mdiIcons()[name]
+	set, ok := iconSets[prefix]
+	if !ok {
+		return "", fmt.Errorf("icon %q: unknown icon set %q (supported: mdi, si)", ref, prefix)
+	}
+	path, ok := set()[name]
 	if !ok {
 		return "", fmt.Errorf("unknown icon %q", ref)
 	}

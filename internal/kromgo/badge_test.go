@@ -78,6 +78,11 @@ func TestResolveIcon(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(rocket, "M"))
 
+	// Simple Icons brand logos resolve from the si: set.
+	si, err := resolveIcon("si:kubernetes")
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(si, "M"))
+
 	empty, err := resolveIcon("")
 	require.NoError(t, err)
 	assert.Empty(t, empty)
@@ -85,12 +90,19 @@ func TestResolveIcon(t *testing.T) {
 	_, err = resolveIcon("mdi:does-not-exist")
 	assert.Error(t, err)
 
-	_, err = resolveIcon("server-outline") // missing mdi: prefix
+	_, err = resolveIcon("si:does-not-exist")
+	assert.Error(t, err)
+
+	_, err = resolveIcon("nope:server-outline") // unknown icon set
+	assert.Error(t, err)
+
+	_, err = resolveIcon("server-outline") // missing set prefix
 	assert.Error(t, err)
 }
 
-func TestMDIIconsEmbedded(t *testing.T) {
+func TestIconSetsEmbedded(t *testing.T) {
 	t.Parallel()
-	// The full Material Design Icons set is embedded and decodes cleanly.
+	// Both full sets are embedded and decode cleanly.
 	assert.Greater(t, len(mdiIcons()), 7000, "full MDI set should be embedded")
+	assert.Greater(t, len(siIcons()), 3000, "full Simple Icons set should be embedded")
 }
