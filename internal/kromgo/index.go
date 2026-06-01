@@ -16,7 +16,7 @@ import (
 // service stays self-contained and the index page keeps a strict script-src 'self'
 // CSP — no external CDN. See assets/ATTRIBUTION.md.
 //
-//go:embed assets/marked.min.js assets/github-markdown.css assets/gallery.css assets/gallery.js
+//go:embed assets/marked.js assets/github-markdown.css assets/gallery.css assets/gallery.js
 var galleryAssets embed.FS
 
 // assetsFS is galleryAssets rooted at the assets/ directory, for serving under /assets/.
@@ -67,7 +67,7 @@ var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
 <p class="empty">No endpoints are visible. Set <code>defaults.hidden: false</code> (or per-endpoint <code>hidden: false</code>) to list them here.</p>
 {{- end}}
 </div>
-<script src="/assets/marked.min.js"></script>
+<script src="/assets/marked.js"></script>
 <script src="/assets/gallery.js"></script>
 </body>
 </html>

@@ -543,19 +543,20 @@ cosign verify ghcr.io/home-operations/kromgo:<tag> \
 
 ## Building from source
 
-The gallery's `marked.js` / `github-markdown.css` and the full Material Design Icons set are **fetched
-at build time** (from pinned upstream versions) rather than committed, then baked into the binary with
-`//go:embed`. So a build needs network access once to pull them — the resulting binary is still
-self-contained (nothing is fetched at runtime).
+The gallery's `marked.js` / `github-markdown.css` and the full Material Design Icons set are vendored
+via npm (`package.json` + `package-lock.json`) and baked into the binary with `//go:embed` rather than
+committed. [`cmd/genassets`](cmd/genassets/main.go) reads `node_modules` and writes the embedded files,
+so a build runs `npm ci` once (network) and the resulting binary is self-contained (nothing fetched at
+runtime).
 
 ```bash
-mise run assets   # fetch the embedded assets (skips any already present; -force re-fetches)
+mise run assets   # npm ci + go run ./cmd/genassets (re-runs only when the lockfile changes)
 go build ./cmd/kromgo
 ```
 
-`mise run test` / `lint` / `test-e2e` depend on `assets`, so they fetch automatically; the Docker
-build and CI do the same. Bump a pinned version in [`cmd/genassets`](cmd/genassets/main.go), then
-`mise run assets -force`.
+`mise run test` / `lint` / `test-e2e` depend on `assets`, so they build it automatically; CI and the
+Docker build (a dedicated `node` stage) do the same. [Renovate](https://docs.renovatebot.com) keeps
+`marked`, `github-markdown-css`, and `@mdi/svg` current via PRs against `package.json`.
 
 ## Upgrading 0.11 → 0.12
 

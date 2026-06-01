@@ -2,8 +2,10 @@
 # Ignore build and test binaries.
 bin/
 
-# Build-time assets are fetched inside the builder by `go run ./cmd/genassets`,
-# never copied from the host — keeps the image build reproducible.
-internal/kromgo/assets/marked.min.js
+# node_modules and the generated assets are produced inside the build (npm ci in the
+# assets stage, genassets in the builder), never copied from the host — keeps the
+# image build reproducible.
+node_modules/
+internal/kromgo/assets/marked.js
 internal/kromgo/assets/github-markdown.css
 internal/kromgo/assets/mdi.txt.gz

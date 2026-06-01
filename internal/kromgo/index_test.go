@@ -110,7 +110,7 @@ func TestIndexHandler_GalleryHeadersAndAssets(t *testing.T) {
 	// Per-Host page must not be shared-cached.
 	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	// Self-hosted assets, no external origins.
-	assert.Contains(t, body, `/assets/marked.min.js`)
+	assert.Contains(t, body, `/assets/marked.js`)
 	assert.Contains(t, body, `/assets/github-markdown.css`)
 	assert.Contains(t, body, `/assets/gallery.js`)
 	assert.NotContains(t, body, "cdn.")
@@ -209,7 +209,7 @@ func TestAssetsHandler(t *testing.T) {
 	assert.Contains(t, css.Header().Get("Cache-Control"), "max-age=")
 	assert.Contains(t, css.Body.String(), ".grid")
 
-	js := get("/assets/marked.min.js")
+	js := get("/assets/marked.js")
 	assert.Equal(t, http.StatusOK, js.Code)
 	assert.Contains(t, js.Header().Get("Content-Type"), "javascript")
 

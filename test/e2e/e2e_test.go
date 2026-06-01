@@ -72,7 +72,7 @@ func TestE2E(t *testing.T) {
 		// Copy-pasteable Markdown snippets (absolute URL built from the request host).
 		assert.Contains(t, body, `/badges/cpu)`)
 		assert.Contains(t, body, `/graphs/cpu)`)
-		assert.Contains(t, body, `/assets/marked.min.js`)
+		assert.Contains(t, body, `/assets/marked.js`)
 		assert.Contains(t, resp.Header.Get("Content-Security-Policy"), "script-src 'self'")
 	})
 

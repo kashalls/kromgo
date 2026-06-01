@@ -2,12 +2,22 @@
 go = "1.26.3"
 golangci-lint = "2.12.2"
 lefthook = "2.1.9"
+node = "22"
 oxfmt = "0.52.0"
 zizmor = "1.25.2"
 
+# Vendor the npm packages and build the embedded assets. sources/outputs make this a
+# no-op until package-lock.json (or the generator) changes — e.g. a Renovate bump —
+# so the depends below stay cheap.
 [tasks.assets]
-description = "Fetch the embedded build assets (marked.js, github-markdown.css, full MDI set); -force to refresh"
-run = "go run ./cmd/genassets"
+description = "Vendor npm deps and build embedded assets (marked.js, github-markdown.css, full MDI set)"
+sources = ["package.json", "package-lock.json", "cmd/genassets/main.go"]
+outputs = [
+  "internal/kromgo/assets/marked.js",
+  "internal/kromgo/assets/github-markdown.css",
+  "internal/kromgo/assets/mdi.txt.gz",
+]
+run = "npm ci && go run ./cmd/genassets"
 
 [tasks.fmt]
 description = "Run go fmt against code"
