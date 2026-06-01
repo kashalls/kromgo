@@ -139,11 +139,12 @@ badges:
       title: Nodes
 ```
 
-Icons are embedded in the binary (no network/disk). The bundled set covers common infra glyphs
-(`server`, `server-outline`, `database`, `kubernetes`, `memory`, `cpu-64-bit`, `harddisk`, `lan`,
-`flash`, `thermometer`, `clock-outline`, `alert-circle-outline`, `check-circle-outline`,
-`close-circle-outline`, `chart-line`, `fire`, `cloud-outline`, `heart-pulse`, `power`, `cog-outline`);
-add more by PRing the icon's path data into the registry. An unknown icon fails fast at startup.
+The **entire** Material Design Icons set (~7,400 glyphs) is embedded in the binary — no network or
+disk access — so any `mdi:<name>` from [the library](https://pictogrammers.com/library/mdi/) works
+(e.g. `mdi:kubernetes`, `mdi:database-outline`, `mdi:rocket-launch`). The set is stored compressed
+(~0.8 MB) and decoded into memory on first use. An unknown name fails fast at startup. To bump the
+icon version, run `mise run icons` (regenerates from the pinned `@mdi/svg` release — see
+[`internal/kromgo/assets/ATTRIBUTION.md`](internal/kromgo/assets/ATTRIBUTION.md)).
 
 #### Range badges
 

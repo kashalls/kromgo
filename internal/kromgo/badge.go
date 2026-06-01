@@ -243,7 +243,7 @@ func resolveIcon(ref string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("icon %q: only mdi: icons are supported (e.g. mdi:server-outline)", ref)
 	}
-	path, ok := mdiIcons[name]
+	path, ok := mdiIcons()[name]
 	if !ok {
 		return "", fmt.Errorf("unknown icon %q", ref)
 	}

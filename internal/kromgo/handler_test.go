@@ -134,7 +134,7 @@ func TestServeBadge_Icon(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
-	assert.Contains(t, w.Body.String(), mdiIcons["server-outline"], "icon path embedded")
+	assert.Contains(t, w.Body.String(), mdiIcons()["server-outline"], "icon path embedded")
 }
 
 func TestNew_InvalidIconFailsFast(t *testing.T) {

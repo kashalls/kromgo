@@ -66,6 +66,11 @@ func TestResolveIcon(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(path, "M"))
 
+	// Any icon from the full embedded MDI set resolves, not just a curated few.
+	rocket, err := resolveIcon("mdi:rocket-launch")
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(rocket, "M"))
+
 	empty, err := resolveIcon("")
 	require.NoError(t, err)
 	assert.Empty(t, empty)
@@ -75,4 +80,9 @@ func TestResolveIcon(t *testing.T) {
 
 	_, err = resolveIcon("server-outline") // missing mdi: prefix
 	assert.Error(t, err)
+}
+
+func TestMDIIconsEmbedded(t *testing.T) {
+	// The full Material Design Icons set is embedded and decodes cleanly.
+	assert.Greater(t, len(mdiIcons()), 7000, "full MDI set should be embedded")
 }

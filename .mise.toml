@@ -17,6 +17,10 @@ run = "go vet ./..."
 description = "Regenerate committed generated files (config.schema.json)"
 run = "go run ./cmd/schema > config.schema.json && oxfmt config.schema.json"
 
+[tasks.icons]
+description = "Regenerate the embedded Material Design Icons set from the pinned @mdi/svg release"
+run = "go run ./cmd/genicons"
+
 [tasks.test]
 description = "Run tests with coverage"
 run = "go test $(go list ./...) -coverprofile cover.out"
