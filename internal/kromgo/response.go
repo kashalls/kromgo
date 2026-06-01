@@ -2,6 +2,7 @@ package kromgo
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -38,6 +39,14 @@ func writeJSON(w http.ResponseWriter, v any) error {
 func writeSVG(w http.ResponseWriter, svg []byte) {
 	w.Header().Set("Content-Type", mimeSVG)
 	_, _ = w.Write(svg)
+}
+
+// setCache applies a successful response's cache policy; writeError later overrides
+// it with no-store on failures.
+func setCache(w http.ResponseWriter, cacheSeconds int) {
+	if cacheSeconds > 0 {
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", cacheSeconds))
+	}
 }
 
 // writeJSONOr writes v as JSON, falling back to a 500 error response on marshal failure.

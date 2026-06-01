@@ -18,6 +18,7 @@ func eval(t *testing.T, src string, result float64, labels map[string]string) (s
 }
 
 func TestCEL_Expressions(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		src    string
@@ -51,6 +52,7 @@ func TestCEL_Expressions(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := eval(t, tc.src, tc.result, tc.labels)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
@@ -59,6 +61,7 @@ func TestCEL_Expressions(t *testing.T) {
 }
 
 func TestCEL_CompileRejectsNonString(t *testing.T) {
+	t.Parallel()
 	env, err := newCELEnv()
 	require.NoError(t, err)
 	_, err = compileStringExpr(env, "test", "value", "result") // double, not string
@@ -66,6 +69,7 @@ func TestCEL_CompileRejectsNonString(t *testing.T) {
 }
 
 func TestCEL_NoEnvOrFileAccess(t *testing.T) {
+	t.Parallel()
 	// CEL is sandboxed: there is no env()/readFile()/etc. to leak host state.
 	env, err := newCELEnv()
 	require.NoError(t, err)

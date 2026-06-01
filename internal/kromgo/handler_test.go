@@ -52,8 +52,17 @@ func counterValue(t *testing.T, c promclient.Counter) float64 {
 	return m.GetCounter().GetValue()
 }
 
+// assertSVGOK asserts a 200 SVG image response.
+func assertSVGOK(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
+	assert.True(t, strings.HasPrefix(w.Body.String(), "<svg"))
+}
+
 // An unknown badge path must fold into the bounded ("badge","unknown","svg")
-// counter series rather than minting new label values.
+// counter series rather than minting new label values. Kept serial (no t.Parallel):
+// the before/after delta is measured before the package's parallel tests run.
 func TestServeBadge_CounterCardinalityBounded(t *testing.T) {
 	srv := mockProm(t, "1", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
@@ -66,64 +75,59 @@ func TestServeBadge_CounterCardinalityBounded(t *testing.T) {
 	assert.Equal(t, before+2, after)
 }
 
-func TestServeBadge_SVGDefault(t *testing.T) {
+// TestServeBadge_Output covers the badge output formats that share the standard
+// config and instant value (17.5, labelled job=node).
+func TestServeBadge_Output(t *testing.T) {
+	t.Parallel()
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := promtest.Get(t, h.Mux(), "/badges/cpu")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
-	assert.True(t, strings.HasPrefix(w.Body.String(), "<svg"))
-}
-
-func TestServeBadge_Shields(t *testing.T) {
-	srv := mockProm(t, "17.5", nil)
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/cpu?format=shields")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	var body map[string]any
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.EqualValues(t, 1, body["schemaVersion"])
-	assert.Equal(t, "cpu", body["label"])
-	assert.Equal(t, "17.5%", body["message"])
-	assert.Equal(t, "green", body["color"])
-}
-
-func TestServeBadge_JSON(t *testing.T) {
-	srv := mockProm(t, "17.5", nil)
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/cpu?format=json")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	var body BadgeJSON
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Equal(t, "cpu", body.ID)
-	assert.Equal(t, "17.5%", body.Value)
-	assert.Equal(t, "green", body.Color)
-	require.NotNil(t, body.Result)
-	assert.InDelta(t, 17.5, *body.Result, 0.001)
-	assert.Equal(t, "node", body.Labels["job"])
-}
-
-func TestServeBadge_Styles(t *testing.T) {
-	srv := mockProm(t, "17.5", nil)
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	for _, style := range []string{"", "flat-square", "plastic"} {
-		w := promtest.Get(t, h.Mux(), "/badges/cpu?style="+style)
-		assert.Equal(t, http.StatusOK, w.Code, "style=%q", style)
-		assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"), "style=%q", style)
-		assert.True(t, strings.HasPrefix(w.Body.String(), "<svg"), "style=%q", style)
+	cases := []struct {
+		name  string
+		path  string
+		check func(t *testing.T, w *httptest.ResponseRecorder)
+	}{
+		{"svg default", "/badges/cpu", assertSVGOK},
+		{"style flat-square", "/badges/cpu?style=flat-square", assertSVGOK},
+		{"style plastic", "/badges/cpu?style=plastic", assertSVGOK},
+		{"unknown style falls back to svg", "/badges/cpu?style=", assertSVGOK},
+		{"shields json", "/badges/cpu?format=shields", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+			assert.EqualValues(t, 1, body["schemaVersion"])
+			assert.Equal(t, "cpu", body["label"])
+			assert.Equal(t, "17.5%", body["message"])
+			assert.Equal(t, "green", body["color"])
+		}},
+		{"native json", "/badges/cpu?format=json", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+			var body BadgeJSON
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+			assert.Equal(t, "cpu", body.ID)
+			assert.Equal(t, "17.5%", body.Value)
+			assert.Equal(t, "green", body.Color)
+			require.NotNil(t, body.Result)
+			assert.InDelta(t, 17.5, *body.Result, 0.001)
+			assert.Equal(t, "node", body.Labels["job"])
+		}},
+		{"not found", "/badges/does-not-exist", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusNotFound, w.Code)
+			assert.Contains(t, w.Body.String(), `"isError":true`)
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tc.check(t, promtest.Get(t, h.Mux(), tc.path))
+		})
 	}
 }
 
 func TestServeBadge_Icon(t *testing.T) {
+	t.Parallel()
 	cfg := config.KromgoConfig{Badges: []config.Badge{{
 		ID: "cpu", Query: "q", Icon: "mdi:server-outline", Value: `string(result) + "%"`,
 	}}}
@@ -138,6 +142,7 @@ func TestServeBadge_Icon(t *testing.T) {
 }
 
 func TestNew_InvalidIconFailsFast(t *testing.T) {
+	t.Parallel()
 	cfg := config.KromgoConfig{Badges: []config.Badge{{ID: "x", Query: "q", Icon: "mdi:does-not-exist"}}}
 	srv := mockProm(t, "1", nil)
 	client, err := prometheus.New(srv.URL, 0)
@@ -147,223 +152,217 @@ func TestNew_InvalidIconFailsFast(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestServeBadge_NotFound(t *testing.T) {
-	srv := mockProm(t, "17.5", nil)
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/does-not-exist")
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	assert.Contains(t, w.Body.String(), `"isError":true`)
-}
-
 func TestRoutes_NonGETRejected(t *testing.T) {
+	t.Parallel()
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
-		req := httptest.NewRequest(method, "/badges/cpu", nil)
-		w := httptest.NewRecorder()
-		h.Mux().ServeHTTP(w, req)
-		assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "method=%s", method)
+		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+			req := httptest.NewRequest(method, "/badges/cpu", nil)
+			w := httptest.NewRecorder()
+			h.Mux().ServeHTTP(w, req)
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+		})
 	}
 }
 
-func TestServeBadge_ValueExpression(t *testing.T) {
-	cfg := config.KromgoConfig{Badges: []config.Badge{{
-		ID: "uptime", Query: "q", Value: "humanizeDuration(result)",
-	}}}
-	srv := mockProm(t, "9000", nil)
-	h := newHandlerForTest(t, cfg, srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/uptime?format=json")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"value":"2h30m"`)
-}
-
-func TestServeBadge_ValueFromLabel(t *testing.T) {
-	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"version": "v1.2.3"}), nil)
-	cfg := config.KromgoConfig{Badges: []config.Badge{{ID: "ver", Query: "q", Value: `labels["version"]`}}}
-	h := newHandlerForTest(t, cfg, srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/ver?format=shields")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"message":"v1.2.3"`)
-}
-
-func TestServeBadge_ValueExpressionError(t *testing.T) {
-	// Indexing a missing label is a CEL runtime error → 500.
-	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"other": "x"}), nil)
-	cfg := config.KromgoConfig{Badges: []config.Badge{{ID: "ver", Query: "q", Value: `labels["version"]`}}}
-	h := newHandlerForTest(t, cfg, srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/ver")
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), `"isError":true`)
-}
-
-func TestServeBadge_StateExpressions(t *testing.T) {
-	cfg := config.KromgoConfig{Badges: []config.Badge{{
-		ID:    "ceph",
-		Query: "q",
-		Value: `result == 0.0 ? "Healthy" : "Critical"`,
-		Color: `result == 0.0 ? "green" : "red"`,
-	}}}
-	srv := mockProm(t, "0", nil)
-	h := newHandlerForTest(t, cfg, srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/ceph?format=shields")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"message":"Healthy"`)
-	assert.Contains(t, w.Body.String(), `"color":"green"`)
-}
-
-func TestServeBadge_EmptyVector_NoData(t *testing.T) {
-	srv := promtest.Server(t, nil, nil) // empty instant vector
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/cpu?format=shields")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"message":"no data"`)
-}
-
-func TestServeBadge_RangeType(t *testing.T) {
-	// type: range reduces a range query to one value (avg of 10,20,30 = 20).
-	cfg := config.KromgoConfig{Badges: []config.Badge{{
-		ID:    "cpu_avg",
-		Type:  config.TypeRange,
-		Query: "q",
-		Value: `string(result) + "%"`,
-		Range: &config.RangeQuery{Last: "1h", Reduce: config.ReduceAvg},
-	}}}
-	srv := promtest.Server(t, nil, []float64{10, 20, 30})
-	h := newHandlerForTest(t, cfg, srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/badges/cpu_avg?format=shields")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"message":"20%"`)
-}
-
-func TestCacheControl_PerEndpoint(t *testing.T) {
-	cfg := config.KromgoConfig{
-		Defaults: config.Defaults{CacheSeconds: 60}, // global default
-		Badges: []config.Badge{
-			{ID: "fast", Query: "q"},
-			{ID: "slow", Query: "q", CacheSeconds: new(3600)},
+// TestServeBadge_Expressions covers value/color CEL evaluation, including the
+// no-data and runtime-error paths, each with its own config.
+func TestServeBadge_Expressions(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name     string
+		badge    config.Badge
+		sample   []promtest.Sample
+		matrix   []float64
+		path     string
+		wantCode int
+		contains []string
+	}{
+		{
+			name:     "humanize duration value",
+			badge:    config.Badge{ID: "uptime", Query: "q", Value: "humanizeDuration(result)"},
+			sample:   promtest.Scalar("9000", map[string]string{"job": "node"}),
+			path:     "/badges/uptime?format=json",
+			wantCode: http.StatusOK,
+			contains: []string{`"value":"2h30m"`},
+		},
+		{
+			name:     "value from label",
+			badge:    config.Badge{ID: "ver", Query: "q", Value: `labels["version"]`},
+			sample:   promtest.Scalar("0", map[string]string{"version": "v1.2.3"}),
+			path:     "/badges/ver?format=shields",
+			wantCode: http.StatusOK,
+			contains: []string{`"message":"v1.2.3"`},
+		},
+		{
+			// Indexing a missing label is a CEL runtime error → 500.
+			name:     "missing label is runtime error",
+			badge:    config.Badge{ID: "ver", Query: "q", Value: `labels["version"]`},
+			sample:   promtest.Scalar("0", map[string]string{"other": "x"}),
+			path:     "/badges/ver",
+			wantCode: http.StatusInternalServerError,
+			contains: []string{`"isError":true`},
+		},
+		{
+			name: "state expressions",
+			badge: config.Badge{
+				ID:    "ceph",
+				Query: "q",
+				Value: `result == 0.0 ? "Healthy" : "Critical"`,
+				Color: `result == 0.0 ? "green" : "red"`,
+			},
+			sample:   promtest.Scalar("0", map[string]string{"job": "node"}),
+			path:     "/badges/ceph?format=shields",
+			wantCode: http.StatusOK,
+			contains: []string{`"message":"Healthy"`, `"color":"green"`},
+		},
+		{
+			name:     "empty vector renders no data",
+			badge:    baseConfig().Badges[0],
+			sample:   nil, // empty instant vector
+			path:     "/badges/cpu?format=shields",
+			wantCode: http.StatusOK,
+			contains: []string{`"message":"no data"`},
+		},
+		{
+			// type: range reduces a range query to one value (avg of 10,20,30 = 20).
+			name: "range type reduces to one value",
+			badge: config.Badge{
+				ID:    "cpu_avg",
+				Type:  config.TypeRange,
+				Query: "q",
+				Value: `string(result) + "%"`,
+				Range: &config.RangeQuery{Last: "1h", Reduce: config.ReduceAvg},
+			},
+			matrix:   []float64{10, 20, 30},
+			path:     "/badges/cpu_avg?format=shields",
+			wantCode: http.StatusOK,
+			contains: []string{`"message":"20%"`},
 		},
 	}
-	srv := mockProm(t, "1", nil)
-	h := newHandlerForTest(t, cfg, srv.URL)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			srv := promtest.Server(t, tc.sample, tc.matrix)
+			h := newHandlerForTest(t, config.KromgoConfig{Badges: []config.Badge{tc.badge}}, srv.URL)
 
-	t.Run("global default", func(t *testing.T) {
-		w := promtest.Get(t, h.Mux(), "/badges/fast?format=shields")
-		assert.Equal(t, "public, max-age=60", w.Header().Get("Cache-Control"))
-		assert.Contains(t, w.Body.String(), `"cacheSeconds":60`)
-	})
+			w := promtest.Get(t, h.Mux(), tc.path)
 
-	t.Run("per-endpoint override", func(t *testing.T) {
-		w := promtest.Get(t, h.Mux(), "/badges/slow?format=shields")
-		assert.Equal(t, "public, max-age=3600", w.Header().Get("Cache-Control"))
-		assert.Contains(t, w.Body.String(), `"cacheSeconds":3600`)
-	})
-}
-
-func TestCacheControl_DisabledByDefault(t *testing.T) {
-	srv := mockProm(t, "17.5", nil)
-	h := newHandlerForTest(t, baseConfig(), srv.URL) // no CacheSeconds
-
-	w := promtest.Get(t, h.Mux(), "/badges/cpu")
-
-	assert.Empty(t, w.Header().Get("Cache-Control"))
-}
-
-func TestCacheControl_ErrorsNotCached(t *testing.T) {
-	cfg := config.KromgoConfig{
-		Defaults: config.Defaults{CacheSeconds: 60},
-		Graphs:   []config.Graph{{ID: "cpu", Query: "q", MaxDuration: "24h"}},
+			assert.Equal(t, tc.wantCode, w.Code)
+			for _, want := range tc.contains {
+				assert.Contains(t, w.Body.String(), want)
+			}
+		})
 	}
-	srv := mockProm(t, "1", nil)
-	h := newHandlerForTest(t, cfg, srv.URL)
-
-	// Window exceeds maxDuration → 400; the cache header must be no-store, not max-age.
-	w := promtest.Get(t, h.Mux(), "/graphs/cpu?format=json&last=7d")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 }
 
-func TestServeGraph_JSON(t *testing.T) {
-	srv := mockProm(t, "0", []float64{1, 2, 3})
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
+func TestCacheControl(t *testing.T) {
+	t.Parallel()
 
-	w := promtest.Get(t, h.Mux(), "/graphs/cpu?format=json&last=1h")
+	t.Run("per-endpoint override and global default", func(t *testing.T) {
+		t.Parallel()
+		cfg := config.KromgoConfig{
+			Defaults: config.Defaults{CacheSeconds: 60}, // global default
+			Badges: []config.Badge{
+				{ID: "fast", Query: "q"},
+				{ID: "slow", Query: "q", CacheSeconds: new(3600)},
+			},
+		}
+		srv := mockProm(t, "1", nil)
+		h := newHandlerForTest(t, cfg, srv.URL)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	var resp HistoryResponse
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, "cpu", resp.ID)
-	require.Len(t, resp.Series, 1)
-	assert.Len(t, resp.Series[0].Data, 3)
+		cases := []struct {
+			name, id, wantCache, wantBody string
+		}{
+			{"global default", "fast", "public, max-age=60", `"cacheSeconds":60`},
+			{"per-endpoint override", "slow", "public, max-age=3600", `"cacheSeconds":3600`},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				w := promtest.Get(t, h.Mux(), "/badges/"+tc.id+"?format=shields")
+				assert.Equal(t, tc.wantCache, w.Header().Get("Cache-Control"))
+				assert.Contains(t, w.Body.String(), tc.wantBody)
+			})
+		}
+	})
+
+	t.Run("disabled by default", func(t *testing.T) {
+		t.Parallel()
+		srv := mockProm(t, "17.5", nil)
+		h := newHandlerForTest(t, baseConfig(), srv.URL) // no CacheSeconds
+		w := promtest.Get(t, h.Mux(), "/badges/cpu")
+		assert.Empty(t, w.Header().Get("Cache-Control"))
+	})
+
+	t.Run("errors not cached", func(t *testing.T) {
+		t.Parallel()
+		cfg := config.KromgoConfig{
+			Defaults: config.Defaults{CacheSeconds: 60},
+			Graphs:   []config.Graph{{ID: "cpu", Query: "q", MaxDuration: "24h"}},
+		}
+		srv := mockProm(t, "1", nil)
+		h := newHandlerForTest(t, cfg, srv.URL)
+
+		// Window exceeds maxDuration → 400; the cache header must be no-store, not max-age.
+		w := promtest.Get(t, h.Mux(), "/graphs/cpu?format=json&last=7d")
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+	})
 }
 
-func TestServeGraph_SVGDefault(t *testing.T) {
-	srv := mockProm(t, "0", []float64{10, 20, 15, 30})
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/graphs/cpu?last=1h")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
-	assert.True(t, strings.HasPrefix(w.Body.String(), "<svg"))
-}
-
-func TestServeGraph_PNG(t *testing.T) {
-	srv := mockProm(t, "0", []float64{10, 20, 15, 30})
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/graphs/cpu?format=png&last=1h")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "image/png", w.Header().Get("Content-Type"))
-	assert.Equal(t, []byte{0x89, 'P', 'N', 'G'}, w.Body.Bytes()[:4])
-}
-
-func TestServeGraph_Theme(t *testing.T) {
-	srv := mockProm(t, "0", []float64{10, 20, 15, 30})
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/graphs/cpu?theme=dracula&last=1h")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "rgb(40,42,54)") // dracula background
-}
-
-func TestServeGraph_WindowTooLarge(t *testing.T) {
-	srv := mockProm(t, "0", []float64{1, 2})
-	h := newHandlerForTest(t, baseConfig(), srv.URL) // graph MaxDuration 24h
-
-	w := promtest.Get(t, h.Mux(), "/graphs/cpu?format=json&last=7d")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestServeGraph_NotFound(t *testing.T) {
-	srv := mockProm(t, "0", nil)
-	h := newHandlerForTest(t, baseConfig(), srv.URL)
-
-	w := promtest.Get(t, h.Mux(), "/graphs/nope")
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
+// TestServeGraph_Output covers the graph output formats; each case supplies its own
+// range matrix and request.
+func TestServeGraph_Output(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		matrix []float64
+		path   string
+		check  func(t *testing.T, w *httptest.ResponseRecorder)
+	}{
+		{"json", []float64{1, 2, 3}, "/graphs/cpu?format=json&last=1h", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+			var resp HistoryResponse
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+			assert.Equal(t, "cpu", resp.ID)
+			require.Len(t, resp.Series, 1)
+			assert.Len(t, resp.Series[0].Data, 3)
+		}},
+		{"svg default", []float64{10, 20, 15, 30}, "/graphs/cpu?last=1h", assertSVGOK},
+		{"png", []float64{10, 20, 15, 30}, "/graphs/cpu?format=png&last=1h", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "image/png", w.Header().Get("Content-Type"))
+			assert.Equal(t, []byte{0x89, 'P', 'N', 'G'}, w.Body.Bytes()[:4])
+		}},
+		{"theme", []float64{10, 20, 15, 30}, "/graphs/cpu?theme=dracula&last=1h", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Contains(t, w.Body.String(), "rgb(40,42,54)") // dracula background
+		}},
+		{"window too large", []float64{1, 2}, "/graphs/cpu?format=json&last=7d", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+		}},
+		{"not found", nil, "/graphs/nope", func(t *testing.T, w *httptest.ResponseRecorder) {
+			assert.Equal(t, http.StatusNotFound, w.Code)
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			srv := mockProm(t, "0", tc.matrix)
+			h := newHandlerForTest(t, baseConfig(), srv.URL)
+			tc.check(t, promtest.Get(t, h.Mux(), tc.path))
+		})
+	}
 }
 
 func TestIndexRoute(t *testing.T) {
+	t.Parallel()
 	cfg := baseConfig() // endpoints are shown in the gallery by default
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
@@ -377,6 +376,7 @@ func TestIndexRoute(t *testing.T) {
 }
 
 func TestAssetsRoute(t *testing.T) {
+	t.Parallel()
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 

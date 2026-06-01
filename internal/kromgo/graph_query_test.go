@@ -20,6 +20,7 @@ func makeRequest(params map[string]string) *http.Request {
 }
 
 func TestParseGraphParams_Valid(t *testing.T) {
+	t.Parallel()
 	// wantStart/wantEnd/wantStep of 0 mean "don't assert this field".
 	cases := []struct {
 		name      string
@@ -38,6 +39,7 @@ func TestParseGraphParams_Valid(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			start, end, step, err := parseGraphParams(makeRequest(tc.params))
 			require.NoError(t, err)
 			if tc.wantStart != 0 {
@@ -54,6 +56,7 @@ func TestParseGraphParams_Valid(t *testing.T) {
 }
 
 func TestParseGraphParams_DefaultWindow(t *testing.T) {
+	t.Parallel()
 	before := time.Now()
 	start, end, step, err := parseGraphParams(makeRequest(nil))
 	require.NoError(t, err)
@@ -63,6 +66,7 @@ func TestParseGraphParams_DefaultWindow(t *testing.T) {
 }
 
 func TestParseGraphParams_Errors(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name     string
 		params   map[string]string
@@ -77,6 +81,7 @@ func TestParseGraphParams_Errors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			_, _, _, err := parseGraphParams(makeRequest(tc.params))
 			require.Error(t, err)
 			if tc.sentinel != nil {
@@ -87,6 +92,7 @@ func TestParseGraphParams_Errors(t *testing.T) {
 }
 
 func TestParseTimeParam(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name     string
 		in       string
@@ -99,6 +105,7 @@ func TestParseTimeParam(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ts, err := parseTimeParam(tc.in)
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -111,6 +118,7 @@ func TestParseTimeParam(t *testing.T) {
 }
 
 func TestResolveGraph_MaxDuration(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name  string
 		graph config.Graph
@@ -124,6 +132,7 @@ func TestResolveGraph_MaxDuration(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			rg, err := resolveGraph(tc.graph, tc.def)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, rg.maxDuration)
@@ -132,12 +141,14 @@ func TestResolveGraph_MaxDuration(t *testing.T) {
 }
 
 func TestResolveGraph_InvalidTheme(t *testing.T) {
+	t.Parallel()
 	_, err := resolveGraph(config.Graph{ID: "t", Query: "q", Theme: "nope"}, config.Defaults{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "theme")
 }
 
 func TestResolveGraph_DefaultParams(t *testing.T) {
+	t.Parallel()
 	rg, err := resolveGraph(config.Graph{ID: "t"}, config.Defaults{})
 	require.NoError(t, err)
 	assert.Equal(t, defaultGraphWidth, rg.defaults.width)
@@ -146,6 +157,7 @@ func TestResolveGraph_DefaultParams(t *testing.T) {
 }
 
 func TestResolveBadge_InvalidExprFailsFast(t *testing.T) {
+	t.Parallel()
 	env, err := newCELEnv()
 	require.NoError(t, err)
 	cases := map[string]config.Badge{
@@ -155,6 +167,7 @@ func TestResolveBadge_InvalidExprFailsFast(t *testing.T) {
 	}
 	for name, b := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			_, err := resolveBadge(b, config.Defaults{}, env)
 			assert.Error(t, err)
 		})
@@ -162,6 +175,7 @@ func TestResolveBadge_InvalidExprFailsFast(t *testing.T) {
 }
 
 func TestResolveBadge_Style(t *testing.T) {
+	t.Parallel()
 	env, err := newCELEnv()
 	require.NoError(t, err)
 

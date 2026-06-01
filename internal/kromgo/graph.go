@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/home-operations/kromgo/internal/logging"
 	"github.com/prometheus/common/model"
 )
 
@@ -43,7 +44,7 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 
 	metricLabel := "unknown"
 	defer func() { requestsTotal.WithLabelValues("graph", metricLabel, format).Inc() }()
-	log := requestLogger(r, "graph", id, format)
+	log := logging.FromContext(r.Context()).With("kind", "graph", "id", id, "format", format)
 
 	graph, ok := h.graphs[id]
 	if !ok {

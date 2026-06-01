@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -15,13 +16,9 @@ import (
 // output formats: parameter parsing, window validation, and the range query itself.
 
 var (
-	errStartAfterEnd       = &graphParamError{"start must be before end"}
-	errNonPositiveDuration = &graphParamError{"last must be a positive duration"}
+	errStartAfterEnd       = errors.New("start must be before end")
+	errNonPositiveDuration = errors.New("last must be a positive duration")
 )
-
-type graphParamError struct{ msg string }
-
-func (e *graphParamError) Error() string { return e.msg }
 
 func parseTimeParam(s string) (time.Time, error) {
 	// Try Unix timestamp (integer) first, then fall back to RFC3339.

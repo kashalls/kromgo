@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/home-operations/kromgo/internal/logging"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 )
@@ -37,7 +38,7 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 
 	metricLabel := "unknown"
 	defer func() { requestsTotal.WithLabelValues("badge", metricLabel, format).Inc() }()
-	log := requestLogger(r, "badge", id, format)
+	log := logging.FromContext(r.Context()).With("kind", "badge", "id", id, "format", format)
 
 	badge, ok := h.badges[id]
 	if !ok {

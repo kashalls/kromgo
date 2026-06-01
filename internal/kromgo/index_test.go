@@ -13,6 +13,7 @@ import (
 // --- hidden ---
 
 func TestHidden(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		item *bool
@@ -27,6 +28,7 @@ func TestHidden(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, hidden(tc.item, tc.def))
 		})
 	}
@@ -35,6 +37,7 @@ func TestHidden(t *testing.T) {
 // --- baseURL ---
 
 func TestBaseURL(t *testing.T) {
+	t.Parallel()
 	req := func(host, xfp string, withTLS bool) *http.Request {
 		r := httptest.NewRequest(http.MethodGet, "/", nil)
 		r.Host = host
@@ -62,6 +65,7 @@ func TestBaseURL(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, baseURL(tc.r))
 		})
 	}
@@ -70,6 +74,7 @@ func TestBaseURL(t *testing.T) {
 // --- markdownItem / mdEscapeAlt ---
 
 func TestMarkdownItem(t *testing.T) {
+	t.Parallel()
 	assert.Equal(t, "![CPU](http://example.com/badges/cpu)",
 		markdownItem("http://example.com", "badges", "cpu", "CPU").Markdown)
 	// Relative URL when the host is unusable.
@@ -92,6 +97,7 @@ func getIndex(h *Handler) *httptest.ResponseRecorder {
 }
 
 func TestIndexHandler_GalleryHeadersAndAssets(t *testing.T) {
+	t.Parallel()
 	h := newTestHandler(config.KromgoConfig{
 		Badges: []config.Badge{{ID: "cpu", Title: "CPU"}},
 	})
@@ -116,6 +122,7 @@ func TestIndexHandler_GalleryHeadersAndAssets(t *testing.T) {
 }
 
 func TestIndexHandler_BadgesAndGraphs_SnippetsPresent(t *testing.T) {
+	t.Parallel()
 	h := newTestHandler(config.KromgoConfig{
 		Badges: []config.Badge{{ID: "cpu", Title: "CPU"}},
 		Graphs: []config.Graph{{ID: "cpu"}}, // no title → falls back to id
@@ -131,6 +138,7 @@ func TestIndexHandler_BadgesAndGraphs_SnippetsPresent(t *testing.T) {
 }
 
 func TestIndexHandler_AllHidden_ShowsEmptyState(t *testing.T) {
+	t.Parallel()
 	// Hide all badges via the per-type default.
 	h := newTestHandler(config.KromgoConfig{
 		Badges:   []config.Badge{{ID: "cpu"}, {ID: "mem"}},
@@ -144,6 +152,7 @@ func TestIndexHandler_AllHidden_ShowsEmptyState(t *testing.T) {
 }
 
 func TestIndexHandler_MixedVisibility(t *testing.T) {
+	t.Parallel()
 	// Badges hidden by default; cpu opts back in with gallery.hidden: false.
 	h := newTestHandler(config.KromgoConfig{
 		Badges: []config.Badge{
@@ -159,6 +168,7 @@ func TestIndexHandler_MixedVisibility(t *testing.T) {
 }
 
 func TestIndexHandler_PerEndpointHidden(t *testing.T) {
+	t.Parallel()
 	// Default is shown; a per-endpoint gallery.hidden: true hides just that one.
 	h := newTestHandler(config.KromgoConfig{
 		Badges: []config.Badge{
@@ -173,12 +183,14 @@ func TestIndexHandler_PerEndpointHidden(t *testing.T) {
 }
 
 func TestIndexHandler_NoEndpoints_ShowsEmptyState(t *testing.T) {
+	t.Parallel()
 	h := newTestHandler(config.KromgoConfig{})
 	body := getIndex(h).Body.String()
 	assert.Contains(t, body, "No endpoints to show")
 }
 
 func TestIndexHandler_GalleryDisabled_ShowsLanding(t *testing.T) {
+	t.Parallel()
 	h := newTestHandler(config.KromgoConfig{
 		Badges:  []config.Badge{{ID: "cpu", Title: "CPU"}},
 		Gallery: config.Gallery{Enabled: new(false)},
@@ -197,6 +209,7 @@ func TestIndexHandler_GalleryDisabled_ShowsLanding(t *testing.T) {
 // --- assets handler ---
 
 func TestAssetsHandler(t *testing.T) {
+	t.Parallel()
 	get := func(path string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		w := httptest.NewRecorder()
