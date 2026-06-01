@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Build
+name: Release
 
 on:
   push:
@@ -15,20 +15,19 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write # cosign signing
+      id-token: write
     uses: docker/github-builder/.github/workflows/build.yml@17bd7d64200cae4ba58ffc099934e8012ae320f2 # v1.10.0
     with:
-      output: image
-      push: true
-      platforms: linux/amd64,linux/arm64
-      sbom: true
-      sign: true
       meta-images: ghcr.io/${{ github.repository }}
-      # main push → "main"; release → the version + "rolling"
       meta-tags: |
         type=semver,pattern={{version}}
         type=raw,value=rolling,enable=${{ github.event_name == 'release' }}
         type=ref,event=branch
+      output: image
+      platforms: linux/amd64,linux/arm64
+      push: true
+      sbom: true
+      sign: true
     secrets:
       registry-auths: |
         - registry: ghcr.io
