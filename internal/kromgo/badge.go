@@ -2,24 +2,25 @@ package kromgo
 
 import (
 	"fmt"
-	"html"
 	"regexp"
 	"strings"
-	"sync"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/home-operations/kromgo/internal/config"
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/sfnt"
+	"golang.org/x/image/math/fixed"
 )
 
 const defaultBadgeFontSize = 11
 
 // badgeRenderer draws shields-style SVG badges (an optional left icon, a label, and
-// a value) entirely in-process. Text widths are measured with the configured font;
-// a sync.Pool guards the font.Face, which is not safe for concurrent use.
+// a value). Text is rendered as vector paths from the configured font, so the badge
+// is identical in every viewer (no dependence on system fonts or SVG textLength) and
+// segment widths always match the glyphs exactly. sfnt.Font is safe for concurrent
+// use as long as each call uses its own Buffer.
 type badgeRenderer struct {
-	size  float64
-	faces sync.Pool
+	font *sfnt.Font
+	size float64
 }
 
 // newBadgeRenderer parses the configured font and returns a renderer.
@@ -28,7 +29,7 @@ func newBadgeRenderer(cfg config.BadgeDefaults) (*badgeRenderer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("badge font: %w", err)
 	}
-	f, err := truetype.Parse(data)
+	f, err := sfnt.Parse(data)
 	if err != nil {
 		return nil, fmt.Errorf("parsing badge font: %w", err)
 	}
@@ -36,18 +37,67 @@ func newBadgeRenderer(cfg config.BadgeDefaults) (*badgeRenderer, error) {
 	if size <= 0 {
 		size = defaultBadgeFontSize
 	}
-	return &badgeRenderer{
-		size: size,
-		faces: sync.Pool{New: func() any {
-			return truetype.NewFace(f, &truetype.Options{Size: size, DPI: 72, Hinting: font.HintingFull})
-		}},
-	}, nil
+	return &badgeRenderer{font: f, size: size}, nil
 }
 
+func (b *badgeRenderer) ppem() fixed.Int26_6 { return fixed.Int26_6(b.size * 64) }
+
+// measure returns the rendered width of s in pixels (sum of glyph advances).
 func (b *badgeRenderer) measure(s string) int {
-	face := b.faces.Get().(font.Face)
-	defer b.faces.Put(face)
-	return font.MeasureString(face, s).Round()
+	var buf sfnt.Buffer
+	var w fixed.Int26_6
+	for _, r := range s {
+		gid, err := b.font.GlyphIndex(&buf, r)
+		if err != nil || gid == 0 {
+			w += fixed.Int26_6(b.size * 0.5 * 64) // fallback for a missing glyph
+			continue
+		}
+		if adv, err := b.font.GlyphAdvance(&buf, gid, b.ppem(), font.HintingNone); err == nil {
+			w += adv
+		}
+	}
+	return int(float64(w)/64 + 0.5)
+}
+
+// glyphPath returns SVG path data for s, with the text baseline at (originX, baseline).
+func (b *badgeRenderer) glyphPath(s string, originX, baseline float64) string {
+	var buf sfnt.Buffer
+	pen := originX
+	var d strings.Builder
+	f26 := func(v fixed.Int26_6) float64 { return float64(v) / 64 }
+
+	for _, r := range s {
+		gid, err := b.font.GlyphIndex(&buf, r)
+		if err == nil && gid != 0 {
+			if segs, err := b.font.LoadGlyph(&buf, gid, b.ppem(), nil); err == nil {
+				for i, seg := range segs {
+					a := seg.Args
+					switch seg.Op {
+					case sfnt.SegmentOpMoveTo:
+						if i > 0 {
+							d.WriteByte('Z')
+						}
+						fmt.Fprintf(&d, "M%.1f %.1f", pen+f26(a[0].X), baseline+f26(a[0].Y))
+					case sfnt.SegmentOpLineTo:
+						fmt.Fprintf(&d, "L%.1f %.1f", pen+f26(a[0].X), baseline+f26(a[0].Y))
+					case sfnt.SegmentOpQuadTo:
+						fmt.Fprintf(&d, "Q%.1f %.1f %.1f %.1f", pen+f26(a[0].X), baseline+f26(a[0].Y), pen+f26(a[1].X), baseline+f26(a[1].Y))
+					case sfnt.SegmentOpCubeTo:
+						fmt.Fprintf(&d, "C%.1f %.1f %.1f %.1f %.1f %.1f", pen+f26(a[0].X), baseline+f26(a[0].Y), pen+f26(a[1].X), baseline+f26(a[1].Y), pen+f26(a[2].X), baseline+f26(a[2].Y))
+					}
+				}
+				if len(segs) > 0 {
+					d.WriteByte('Z')
+				}
+			}
+		}
+		if adv, err := b.font.GlyphAdvance(&buf, gid, b.ppem(), font.HintingNone); err == nil {
+			pen += f26(adv)
+		} else {
+			pen += b.size * 0.5
+		}
+	}
+	return d.String()
 }
 
 // render produces an SVG badge. iconPath is 24x24 SVG path data (or ""), label is
@@ -112,28 +162,21 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 			iconX, (h-iconSize)/2, scale, iconPath)
 	}
 
-	if hasLabel || message != "" {
-		fmt.Fprintf(&s, `<g fill="#fff" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="%d">`, size)
-		if hasLabel {
-			writeBadgeText(&s, labelLeft, baseline, labelW, label)
-		}
-		writeBadgeText(&s, labelSeg+xPad, baseline, msgW, message)
-		s.WriteString(`</g>`)
+	// Text as vector paths from the font: exact widths, no system-font/textLength
+	// dependency. Build both segments' paths, then a grey shadow group + a white
+	// group. Untrusted text becomes path geometry, so it can't inject markup.
+	var paths strings.Builder
+	bl := float64(baseline)
+	if hasLabel {
+		paths.WriteString(b.glyphPath(label, float64(labelLeft), bl))
+	}
+	paths.WriteString(b.glyphPath(message, float64(labelSeg+xPad), bl))
+	if d := paths.String(); d != "" {
+		fmt.Fprintf(&s, `<path transform="translate(0 1)" fill="#010101" fill-opacity=".3" d="%s"/>`, d)
+		fmt.Fprintf(&s, `<path fill="#fff" d="%s"/>`, d)
 	}
 	s.WriteString(`</svg>`)
 	return []byte(s.String())
-}
-
-// writeBadgeText writes left-anchored text (x is the left edge) with a subtle drop
-// shadow. textLength pins the rendered width to our measured width — combined with
-// the default start anchor (shields' approach, avoiding the middle-anchor+textLength
-// browser quirk), text never overflows its segment even when the viewer substitutes
-// a wider font. The text is HTML-escaped — message/label can derive from metric
-// labels (untrusted).
-func writeBadgeText(s *strings.Builder, x, y, width int, text string) {
-	esc := html.EscapeString(text)
-	fmt.Fprintf(s, `<text x="%d" y="%d" textLength="%d" lengthAdjust="spacingAndGlyphs" fill="#010101" fill-opacity=".3">%s</text>`, x, y+1, width, esc)
-	fmt.Fprintf(s, `<text x="%d" y="%d" textLength="%d" lengthAdjust="spacingAndGlyphs">%s</text>`, x, y, width, esc)
 }
 
 var hexColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)

@@ -17,9 +17,11 @@ func TestSecurity_BadgeEscapesSVG(t *testing.T) {
 	r, err := newBadgeRenderer(config.BadgeDefaults{})
 	require.NoError(t, err)
 
+	// Text is rendered as glyph paths, so the payload becomes path geometry — the
+	// literal markup never appears in the output.
 	body := string(r.render(config.StyleFlat, "", "label", xssPayload, "green"))
 	assert.NotContains(t, body, "<script>")
-	assert.Contains(t, body, "&lt;script&gt;")
+	assert.NotContains(t, body, "</text>")
 }
 
 // Graph legend labels come from metric label values and must be escaped too.

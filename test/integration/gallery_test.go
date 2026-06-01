@@ -132,20 +132,21 @@ const galleryHead = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
 <style>.badge svg{height:42px;width:auto}
+.cell img{max-width:100%;height:auto}
 pre code.hljs{padding:0;background:transparent}</style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased">
+<body class="bg-slate-950 text-slate-200 antialiased">
 <main class="max-w-7xl mx-auto px-6 py-10">
 <header class="mb-10">
-  <h1 class="text-3xl font-bold tracking-tight text-slate-900">kromgo gallery</h1>
-  <p class="mt-1 text-slate-500">Badge &amp; graph variations, each with the config that produced it — synthetic data.</p>
+  <h1 class="text-3xl font-bold tracking-tight text-white">kromgo gallery</h1>
+  <p class="mt-1 text-slate-400">Badge &amp; graph variations, each with the config that produced it — synthetic data.</p>
 </header>`
 
-// group renders a titled section whose body emits cells, with valid nesting.
+// group renders a titled section whose body emits cells in a uniform grid.
 func group(b *strings.Builder, title string, body func()) {
 	fmt.Fprintf(b, `<section class="mb-12">
-<h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-4">%s</h2>
-<div class="flex flex-wrap gap-5 items-start">`, title)
+<h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">%s</h2>
+<div class="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">`, title)
 	body()
 	b.WriteString(`</div></section>`)
 }
@@ -162,18 +163,18 @@ func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path str
 	} else {
 		media = w.Body.String() // inline SVG (our own trusted output)
 	}
-	cls := "rounded-xl border border-slate-200 bg-white shadow-sm p-4 flex flex-col gap-3 max-w-lg"
+	cls := "cell rounded-xl border border-slate-800 bg-slate-900 shadow-sm p-4 flex flex-col gap-3"
 	if badge {
 		cls += " badge"
 	}
 	markdown := fmt.Sprintf("![%s](%s%s)", idFromPath(path), exampleHost, path)
 
 	fmt.Fprintf(b, `<figure class="%s">
-<div class="flex items-center gap-3"><div>%s</div><figcaption class="text-xs font-mono text-slate-400">%s</figcaption></div>
-<div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Markdown</div>
-<pre class="text-[11px] leading-snug bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre></div>
-<div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Config</div>
-<pre class="text-[11px] leading-snug bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto"><code class="language-yaml">%s</code></pre></div>
+<div class="flex items-center gap-3 min-h-[44px]"><div>%s</div><figcaption class="text-xs font-mono text-slate-500">%s</figcaption></div>
+<div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Markdown</div>
+<pre class="text-[11px] leading-snug bg-slate-800/60 border border-slate-700 text-slate-300 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre></div>
+<div class="mt-auto"><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Config</div>
+<pre class="text-[11px] leading-snug bg-slate-800/60 border border-slate-700 rounded-lg p-3 overflow-x-auto"><code class="language-yaml">%s</code></pre></div>
 </figure>`, cls, media, caption, html.EscapeString(markdown), html.EscapeString(cfgYAML))
 }
 

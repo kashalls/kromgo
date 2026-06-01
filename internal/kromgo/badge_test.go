@@ -33,10 +33,9 @@ func TestNewBadgeRenderer_DefaultFont(t *testing.T) {
 	require.NotNil(t, r)
 	svg := string(r.render(config.StyleFlat, "", "label", "msg", "green"))
 	assert.True(t, strings.HasPrefix(svg, "<svg"))
-	assert.Contains(t, svg, ">label<")
-	assert.Contains(t, svg, ">msg<")
-	assert.Contains(t, svg, "textLength=", "text width pinned to prevent overflow")
 	assert.Contains(t, svg, "viewBox=", "scalable")
+	assert.Contains(t, svg, `<path fill="#fff"`, "text rendered as glyph paths")
+	assert.NotContains(t, svg, "<text", "text is paths, not <text> elements")
 }
 
 func TestNewBadgeRenderer_UnknownFont(t *testing.T) {
@@ -60,7 +59,6 @@ func TestBadgeRender_Icon(t *testing.T) {
 
 	assert.Contains(t, svg, path, "icon path should be embedded")
 	assert.Contains(t, svg, `fill="#fff"`)
-	assert.Contains(t, svg, ">online<")
 }
 
 func TestResolveIcon(t *testing.T) {
