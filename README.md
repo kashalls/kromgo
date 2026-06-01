@@ -210,6 +210,41 @@ adapts to the magnitude, emitting the up-to-three most-significant units — `90
 `2h30m`, `40348800` → `1y3mo12d`. Months render as `mo` so they never collide with minutes (`m`) in
 the same string.
 
+```yaml
+metrics:
+    # memory used → "12 GiB", red once it crosses 56 GiB (60129542144 bytes)
+    - name: memory_used
+      query: sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
+      value: humanizeBytes(result)
+      color: 'result < 60129542144.0 ? "green" : "red"'
+
+    # network egress on an SI-unit link → "1.5 MB"
+    - name: egress
+      query: sum(rate(node_network_transmit_bytes_total[5m]))
+      value: humanizeSIBytes(result)
+
+    # running pod count → "1,204"
+    - name: pods
+      query: count(kube_pod_info)
+      value: humanizeNumber(result)
+
+    # a ratio without trailing-zero noise → "1.5" (string(result) may give "1.5000001")
+    - name: replicas_ratio
+      query: avg(kube_deployment_status_replicas_available / kube_deployment_spec_replicas)
+      value: humanizeFloat(result)
+
+    # cluster uptime → "12d4h30m"
+    - name: uptime
+      query: time() - node_boot_time_seconds
+      value: humanizeDuration(result)
+
+    # node age → "1y3mo12d"; turn orange past a year
+    - name: node_age
+      query: time() - kube_node_created
+      value: humanizeDuration(result)
+      color: 'result < 31536000.0 ? "blue" : "orange"'
+```
+
 Two gotchas: CEL is strictly typed, so compare `result` against **decimal** literals (`result <
 35.0`, not `35`); and indexing a missing label errors — use `"k" in labels ? labels["k"] : "n/a"`
 when a label may be absent.
