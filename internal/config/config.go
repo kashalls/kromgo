@@ -56,7 +56,7 @@ type Metric struct {
 	Range *RangeQuery `yaml:"range,omitempty" json:"range,omitempty"`
 	// Value is a CEL expression producing the displayed string. It receives `result`
 	// (the sample value, double) and `labels` (map). Defaults to string(result).
-	// Examples: 'string(result) + "%"', 'labels["version"]', 'humanBytes(result)'.
+	// Examples: 'string(result) + "%"', 'labels["version"]', 'humanizeBytes(result)'.
 	Value string `yaml:"value,omitempty" json:"value,omitempty"`
 	// Color is a CEL expression producing the color name or hex. Same inputs as Value;
 	// empty means no color. Example: 'result < 75 ? "green" : "red"'.

@@ -130,7 +130,7 @@ func TestServeMetric_ValueExpression(t *testing.T) {
 		Metrics: []config.Metric{{
 			Name:  "uptime",
 			Query: "q",
-			Value: "humanDuration(result)",
+			Value: "humanizeDuration(result)",
 		}},
 	}
 	srv := mockProm(t, "9000", nil)
