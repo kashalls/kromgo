@@ -556,14 +556,18 @@ Operational guidance:
 
 ## Image verification
 
-Container images are signed with [Cosign](https://docs.sigstore.dev/cosign/overview/) keyless
-signing. Verify an image before running it:
+Images are built and [Cosign](https://docs.sigstore.dev/cosign/overview/)-signed (keyless) by the
+official [`docker/github-builder`](https://github.com/docker/github-builder) reusable workflow, so the
+signing identity is that workflow rather than this repo. Verify an image before running it:
 
 ```bash
 cosign verify ghcr.io/home-operations/kromgo:<tag> \
-  --certificate-identity-regexp="https://github.com/home-operations/kromgo/" \
+  --certificate-identity-regexp="^https://github.com/docker/github-builder/.github/workflows/build.yml@" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 ```
+
+The exact `cosign verify` command (with the pinned builder ref) is also printed in each build run's
+summary.
 
 ## Building from source
 
