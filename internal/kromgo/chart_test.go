@@ -34,7 +34,8 @@ func TestRenderChart_SVG(t *testing.T) {
 	svg, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
 		chartParams{width: 400, height: 150, legend: true, format: formatSVG})
 	require.NoError(t, err)
-	assert.Contains(t, string(svg), "<svg")
+	// Explicit width/height so <img> embeds render at the requested size.
+	assert.Contains(t, string(svg), `<svg width="400" height="150"`)
 }
 
 func TestRenderChart_PNG(t *testing.T) {

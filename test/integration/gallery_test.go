@@ -61,31 +61,35 @@ func TestGallery(t *testing.T) {
 	var b strings.Builder
 	b.WriteString(galleryHead)
 
-	// Badges across formatters + icons.
+	// Badges across formatters + icons (SVG, scaled up in the gallery CSS).
 	section(&b, "Badges — value formatters & icons")
 	for _, id := range []string{"cpu", "cpu_hot", "mem", "pods", "uptime", "age", "ver", "ok"} {
-		cell(t, h, &b, id, "/badges/"+id)
+		cell(t, h, &b, id, "/badges/"+id, "badge")
 	}
 
 	// Badge styles on one badge.
 	section(&b, "Badge styles")
 	for _, style := range []string{"flat", "flat-square", "plastic"} {
-		cell(t, h, &b, style, "/badges/mem?style="+style)
+		cell(t, h, &b, style, "/badges/mem?style="+style, "badge")
 	}
 
-	// Graph themes.
-	section(&b, "Graph themes")
+	// Graph themes, rendered as PNG (crisp and intrinsically sized).
+	section(&b, "Graph themes (PNG)")
 	themes := []string{"light", "dark", "grafana", "ocean", "slate", "gray",
 		"catppuccin-latte", "catppuccin-mocha", "dracula", "monokai", "night-owl"}
 	for _, th := range themes {
-		cell(t, h, &b, th, "/graphs/g?last=1h&width=360&height=120&theme="+th)
+		cell(t, h, &b, th, "/graphs/g?last=1h&width=480&height=180&format=png&theme="+th, "")
 	}
 
-	// Graph fonts (config-level) + a PNG.
-	section(&b, "Graph fonts & PNG")
-	cell(t, h, &b, "go-bold (grafana)", "/graphs/g_bold?last=1h&width=360&height=120")
-	cell(t, h, &b, "notosans (slate)", "/graphs/g_noto?last=1h&width=360&height=120")
-	cell(t, h, &b, "dark · PNG", "/graphs/g?last=1h&width=360&height=120&theme=dark&format=png")
+	// SVG vs PNG (same graph) to confirm the SVG now carries width/height.
+	section(&b, "SVG vs PNG")
+	cell(t, h, &b, "grafana · SVG", "/graphs/g?last=1h&width=480&height=180&theme=grafana", "")
+	cell(t, h, &b, "grafana · PNG", "/graphs/g?last=1h&width=480&height=180&format=png&theme=grafana", "")
+
+	// Graph fonts (config-level).
+	section(&b, "Graph fonts")
+	cell(t, h, &b, "go-bold (grafana)", "/graphs/g_bold?last=1h&width=480&height=180&format=png", "")
+	cell(t, h, &b, "notosans (slate)", "/graphs/g_noto?last=1h&width=480&height=180&format=png", "")
 
 	b.WriteString("</body></html>")
 
@@ -121,6 +125,8 @@ const galleryHead = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>kro
 h2{margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:4px}
 .grid{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
 .cell{background:#fff;border:1px solid #e3e3e3;border-radius:6px;padding:12px}
+.cell img{display:block}
+.badge svg{height:40px;width:auto;display:block} /* badges are ~20px tall; scale up to read */
 .cap{font-size:12px;color:#888;margin-top:8px;font-family:monospace}</style></head><body>
 <h1>kromgo gallery</h1>`
 
@@ -128,18 +134,17 @@ func section(b *strings.Builder, title string) {
 	fmt.Fprintf(b, `<h2>%s</h2><div class="grid">`, title)
 }
 
-func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path string) {
+func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path, class string) {
 	t.Helper()
 	w := promtest.Get(t, h.Mux(), path)
 	if w.Code != 200 {
 		t.Fatalf("%s -> %d: %s", path, w.Code, w.Body.String())
 	}
-	ct := w.Header().Get("Content-Type")
 	var media string
-	if strings.Contains(ct, "png") {
+	if strings.Contains(w.Header().Get("Content-Type"), "png") {
 		media = fmt.Sprintf(`<img src="data:image/png;base64,%s">`, base64.StdEncoding.EncodeToString(w.Body.Bytes()))
 	} else {
 		media = w.Body.String() // inline SVG (our own trusted output)
 	}
-	fmt.Fprintf(b, `<div class="cell">%s<div class="cap">%s</div></div>`, media, caption)
+	fmt.Fprintf(b, `<div class="cell %s">%s<div class="cap">%s</div></div>`, class, media, caption)
 }

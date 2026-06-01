@@ -88,7 +88,7 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	baseline := (h+size)/2 - 1
 
 	var s strings.Builder
-	fmt.Fprintf(&s, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" role="img">`, total, h)
+	fmt.Fprintf(&s, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img">`, total, h, total, h)
 	if gradient {
 		s.WriteString(`<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>`)
 	}

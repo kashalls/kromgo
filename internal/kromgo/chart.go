@@ -1,6 +1,8 @@
 package kromgo
 
 import (
+	"bytes"
+	"fmt"
 	"html"
 	"math"
 	"net/http"
@@ -136,7 +138,18 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 	if err := painter.LineChart(opt); err != nil {
 		return nil, err
 	}
-	return painter.Bytes()
+	out, err := painter.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	if p.format != formatPNG {
+		// The chart library emits SVG with only a viewBox; add explicit width/height
+		// so <img> embeds (and inline use) render at the requested pixel size rather
+		// than the browser's 300x150 default.
+		dims := fmt.Sprintf(`<svg width="%d" height="%d" `, p.width, p.height)
+		out = bytes.Replace(out, []byte("<svg "), []byte(dims), 1)
+	}
+	return out, nil
 }
 
 // timeAxisLabels formats one x-axis label per sample; the chart library samples
