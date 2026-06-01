@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.2](https://github.com/home-operations/kromgo/compare/0.12.1...0.12.2) (2026-06-01)
+
+
+### Features
+
+* stamp build version into the container image ([#201](https://github.com/home-operations/kromgo/issues/201)) ([e1d5bd5](https://github.com/home-operations/kromgo/commit/e1d5bd5a90611f4115a78f47c7033e92f5b06dea))
+* support Simple Icons for badge icons alongside MDI ([#199](https://github.com/home-operations/kromgo/issues/199)) ([dc15e13](https://github.com/home-operations/kromgo/commit/dc15e138911b2e188dee14cc21906267313fa442))
+
 ## [0.12.1](https://github.com/home-operations/kromgo/compare/0.12.0...0.12.1) (2026-06-01)
 
 
