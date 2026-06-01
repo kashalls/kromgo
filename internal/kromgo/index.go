@@ -24,7 +24,7 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 func (h *Handler) index(w http.ResponseWriter, _ *http.Request) {
 	var visible []config.Metric
 	for _, m := range h.cfg.Metrics {
-		if !isHidden(m, h.cfg.HideAll) {
+		if !isHidden(m, h.cfg.Defaults.Hidden) {
 			visible = append(visible, m)
 		}
 	}
@@ -32,13 +32,14 @@ func (h *Handler) index(w http.ResponseWriter, _ *http.Request) {
 	_ = indexTmpl.Execute(w, visible)
 }
 
-// isHidden reports whether a metric should be hidden from the index page.
-func isHidden(m config.Metric, hideAll *bool) bool {
+// isHidden reports whether a metric should be hidden from the index page, given the
+// default visibility (defaults.hidden). Defaults to hidden when neither is set.
+func isHidden(m config.Metric, defaultHidden *bool) bool {
 	if m.Hidden != nil {
 		return *m.Hidden
 	}
-	if hideAll != nil {
-		return *hideAll
+	if defaultHidden != nil {
+		return *defaultHidden
 	}
 	return true // default: hide all when not specified
 }

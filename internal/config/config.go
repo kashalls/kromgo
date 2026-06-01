@@ -17,20 +17,23 @@ type KromgoConfig struct {
 	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
 	Metrics    []Metric `yaml:"metrics" json:"metrics"`
 	Badge      Badge    `yaml:"badge,omitempty" json:"badge,omitempty"`
-	// Templates are named Go template snippets referenced by name in a metric's valueTemplate field.
-	Templates map[string]string `yaml:"templates,omitempty" json:"templates,omitempty"`
-	// HideAll sets the default visibility for all metrics on the index page.
-	// Defaults to true (all hidden) when not specified.
-	HideAll *bool `yaml:"hideAll,omitempty" json:"hideAll,omitempty"`
-	// History controls access to format=history and format=chart requests.
-	History HistoryConfig `yaml:"history,omitempty" json:"history,omitempty"`
-	// CacheSeconds is the default Cache-Control max-age (in seconds) for responses.
-	// 0 (the default) disables caching. Override per metric with Metric.CacheSeconds.
-	CacheSeconds int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
+	// Defaults holds the default values for the per-metric fields that support it.
+	Defaults Defaults `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 }
 
-// HistoryConfig holds the global settings for time-series (history/chart) requests.
-type HistoryConfig struct {
+// Defaults holds the default values applied to every metric, each overridable by
+// the same-named field on an individual Metric.
+type Defaults struct {
+	// Hidden is the default index-page visibility. Defaults to true (all hidden).
+	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+	// CacheSeconds is the default Cache-Control max-age (in seconds). 0 disables caching.
+	CacheSeconds int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
+	// Range controls access to format=history and format=chart (range query) requests.
+	Range RangeConfig `yaml:"range,omitempty" json:"range,omitempty"`
+}
+
+// RangeConfig holds the default settings for range-query (history/chart) requests.
+type RangeConfig struct {
 	// Enabled must be true to allow format=history and format=chart requests. Defaults to false.
 	Enabled bool `yaml:"enabled" json:"enabled"`
 	// MaxDuration caps the time window per request (e.g. "24h", "7d"). Defaults to "1h".
@@ -51,26 +54,26 @@ type Metric struct {
 	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 	// Suffix is appended to the value in the response.
 	Suffix string `yaml:"suffix,omitempty" json:"suffix,omitempty"`
-	// ValueTemplate is a Go template applied to the value before prefix/suffix are added.
-	// Available functions: simplifyDays, humanBytes, humanSIBytes, humanDuration,
-	// humanizeThousands, toUpper, toLower, trim. Example: "{{ . | simplifyDays }}".
+	// ValueTemplate is an inline Go template applied to the value before prefix/suffix
+	// are added. Available functions: simplifyDays, humanBytes, humanSIBytes,
+	// humanDuration, humanizeThousands, toUpper, toLower, trim. Use a YAML anchor to
+	// reuse one across metrics. Example: "{{ . | simplifyDays }}".
 	ValueTemplate string `yaml:"valueTemplate,omitempty" json:"valueTemplate,omitempty"`
 	// Colors assigns a response color based on the numeric value.
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
-	// Hidden controls whether this metric appears on the index page.
-	// If nil, the global HideAll setting is used (default: true).
+	// Hidden overrides defaults.hidden for this metric. If nil, the default applies.
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
-	// History overrides the global history settings for this metric. If nil, the global settings apply.
-	History *MetricHistoryConfig `yaml:"history,omitempty" json:"history,omitempty"`
-	// CacheSeconds overrides the global CacheSeconds for this metric. If nil, the global value applies.
+	// Range overrides defaults.range for this metric. If nil, the defaults apply.
+	Range *MetricRangeConfig `yaml:"range,omitempty" json:"range,omitempty"`
+	// CacheSeconds overrides defaults.cacheSeconds for this metric. If nil, the default applies.
 	CacheSeconds *int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }
 
-// MetricHistoryConfig overrides the global HistoryConfig for a single metric.
-type MetricHistoryConfig struct {
-	// Enabled overrides the global history.enabled for this metric.
+// MetricRangeConfig overrides the default RangeConfig for a single metric.
+type MetricRangeConfig struct {
+	// Enabled overrides defaults.range.enabled for this metric.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	// MaxDuration overrides the global history.maxDuration for this metric (e.g. "24h").
+	// MaxDuration overrides defaults.range.maxDuration for this metric (e.g. "24h").
 	MaxDuration string `yaml:"maxDuration,omitempty" json:"maxDuration,omitempty"`
 }
 
@@ -124,15 +127,15 @@ func (c KromgoConfig) MetricsByName() map[string]Metric {
 
 // validate checks that all configured durations parse.
 func (c KromgoConfig) validate() error {
-	if s := c.History.MaxDuration; s != "" {
+	if s := c.Defaults.Range.MaxDuration; s != "" {
 		if _, err := ParseDuration(s); err != nil {
-			return fmt.Errorf("global history.maxDuration: %w", err)
+			return fmt.Errorf("defaults.range.maxDuration: %w", err)
 		}
 	}
 	for _, m := range c.Metrics {
-		if m.History != nil && m.History.MaxDuration != "" {
-			if _, err := ParseDuration(m.History.MaxDuration); err != nil {
-				return fmt.Errorf("metric %q history.maxDuration: %w", m.Name, err)
+		if m.Range != nil && m.Range.MaxDuration != "" {
+			if _, err := ParseDuration(m.Range.MaxDuration); err != nil {
+				return fmt.Errorf("metric %q range.maxDuration: %w", m.Name, err)
 			}
 		}
 	}

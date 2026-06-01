@@ -83,9 +83,9 @@ func TestParseDuration_Invalid(t *testing.T) {
 
 func TestValidate_Valid(t *testing.T) {
 	cfg := KromgoConfig{
-		History: HistoryConfig{MaxDuration: "24h"},
+		Defaults: Defaults{Range: RangeConfig{MaxDuration: "24h"}},
 		Metrics: []Metric{
-			{Name: "cpu", History: &MetricHistoryConfig{MaxDuration: "7d"}},
+			{Name: "cpu", Range: &MetricRangeConfig{MaxDuration: "7d"}},
 			{Name: "mem"},
 		},
 	}
@@ -94,19 +94,19 @@ func TestValidate_Valid(t *testing.T) {
 	}
 }
 
-func TestValidate_InvalidGlobal(t *testing.T) {
+func TestValidate_InvalidDefault(t *testing.T) {
 	cfg := KromgoConfig{
-		History: HistoryConfig{MaxDuration: "bogus"},
+		Defaults: Defaults{Range: RangeConfig{MaxDuration: "bogus"}},
 	}
 	if err := cfg.validate(); err == nil {
-		t.Fatal("expected error for invalid global maxDuration")
+		t.Fatal("expected error for invalid defaults.range.maxDuration")
 	}
 }
 
 func TestValidate_InvalidMetric(t *testing.T) {
 	cfg := KromgoConfig{
 		Metrics: []Metric{
-			{Name: "cpu", History: &MetricHistoryConfig{MaxDuration: "not-a-duration"}},
+			{Name: "cpu", Range: &MetricRangeConfig{MaxDuration: "not-a-duration"}},
 		},
 	}
 	if err := cfg.validate(); err == nil {

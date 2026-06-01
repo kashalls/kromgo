@@ -56,7 +56,7 @@ func newTestHandler(cfg config.KromgoConfig) *Handler {
 func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
 		Metrics: []config.Metric{{Name: "cpu"}, {Name: "mem"}},
-		// HideAll nil → defaults to true
+		// Defaults.Hidden nil → defaults to true (hidden)
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -71,8 +71,8 @@ func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {
 
 func TestIndexHandler_AllVisible_AllLinksPresent(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{{Name: "cpu"}, {Name: "mem"}},
-		HideAll: new(false),
+		Metrics:  []config.Metric{{Name: "cpu"}, {Name: "mem"}},
+		Defaults: config.Defaults{Hidden: new(false)},
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -109,7 +109,7 @@ func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
 			{Name: "cpu"},
 			{Name: "secret", Hidden: new(true)},
 		},
-		HideAll: new(false),
+		Defaults: config.Defaults{Hidden: new(false)},
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -123,8 +123,8 @@ func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
 
 func TestIndexHandler_NoMetrics_ShowsIntentionallyBlank(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Metrics: []config.Metric{},
-		HideAll: new(false),
+		Metrics:  []config.Metric{},
+		Defaults: config.Defaults{Hidden: new(false)},
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

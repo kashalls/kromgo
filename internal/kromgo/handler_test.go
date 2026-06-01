@@ -40,7 +40,7 @@ func baseConfig() config.KromgoConfig {
 				Colors: []config.MetricColor{{Min: 0, Max: 50, Color: "green"}},
 			},
 		},
-		History: config.HistoryConfig{Enabled: true, MaxDuration: "24h"},
+		Defaults: config.Defaults{Range: config.RangeConfig{Enabled: true, MaxDuration: "24h"}},
 	}
 }
 
@@ -159,7 +159,7 @@ func TestServeMetric_History(t *testing.T) {
 
 func TestServeMetric_HistoryDisabled(t *testing.T) {
 	cfg := baseConfig()
-	cfg.History.Enabled = false
+	cfg.Defaults.Range.Enabled = false
 	srv := mockProm(t, "0", []float64{1, 2, 3})
 	h := newHandlerForTest(t, cfg, srv.URL)
 
@@ -238,10 +238,10 @@ func TestServeMetric_EmptyVector_NoData(t *testing.T) {
 
 func TestCacheControl_PerMetric(t *testing.T) {
 	cfg := config.KromgoConfig{
-		CacheSeconds: 60, // global default
+		Defaults: config.Defaults{CacheSeconds: 60}, // global default
 		Metrics: []config.Metric{
 			{Name: "fast", Query: "q"},
-			{Name: "slow", Query: "q", CacheSeconds: new(3600)}, // overrides global
+			{Name: "slow", Query: "q", CacheSeconds: new(3600)}, // overrides default
 		},
 	}
 	srv := mockProm(t, "1", nil)
@@ -272,13 +272,13 @@ func TestCacheControl_DisabledByDefault(t *testing.T) {
 
 func TestCacheControl_ErrorsNotCached(t *testing.T) {
 	cfg := config.KromgoConfig{
-		CacheSeconds: 60,
-		Metrics:      []config.Metric{{Name: "cpu", Query: "q"}},
+		Defaults: config.Defaults{CacheSeconds: 60},
+		Metrics:  []config.Metric{{Name: "cpu", Query: "q"}},
 	}
 	srv := mockProm(t, "1", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	// History is disabled → 403 error; the cache header must be no-store, not max-age.
+	// Range queries are disabled → 403 error; the cache header must be no-store, not max-age.
 	w := doGet(t, h, "/cpu?format=history")
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -287,7 +287,7 @@ func TestCacheControl_ErrorsNotCached(t *testing.T) {
 
 func TestIndexRoute(t *testing.T) {
 	cfg := baseConfig()
-	cfg.HideAll = new(false)
+	cfg.Defaults.Hidden = new(false)
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
 

@@ -15,18 +15,20 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "HistoryConfig": {
+    "Defaults": {
       "properties": {
-        "enabled": {
+        "hidden": {
           "type": "boolean"
         },
-        "maxDuration": {
-          "type": "string"
+        "cacheSeconds": {
+          "type": "integer"
+        },
+        "range": {
+          "$ref": "#/$defs/RangeConfig"
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": ["enabled"]
+      "type": "object"
     },
     "KromgoConfig": {
       "properties": {
@@ -42,20 +44,8 @@
         "badge": {
           "$ref": "#/$defs/Badge"
         },
-        "templates": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
-        },
-        "hideAll": {
-          "type": "boolean"
-        },
-        "history": {
-          "$ref": "#/$defs/HistoryConfig"
-        },
-        "cacheSeconds": {
-          "type": "integer"
+        "defaults": {
+          "$ref": "#/$defs/Defaults"
         }
       },
       "additionalProperties": false,
@@ -94,8 +84,8 @@
         "hidden": {
           "type": "boolean"
         },
-        "history": {
-          "$ref": "#/$defs/MetricHistoryConfig"
+        "range": {
+          "$ref": "#/$defs/MetricRangeConfig"
         },
         "cacheSeconds": {
           "type": "integer"
@@ -124,7 +114,7 @@
       "type": "object",
       "required": ["min", "max"]
     },
-    "MetricHistoryConfig": {
+    "MetricRangeConfig": {
       "properties": {
         "enabled": {
           "type": "boolean"
@@ -135,6 +125,19 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "RangeConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxDuration": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["enabled"]
     }
   }
 }

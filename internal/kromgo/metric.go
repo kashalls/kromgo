@@ -27,31 +27,27 @@ type resolvedMetric struct {
 func resolveMetric(m config.Metric, cfg config.KromgoConfig) (*resolvedMetric, error) {
 	rm := &resolvedMetric{
 		Metric:         m,
-		historyEnabled: cfg.History.Enabled,
+		historyEnabled: cfg.Defaults.Range.Enabled,
 		historyMax:     defaultHistoryMaxDuration,
-		cacheSeconds:   cfg.CacheSeconds,
+		cacheSeconds:   cfg.Defaults.CacheSeconds,
 	}
 
 	if m.ValueTemplate != "" {
-		str := m.ValueTemplate
-		if resolved, ok := cfg.Templates[str]; ok {
-			str = resolved
-		}
-		tmpl, err := template.New(m.Name).Funcs(templateFuncs).Parse(str)
+		tmpl, err := template.New(m.Name).Funcs(templateFuncs).Parse(m.ValueTemplate)
 		if err != nil {
 			return nil, fmt.Errorf("metric %q valueTemplate: %w", m.Name, err)
 		}
 		rm.template = tmpl
 	}
 
-	if m.History != nil && m.History.Enabled != nil {
-		rm.historyEnabled = *m.History.Enabled
+	if m.Range != nil && m.Range.Enabled != nil {
+		rm.historyEnabled = *m.Range.Enabled
 	}
 
 	if maxStr := effectiveMaxDuration(m, cfg); maxStr != "" {
 		d, err := config.ParseDuration(maxStr)
 		if err != nil {
-			return nil, fmt.Errorf("metric %q history.maxDuration: %w", m.Name, err)
+			return nil, fmt.Errorf("metric %q range.maxDuration: %w", m.Name, err)
 		}
 		rm.historyMax = d
 	}
@@ -63,11 +59,11 @@ func resolveMetric(m config.Metric, cfg config.KromgoConfig) (*resolvedMetric, e
 	return rm, nil
 }
 
-// effectiveMaxDuration returns the metric's history max-duration string (per-metric
-// override, else global), or "" when neither is set (caller uses the default).
+// effectiveMaxDuration returns the metric's range max-duration string (per-metric
+// override, else default), or "" when neither is set (caller uses the built-in default).
 func effectiveMaxDuration(m config.Metric, cfg config.KromgoConfig) string {
-	if m.History != nil && m.History.MaxDuration != "" {
-		return m.History.MaxDuration
+	if m.Range != nil && m.Range.MaxDuration != "" {
+		return m.Range.MaxDuration
 	}
-	return cfg.History.MaxDuration
+	return cfg.Defaults.Range.MaxDuration
 }

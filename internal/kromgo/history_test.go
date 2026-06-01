@@ -259,60 +259,65 @@ func mustResolve(t *testing.T, m config.Metric, cfg config.KromgoConfig) *resolv
 	return rm
 }
 
-func TestResolveMetric_HistoryEnabled_GlobalOff(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{Enabled: false}})
+// rangeDefaults builds a config whose only setting is the default range config.
+func rangeDefaults(rc config.RangeConfig) config.KromgoConfig {
+	return config.KromgoConfig{Defaults: config.Defaults{Range: rc}}
+}
+
+func TestResolveMetric_RangeEnabled_DefaultOff(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{Enabled: false}))
 	if rm.historyEnabled {
-		t.Error("expected history disabled by default")
+		t.Error("expected range disabled by default")
 	}
 }
 
-func TestResolveMetric_HistoryEnabled_GlobalOn(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{Enabled: true}})
+func TestResolveMetric_RangeEnabled_DefaultOn(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{Enabled: true}))
 	if !rm.historyEnabled {
-		t.Error("expected history enabled via global config")
+		t.Error("expected range enabled via defaults")
 	}
 }
 
-func TestResolveMetric_HistoryEnabled_PerMetricOverrideOn(t *testing.T) {
-	m := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(true)}}
-	rm := mustResolve(t, m, config.KromgoConfig{History: config.HistoryConfig{Enabled: false}})
+func TestResolveMetric_RangeEnabled_PerMetricOverrideOn(t *testing.T) {
+	m := config.Metric{Name: "test", Range: &config.MetricRangeConfig{Enabled: new(true)}}
+	rm := mustResolve(t, m, rangeDefaults(config.RangeConfig{Enabled: false}))
 	if !rm.historyEnabled {
-		t.Error("expected per-metric override to enable history")
+		t.Error("expected per-metric override to enable range")
 	}
 }
 
-func TestResolveMetric_HistoryEnabled_PerMetricOverrideOff(t *testing.T) {
-	m := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(false)}}
-	rm := mustResolve(t, m, config.KromgoConfig{History: config.HistoryConfig{Enabled: true}})
+func TestResolveMetric_RangeEnabled_PerMetricOverrideOff(t *testing.T) {
+	m := config.Metric{Name: "test", Range: &config.MetricRangeConfig{Enabled: new(false)}}
+	rm := mustResolve(t, m, rangeDefaults(config.RangeConfig{Enabled: true}))
 	if rm.historyEnabled {
-		t.Error("expected per-metric override to disable history")
+		t.Error("expected per-metric override to disable range")
 	}
 }
 
-func TestResolveMetric_HistoryMax_Default(t *testing.T) {
+func TestResolveMetric_RangeMax_Default(t *testing.T) {
 	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{})
 	if rm.historyMax != time.Hour {
 		t.Errorf("expected default max duration 1h, got %v", rm.historyMax)
 	}
 }
 
-func TestResolveMetric_HistoryMax_GlobalConfigured(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{MaxDuration: "24h"}})
+func TestResolveMetric_RangeMax_DefaultConfigured(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{MaxDuration: "24h"}))
 	if rm.historyMax != 24*time.Hour {
 		t.Errorf("expected 24h, got %v", rm.historyMax)
 	}
 }
 
-func TestResolveMetric_HistoryMax_PerMetricOverridesGlobal(t *testing.T) {
-	m := config.Metric{Name: "test", History: &config.MetricHistoryConfig{MaxDuration: "720h"}}
-	rm := mustResolve(t, m, config.KromgoConfig{History: config.HistoryConfig{MaxDuration: "24h"}})
+func TestResolveMetric_RangeMax_PerMetricOverridesDefault(t *testing.T) {
+	m := config.Metric{Name: "test", Range: &config.MetricRangeConfig{MaxDuration: "720h"}}
+	rm := mustResolve(t, m, rangeDefaults(config.RangeConfig{MaxDuration: "24h"}))
 	if rm.historyMax != 720*time.Hour {
 		t.Errorf("expected 720h, got %v", rm.historyMax)
 	}
 }
 
-func TestResolveMetric_HistoryMax_Unlimited(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{MaxDuration: "0"}})
+func TestResolveMetric_RangeMax_Unlimited(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{MaxDuration: "0"}))
 	if rm.historyMax != 0 {
 		t.Errorf("expected 0 (unlimited), got %v", rm.historyMax)
 	}

@@ -20,6 +20,11 @@ import (
 )
 
 const configYAML = `
+defaults:
+  hidden: false
+  range:
+    enabled: true
+    maxDuration: 24h
 metrics:
   - name: cpu
     query: node_cpu_usage
@@ -27,10 +32,6 @@ metrics:
     colors:
       - { color: green, min: 0, max: 50 }
       - { color: red, min: 51, max: 100 }
-history:
-  enabled: true
-  maxDuration: 24h
-hideAll: false
 `
 
 type harness struct {

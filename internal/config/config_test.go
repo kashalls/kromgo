@@ -24,16 +24,17 @@ metrics:
   - name: cpu
     query: node_cpu
     suffix: "%"
-history:
-  enabled: true
-  maxDuration: 7d
+defaults:
+  range:
+    enabled: true
+    maxDuration: 7d
 `)
 	cfg, err := Load(path)
 	require.NoError(t, err)
 	assert.Equal(t, "http://prom:9090", cfg.Prometheus)
 	require.Len(t, cfg.Metrics, 1)
 	assert.Equal(t, "cpu", cfg.Metrics[0].Name)
-	assert.True(t, cfg.History.Enabled)
+	assert.True(t, cfg.Defaults.Range.Enabled)
 }
 
 func TestLoad_MissingFile(t *testing.T) {
@@ -47,7 +48,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 }
 
 func TestLoad_InvalidDuration(t *testing.T) {
-	_, err := Load(writeConfig(t, "history:\n  maxDuration: bogus\n"))
+	_, err := Load(writeConfig(t, "defaults:\n  range:\n    maxDuration: bogus\n"))
 	assert.Error(t, err)
 }
 

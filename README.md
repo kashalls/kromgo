@@ -18,6 +18,7 @@ Works out of the box with [shields.io Endpoint Badges](https://shields.io/badges
 - [Configuration](#configuration)
     - [Environment variables](#environment-variables)
     - [Metrics](#metrics)
+    - [Defaults](#defaults)
     - [Colors](#colors)
     - [Value templates](#value-templates)
     - [History and charts](#history-and-charts)
@@ -116,9 +117,23 @@ Each entry under `metrics:` defines one queryable endpoint at `/{name}`.
 | `suffix`        | no       | String appended to the value in the response (e.g. `%`)                                         |
 | `valueTemplate` | no       | Go template applied to the value before prefix/suffix — see [Value templates](#value-templates) |
 | `colors`        | no       | List of color ranges for the response — see [Colors](#colors)                                   |
-| `hidden`        | no       | Hide from the index page (`GET /`) — see [Index page](#index-page)                              |
-| `history`       | no       | Per-metric history/chart override — see [History and charts](#history-and-charts)               |
-| `cacheSeconds`  | no       | Per-metric `Cache-Control` max-age override — see [Caching](#caching)                           |
+| `hidden`        | no       | Override `defaults.hidden` for this metric — see [Index page](#index-page)                      |
+| `range`         | no       | Override `defaults.range` for this metric — see [History and charts](#history-and-charts)       |
+| `cacheSeconds`  | no       | Override `defaults.cacheSeconds` for this metric — see [Caching](#caching)                      |
+
+### Defaults
+
+`defaults` sets the baseline for the per-metric fields that support it; each metric overrides the
+same-named field. All keys are optional.
+
+```yaml
+defaults:
+    hidden: true # index visibility — true (default) hides every metric unless it opts in
+    cacheSeconds: 0 # Cache-Control max-age in seconds; 0 disables caching
+    range: # gates the time-series formats (format=history and format=chart)
+        enabled: false
+        maxDuration: 1h
+```
 
 ### Colors
 
@@ -163,39 +178,35 @@ Prometheus value before `prefix` and `suffix` are added.
 | `toLower`           | `"HEALTHY"`   | `healthy`      | Lowercases the string                                           |
 | `trim`              | `" ok "`      | `ok`           | Strips leading and trailing whitespace                          |
 
-Define reusable snippets at the top level under `templates:` and reference them by name:
+`valueTemplate` is always an inline template. To reuse one across metrics, use a YAML anchor:
 
 ```yaml
-templates:
-    clusterAge: "{{ . | simplifyDays }}"
-    uptime: "{{ . | humanDuration }}"
-
 metrics:
     - name: cluster_age
       query: "floor((time() - k8s_cluster_created_timestamp) / 86400)"
-      valueTemplate: clusterAge # resolved from templates map
-    - name: node_memory_used
-      query: "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes"
-      valueTemplate: "{{ . | humanBytes }}" # inline template also works
+      valueTemplate: &simplifyDays "{{ . | simplifyDays }}"
+    - name: node_age
+      query: "floor((time() - node_created_timestamp) / 86400)"
+      valueTemplate: *simplifyDays
 ```
 
 ### History and charts
 
 The `chart` and `history` formats run a Prometheus **range** query and return a time series. They are
-**disabled by default** and must be enabled — globally and/or per metric — to limit what range data is
-exposed publicly.
+**disabled by default** and must be enabled — via `defaults.range` and/or per metric — to limit what
+range data is exposed publicly.
 
 ```yaml
-history:
-    enabled: true # allow format=history and format=chart
-    maxDuration: "7d" # cap the requested time window (default "1h"; "0" = unlimited)
+defaults:
+    range:
+        enabled: true # allow format=history and format=chart
+        maxDuration: "7d" # cap the requested time window (default "1h"; "0" = unlimited)
 
 metrics:
     - name: node_cpu_usage
       query: "..."
-      history:
-          enabled: true # override the global setting for this metric
-          maxDuration: "30d"
+      range:
+          maxDuration: "30d" # override just this metric (enabled inherited from defaults)
 ```
 
 Time-window query parameters (shared by `chart` and `history`):
@@ -223,9 +234,9 @@ badge:
 `GET /` returns an HTML page listing all visible metrics as clickable links. By default all metrics
 are hidden.
 
-Set `hideAll: false` in your config to show all metrics, then opt individual ones out with
-`hidden: true`; or keep `hideAll` at its default and opt specific metrics in with `hidden: false`.
-When no metrics are visible, the page displays _page intentionally blank_.
+Set `defaults.hidden: false` to show all metrics, then opt individual ones out with `hidden: true`;
+or keep the default and opt specific metrics in with `hidden: false`. When no metrics are visible,
+the page displays _page intentionally blank_.
 
 ## API reference
 
@@ -438,14 +449,15 @@ cosign verify ghcr.io/home-operations/kromgo:<tag> \
 This fork is functionally compatible — metric config, query semantics, and response
 formats are unchanged — but a few deployment details changed:
 
-| Change                                                                                                                                                                                           | Action                                                                                                     |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| **Image moved** to `ghcr.io/home-operations/kromgo`.                                                                                                                                             | Update your image reference (and the cosign identity, if you verify).                                      |
-| **Badge font no longer bundled.** The image no longer ships `Verdana.ttf`; kromgo now uses an embedded default font. A config still pointing `badge.font` at `Verdana.ttf` will fail at startup. | Remove `badge.font` to use the embedded font, or mount a TrueType font and point `badge.font` at its path. |
-| **`LOG_FORMAT=test` renamed to `LOG_FORMAT=text`.**                                                                                                                                              | Set `LOG_FORMAT=text` for human-readable logs (default remains JSON).                                      |
-| **Built-in rate limiting removed** (`RATELIMIT_*` env vars).                                                                                                                                     | Rate limit at your reverse proxy — see [Rate limiting](#rate-limiting).                                    |
-| **Missing `PROMETHEUS_URL` now fails fast** instead of starting degraded.                                                                                                                        | Ensure `PROMETHEUS_URL` (or `prometheus` in config) is set.                                                |
-| **Schema URL** in `config.yaml` examples.                                                                                                                                                        | Point `# yaml-language-server: $schema=` at `home-operations/kromgo`.                                      |
+| Change                                                                                                                                                                                                                                                           | Action                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Image moved** to `ghcr.io/home-operations/kromgo`.                                                                                                                                                                                                             | Update your image reference (and the cosign identity, if you verify).                                                                                                            |
+| **Badge font no longer bundled.** The image no longer ships `Verdana.ttf`; kromgo now uses an embedded default font. A config still pointing `badge.font` at `Verdana.ttf` will fail at startup.                                                                 | Remove `badge.font` to use the embedded font, or mount a TrueType font and point `badge.font` at its path.                                                                       |
+| **`LOG_FORMAT=test` renamed to `LOG_FORMAT=text`.**                                                                                                                                                                                                              | Set `LOG_FORMAT=text` for human-readable logs (default remains JSON).                                                                                                            |
+| **Built-in rate limiting removed** (`RATELIMIT_*` env vars).                                                                                                                                                                                                     | Rate limit at your reverse proxy — see [Rate limiting](#rate-limiting).                                                                                                          |
+| **Config schema reorganized.** Top-level `hideAll`/`history`/`cacheSeconds` defaults moved under a `defaults:` block (`defaults.hidden`, `defaults.range`, `defaults.cacheSeconds`); per-metric `history` is now `range`; the named-`templates` map was removed. | Move global defaults under `defaults:`, rename per-metric `history` → `range`, and inline value templates (use a YAML anchor to reuse one). See [Configuration](#configuration). |
+| **Missing `PROMETHEUS_URL` now fails fast** instead of starting degraded.                                                                                                                                                                                        | Ensure `PROMETHEUS_URL` (or `prometheus` in config) is set.                                                                                                                      |
+| **Schema URL** in `config.yaml` examples.                                                                                                                                                                                                                        | Point `# yaml-language-server: $schema=` at `home-operations/kromgo`.                                                                                                            |
 
 Release tags drop the `v` prefix (e.g. `0.11.0`, not `v0.11.0`); pin image tags accordingly.
 
