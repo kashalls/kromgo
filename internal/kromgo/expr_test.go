@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,6 +39,14 @@ func TestCEL_Expressions(t *testing.T) {
 		{"humanizeFloat", `humanizeFloat(result)`, 2.5, nil, "2.5"},
 		{"string method", `labels["x"].startsWith("v") ? "yes" : "no"`, 0, map[string]string{"x": "v1"}, "yes"},
 		{"safe label", `"version" in labels ? labels["version"] : "unknown"`, 0, nil, "unknown"},
+		// ext.Math
+		{"math round", `string(math.round(result))`, 17.6, nil, "18"},
+		{"math abs", `string(math.abs(result))`, -5, nil, "5"},
+		{"math clamp", `humanizeNumber(math.least(result, 100.0))`, 250, nil, "100"},
+		{"nan guard", `math.isNaN(result) ? "n/a" : humanizeNumber(result)`, math.NaN(), nil, "n/a"},
+		// cel.OptionalTypes — optional label indexing
+		{"optional absent", `labels[?"version"].orValue("n/a")`, 0, nil, "n/a"},
+		{"optional present", `labels[?"version"].orValue("n/a")`, 0, map[string]string{"version": "v1.2"}, "v1.2"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

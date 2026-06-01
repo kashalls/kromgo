@@ -181,10 +181,15 @@ metrics:
       value: string(result) + "%"
       color: 'result < 35 ? "green" : result < 75 ? "orange" : "red"'
 
-    # value taken from a label
+    # value taken from a label, falling back if it's absent
     - name: version
       query: 'label_replace(build_info, "v", "$1", "version", "v(.+)")'
-      value: labels["v"]
+      value: labels[?"v"].orValue("unknown")
+
+    # guard a possibly-NaN ratio (e.g. divide-by-zero) before formatting
+    - name: hit_ratio
+      query: cache_hits / (cache_hits + cache_misses)
+      value: 'math.isNaN(result) ? "n/a" : humanizeFloat(math.round(result * 100.0)) + "%"'
 
     # enum → text + color
     - name: ceph_health
@@ -193,9 +198,16 @@ metrics:
       color: 'result == 0.0 ? "green" : result == 1.0 ? "orange" : "red"'
 ```
 
-Besides CEL's built-ins (arithmetic, comparisons, ternary `?:`, `in`, the `strings` extension —
-`startsWith`, `matches`, `upperAscii`, …) these humanizer functions are available (byte and comma
-formatting come from [go-humanize](https://github.com/dustin/go-humanize)):
+Besides CEL's built-ins (arithmetic, comparisons, ternary `?:`, `in`) the environment enables:
+
+- the **`strings`** extension — `startsWith`, `matches`, `replace`, `substring`, `upperAscii`, …
+- the **`math`** extension — `math.round`, `math.abs`, `math.floor`/`ceil`, `math.least`/`greatest`
+  (clamping), and `math.isNaN`/`isInf`/`isFinite` to guard non-finite values (Prometheus returns
+  `NaN` for e.g. division by zero, which would otherwise render literally on the badge);
+- **optional types** — `labels[?"k"].orValue("default")` for a label that may be absent.
+
+On top of those, these humanizer functions are available (byte and number formatting come from
+[go-humanize](https://github.com/dustin/go-humanize)):
 
 | Function                   | Example                      | Result    | Notes                                  |
 | -------------------------- | ---------------------------- | --------- | -------------------------------------- |
@@ -251,8 +263,9 @@ Two gotchas around `result` (a `double`):
   enables CEL's cross-type numeric comparisons). Equality and arithmetic do **not**: write a decimal
   literal there, e.g. `result == 0.0` (not `== 0`) and `result * 100.0` (not `* 100`). A mismatch is
   a compile error caught at startup, not a runtime surprise.
-- **Missing labels.** Indexing a label that isn't present errors — use
-  `"k" in labels ? labels["k"] : "n/a"` when a label may be absent.
+- **Missing labels.** Indexing a label that isn't present errors. Use optional indexing —
+  `labels[?"k"].orValue("n/a")` — or the ternary `"k" in labels ? labels["k"] : "n/a"` when a label
+  may be absent.
 
 ### History and charts
 

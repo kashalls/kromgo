@@ -11,8 +11,8 @@ import (
 
 // newCELEnv builds the CEL environment exposed to a metric's value/color
 // expressions. Expressions get two variables — result (the sample value) and
-// labels (its label set) — plus the standard string extension and kromgo's
-// humanizer functions. CEL is sandboxed: no env/file/network access.
+// labels (its label set) — plus the string and math extensions, optional types,
+// and kromgo's humanizer functions. CEL is sandboxed: no env/file/network access.
 func newCELEnv() (*cel.Env, error) {
 	return cel.NewEnv(append([]cel.EnvOption{
 		cel.Variable("result", cel.DoubleType),
@@ -20,7 +20,13 @@ func newCELEnv() (*cel.Env, error) {
 		// result is a double; allow comparing it against plain int literals
 		// (result < 35, not result < 35.0) — the usual color-threshold case.
 		cel.CrossTypeNumericComparisons(true),
+		// Optional map indexing: labels[?"k"].orValue("n/a") for absent labels.
+		cel.OptionalTypes(),
 		ext.Strings(),
+		// math.round/abs/least/greatest and the isNaN/isInf/isFinite guards —
+		// Prometheus can return non-finite values that would otherwise render
+		// literally (e.g. "NaN") on a badge.
+		ext.Math(),
 	}, humanizerFuncs()...)...)
 }
 
