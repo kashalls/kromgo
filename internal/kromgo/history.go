@@ -94,30 +94,10 @@ func parseHistoryParams(r *http.Request) (start, end time.Time, step time.Durati
 	return start, end, step, nil
 }
 
-func (h *Handler) historyEnabled(metric config.Metric) bool {
-	if metric.History != nil && metric.History.Enabled != nil {
-		return *metric.History.Enabled
-	}
-	return h.cfg.History.Enabled
-}
-
-func (h *Handler) historyMaxDuration(metric config.Metric) time.Duration {
-	// Values are validated at startup by config.Load, so Parse cannot fail here.
-	if metric.History != nil && metric.History.MaxDuration != "" {
-		d, _ := config.ParseDuration(metric.History.MaxDuration)
-		return d
-	}
-	if h.cfg.History.MaxDuration != "" {
-		d, _ := config.ParseDuration(h.cfg.History.MaxDuration)
-		return d
-	}
-	return time.Hour
-}
-
 // validateHistoryAccess checks access control, parses time parameters, and enforces the
 // max duration cap. Returns ok=false if an error response was already written.
-func (h *Handler) validateHistoryAccess(w http.ResponseWriter, r *http.Request, metric config.Metric) (start, end time.Time, step time.Duration, ok bool) {
-	if !h.historyEnabled(metric) {
+func (h *Handler) validateHistoryAccess(w http.ResponseWriter, r *http.Request, metric *resolvedMetric) (start, end time.Time, step time.Duration, ok bool) {
+	if !metric.historyEnabled {
 		writeError(w, metric.Name, "History not enabled for this metric", http.StatusForbidden)
 		return start, end, step, false
 	}
@@ -128,7 +108,7 @@ func (h *Handler) validateHistoryAccess(w http.ResponseWriter, r *http.Request, 
 		return start, end, step, false
 	}
 
-	if maxDur := h.historyMaxDuration(metric); maxDur > 0 && end.Sub(start) > maxDur {
+	if metric.historyMax > 0 && end.Sub(start) > metric.historyMax {
 		writeError(w, metric.Name, "Requested time window exceeds maximum allowed duration", http.StatusBadRequest)
 		return start, end, step, false
 	}
@@ -136,7 +116,7 @@ func (h *Handler) validateHistoryAccess(w http.ResponseWriter, r *http.Request, 
 	return start, end, step, true
 }
 
-func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request, metric config.Metric, log *slog.Logger) {
+func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, log *slog.Logger) {
 	start, end, step, ok := h.validateHistoryAccess(w, r, metric)
 	if !ok {
 		return
@@ -180,7 +160,7 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request, metric c
 
 // queryMatrix runs a range query and asserts the result is a matrix, writing an error
 // response and returning ok=false otherwise.
-func (h *Handler) queryMatrix(w http.ResponseWriter, r *http.Request, metric config.Metric, start, end time.Time, step time.Duration, log *slog.Logger) (model.Matrix, bool) {
+func (h *Handler) queryMatrix(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, start, end time.Time, step time.Duration, log *slog.Logger) (model.Matrix, bool) {
 	value, err := h.prom.QueryRange(r.Context(), metric.Query, v1.Range{Start: start, End: end, Step: step})
 	if err != nil {
 		log.Error("error executing range query", "error", err)

@@ -250,65 +250,77 @@ func TestParseTimeParam_Invalid(t *testing.T) {
 	}
 }
 
-func newHistoryHandler(historyCfg config.HistoryConfig) *Handler {
-	return &Handler{cfg: config.KromgoConfig{History: historyCfg}}
+func mustResolve(t *testing.T, m config.Metric, cfg config.KromgoConfig) *resolvedMetric {
+	t.Helper()
+	rm, err := resolveMetric(m, cfg)
+	if err != nil {
+		t.Fatalf("resolveMetric: %v", err)
+	}
+	return rm
 }
 
-func TestHistoryEnabled_GlobalOff(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{Enabled: false})
-	if h.historyEnabled(config.Metric{Name: "test"}) {
+func TestResolveMetric_HistoryEnabled_GlobalOff(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{Enabled: false}})
+	if rm.historyEnabled {
 		t.Error("expected history disabled by default")
 	}
 }
 
-func TestHistoryEnabled_GlobalOn(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{Enabled: true})
-	if !h.historyEnabled(config.Metric{Name: "test"}) {
+func TestResolveMetric_HistoryEnabled_GlobalOn(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{Enabled: true}})
+	if !rm.historyEnabled {
 		t.Error("expected history enabled via global config")
 	}
 }
 
-func TestHistoryEnabled_PerMetricOverrideOn(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{Enabled: false})
-	metric := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(true)}}
-	if !h.historyEnabled(metric) {
-		t.Error("expected per-metric history override to enable history")
+func TestResolveMetric_HistoryEnabled_PerMetricOverrideOn(t *testing.T) {
+	m := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(true)}}
+	rm := mustResolve(t, m, config.KromgoConfig{History: config.HistoryConfig{Enabled: false}})
+	if !rm.historyEnabled {
+		t.Error("expected per-metric override to enable history")
 	}
 }
 
-func TestHistoryEnabled_PerMetricOverrideOff(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{Enabled: true})
-	metric := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(false)}}
-	if h.historyEnabled(metric) {
-		t.Error("expected per-metric history override to disable history")
+func TestResolveMetric_HistoryEnabled_PerMetricOverrideOff(t *testing.T) {
+	m := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(false)}}
+	rm := mustResolve(t, m, config.KromgoConfig{History: config.HistoryConfig{Enabled: true}})
+	if rm.historyEnabled {
+		t.Error("expected per-metric override to disable history")
 	}
 }
 
-func TestHistoryMaxDuration_Default(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{})
-	if d := h.historyMaxDuration(config.Metric{Name: "test"}); d != time.Hour {
-		t.Errorf("expected default max duration 1h, got %v", d)
+func TestResolveMetric_HistoryMax_Default(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{})
+	if rm.historyMax != time.Hour {
+		t.Errorf("expected default max duration 1h, got %v", rm.historyMax)
 	}
 }
 
-func TestHistoryMaxDuration_GlobalConfigured(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{MaxDuration: "24h"})
-	if d := h.historyMaxDuration(config.Metric{Name: "test"}); d != 24*time.Hour {
-		t.Errorf("expected 24h, got %v", d)
+func TestResolveMetric_HistoryMax_GlobalConfigured(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{MaxDuration: "24h"}})
+	if rm.historyMax != 24*time.Hour {
+		t.Errorf("expected 24h, got %v", rm.historyMax)
 	}
 }
 
-func TestHistoryMaxDuration_PerMetricOverridesGlobal(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{MaxDuration: "24h"})
-	metric := config.Metric{Name: "test", History: &config.MetricHistoryConfig{MaxDuration: "720h"}}
-	if d := h.historyMaxDuration(metric); d != 720*time.Hour {
-		t.Errorf("expected 720h, got %v", d)
+func TestResolveMetric_HistoryMax_PerMetricOverridesGlobal(t *testing.T) {
+	m := config.Metric{Name: "test", History: &config.MetricHistoryConfig{MaxDuration: "720h"}}
+	rm := mustResolve(t, m, config.KromgoConfig{History: config.HistoryConfig{MaxDuration: "24h"}})
+	if rm.historyMax != 720*time.Hour {
+		t.Errorf("expected 720h, got %v", rm.historyMax)
 	}
 }
 
-func TestHistoryMaxDuration_Unlimited(t *testing.T) {
-	h := newHistoryHandler(config.HistoryConfig{MaxDuration: "0"})
-	if d := h.historyMaxDuration(config.Metric{Name: "test"}); d != 0 {
-		t.Errorf("expected 0 (unlimited), got %v", d)
+func TestResolveMetric_HistoryMax_Unlimited(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{History: config.HistoryConfig{MaxDuration: "0"}})
+	if rm.historyMax != 0 {
+		t.Errorf("expected 0 (unlimited), got %v", rm.historyMax)
+	}
+}
+
+func TestResolveMetric_InvalidTemplateFailsFast(t *testing.T) {
+	m := config.Metric{Name: "test", ValueTemplate: "{{ .broken"}
+	if _, err := resolveMetric(m, config.KromgoConfig{}); err == nil {
+		t.Error("expected resolveMetric to reject a malformed value template")
 	}
 }

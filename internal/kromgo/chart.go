@@ -127,16 +127,20 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.M
 		p.width, totalHeight, p.width, totalHeight)
 
 	for i, stream := range matrix {
-		if len(stream.Values) == 0 {
-			continue
-		}
-
+		// Prometheus can return NaN/Inf samples (counter resets, staleness gaps);
+		// they would poison min/max and emit NaN SVG coordinates, so skip them.
 		minVal := math.Inf(1)
 		maxVal := math.Inf(-1)
 		for _, pt := range stream.Values {
 			v := float64(pt.Value)
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				continue
+			}
 			minVal = min(minVal, v)
 			maxVal = max(maxVal, v)
+		}
+		if math.IsInf(minVal, 1) {
+			continue // no finite samples to plot
 		}
 		valRange := maxVal - minVal
 		if valRange == 0 {
@@ -147,12 +151,16 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.M
 		color := seriesColor(i, p.color, metricColors)
 
 		type point struct{ x, y float64 }
-		pts := make([]point, n)
+		pts := make([]point, 0, n)
 		for j, pt := range stream.Values {
-			pts[j] = point{
-				x: pad + float64(j)/float64(max(n-1, 1))*w,
-				y: pad + (1-(float64(pt.Value)-minVal)/valRange)*h,
+			v := float64(pt.Value)
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				continue
 			}
+			pts = append(pts, point{
+				x: pad + float64(j)/float64(max(n-1, 1))*w,
+				y: pad + (1-(v-minVal)/valRange)*h,
+			})
 		}
 
 		// Filled area under the line.
@@ -161,7 +169,7 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.M
 		for _, pt := range pts[1:] {
 			fmt.Fprintf(&area, " L %.2f,%.2f", pt.x, pt.y)
 		}
-		fmt.Fprintf(&area, " L %.2f,%.2f L %.2f,%.2f Z", pts[n-1].x, bottom, pts[0].x, bottom)
+		fmt.Fprintf(&area, " L %.2f,%.2f L %.2f,%.2f Z", pts[len(pts)-1].x, bottom, pts[0].x, bottom)
 		fmt.Fprintf(&sb, `<path d="%s" fill="%s" fill-opacity="0.15" stroke="none"/>`, area.String(), color)
 
 		// Line.
@@ -195,7 +203,7 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.M
 	return sb.String()
 }
 
-func (h *Handler) handleChart(w http.ResponseWriter, r *http.Request, metric config.Metric, log *slog.Logger) {
+func (h *Handler) handleChart(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, log *slog.Logger) {
 	start, end, step, ok := h.validateHistoryAccess(w, r, metric)
 	if !ok {
 		return

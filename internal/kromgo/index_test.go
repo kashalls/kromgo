@@ -50,7 +50,7 @@ func TestIsHidden_NoGlobal_PerMetricTrue_Hidden(t *testing.T) {
 // --- index ---
 
 func newTestHandler(cfg config.KromgoConfig) *Handler {
-	return &Handler{cfg: cfg, metrics: cfg.MetricsByName()}
+	return &Handler{cfg: cfg}
 }
 
 func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {

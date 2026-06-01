@@ -2,6 +2,7 @@ package kromgo
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -93,6 +94,37 @@ func TestRenderSparkline_LegendText(t *testing.T) {
 	withoutLegend := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2, legend: false}, nil)
 	if strings.Contains(withoutLegend, "<text ") {
 		t.Error("expected no <text> elements when legend=false")
+	}
+}
+
+func TestRenderSparkline_SkipsNaNAndInf(t *testing.T) {
+	// A series with NaN/Inf samples (counter resets, staleness) must still render
+	// a clean polyline from the finite points, never emitting NaN/Inf coordinates.
+	matrix := makeMatrix([][]float64{{10, 20, 30, 40}})
+	matrix[0].Values[1].Value = model.SampleValue(math.NaN())
+	matrix[0].Values[2].Value = model.SampleValue(math.Inf(1))
+
+	svg := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2}, nil)
+
+	if strings.Contains(svg, "NaN") || strings.Contains(svg, "Inf") {
+		t.Errorf("SVG contains non-finite coordinates: %s", svg)
+	}
+	if strings.Count(svg, "<polyline ") != 1 {
+		t.Error("expected the series to still render a polyline from its finite points")
+	}
+}
+
+func TestRenderSparkline_AllNaNSeriesSkipped(t *testing.T) {
+	matrix := makeMatrix([][]float64{{1, 2}, {3, 4}})
+	for i := range matrix[0].Values {
+		matrix[0].Values[i].Value = model.SampleValue(math.NaN())
+	}
+
+	svg := renderSparkline(matrix, chartParams{width: 300, height: 80, strokeWidth: 2}, nil)
+
+	// The all-NaN series is dropped; the finite series still draws.
+	if got := strings.Count(svg, "<polyline "); got != 1 {
+		t.Errorf("expected 1 polyline (all-NaN series skipped), got %d", got)
 	}
 }
 

@@ -1,7 +1,6 @@
 package kromgo
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"strconv"
@@ -9,6 +8,8 @@ import (
 	"text/template"
 )
 
+// templateFuncs are the functions available to a metric's valueTemplate. Templates
+// are compiled once at startup (see resolveMetric) and executed per request.
 var templateFuncs = template.FuncMap{
 	"simplifyDays":      simplifyDays,
 	"humanBytes":        humanBytes,
@@ -18,21 +19,6 @@ var templateFuncs = template.FuncMap{
 	"toUpper":           strings.ToUpper,
 	"toLower":           strings.ToLower,
 	"trim":              strings.TrimSpace,
-}
-
-// ApplyValueTemplate executes the given Go template string with value as the dot (.) data.
-// Returns the formatted string and nil on success, or the original value and an error if the
-// template fails to parse or execute.
-func ApplyValueTemplate(tmplStr string, value string) (string, error) {
-	tmpl, err := template.New("value").Funcs(templateFuncs).Parse(tmplStr)
-	if err != nil {
-		return value, fmt.Errorf("failed to parse value template: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, value); err != nil {
-		return value, fmt.Errorf("failed to execute value template: %w", err)
-	}
-	return buf.String(), nil
 }
 
 // toFloat converts a string, int, or float64 to float64.
@@ -107,23 +93,23 @@ func humanizeThousands(v any) string {
 		return fmt.Sprintf("%v", v)
 	}
 
+	// Take the sign from the float so values in (-1, 0) keep their minus sign
+	// (the integer part of e.g. -0.5 is 0, which would otherwise look positive).
+	negative := f < 0
+	abs := math.Abs(f)
+
 	// Format as integer if no fractional part, otherwise keep decimals.
 	var intPart int64
 	var fracStr string
-	if f == math.Trunc(f) {
-		intPart = int64(math.Round(f))
+	if abs == math.Trunc(abs) {
+		intPart = int64(math.Round(abs))
 	} else {
-		s := strconv.FormatFloat(f, 'f', -1, 64)
+		s := strconv.FormatFloat(abs, 'f', -1, 64)
 		parts := strings.SplitN(s, ".", 2)
 		intPart, _ = strconv.ParseInt(parts[0], 10, 64)
 		if len(parts) == 2 {
 			fracStr = "." + parts[1]
 		}
-	}
-
-	negative := intPart < 0
-	if negative {
-		intPart = -intPart
 	}
 
 	s := strconv.FormatInt(intPart, 10)

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/home-operations/kromgo/internal/config"
@@ -18,20 +19,32 @@ import (
 // Handler serves metric endpoints backed by Prometheus queries.
 type Handler struct {
 	cfg     config.KromgoConfig
-	metrics map[string]config.Metric
+	metrics map[string]*resolvedMetric
 	prom    *prometheus.Client
 	badges  *badgePool
 }
 
-// New builds a Handler from config and a Prometheus client.
+// New builds a Handler from config and a Prometheus client. Per-metric value
+// templates and history durations are compiled/parsed here, so a malformed one
+// fails at startup rather than on a request.
 func New(cfg config.KromgoConfig, prom *prometheus.Client) (*Handler, error) {
 	badges, err := newBadgePool(cfg.Badge)
 	if err != nil {
 		return nil, err
 	}
+
+	metrics := make(map[string]*resolvedMetric, len(cfg.Metrics))
+	for _, m := range cfg.Metrics {
+		rm, err := resolveMetric(m, cfg)
+		if err != nil {
+			return nil, err
+		}
+		metrics[m.Name] = rm
+	}
+
 	return &Handler{
 		cfg:     cfg,
-		metrics: cfg.MetricsByName(),
+		metrics: metrics,
 		prom:    prom,
 		badges:  badges,
 	}, nil
@@ -72,8 +85,8 @@ func (h *Handler) serveMetric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set the cache policy up front; writeError overrides it with no-store on failures.
-	if cs := h.cacheSeconds(metric); cs > 0 {
-		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", cs))
+	if metric.cacheSeconds > 0 {
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", metric.cacheSeconds))
 	}
 
 	switch format {
@@ -87,7 +100,7 @@ func (h *Handler) serveMetric(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleInstant serves the json, raw, and badge formats, which all run an instant query.
-func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric config.Metric, format string, log *slog.Logger) {
+func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, format string, log *slog.Logger) {
 	value, err := h.prom.Query(r.Context(), metric.Query, time.Now())
 	if err != nil {
 		log.Error("error executing metric query", "error", err)
@@ -110,12 +123,40 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric c
 		return
 	}
 
-	var colorConfig config.MetricColor
+	color, message, ok := h.buildResponse(metric, vector, log)
+	if !ok {
+		writeError(w, metric.Name, "No Data", http.StatusOK)
+		return
+	}
+	title := metricTitle(metric)
+
+	if format == "badge" {
+		h.badges.write(w, r.URL.Query().Get("style"), title, message, color.Color)
+		return
+	}
+
+	resp := EndpointResponse{
+		SchemaVersion: 1,
+		Label:         title,
+		Message:       message,
+		Color:         color.Color,         // omitted when empty
+		CacheSeconds:  metric.cacheSeconds, // shields.io honors this; omitted when 0
+	}
+	if err := writeJSON(w, resp); err != nil {
+		log.Error("error converting data to json response", "error", err)
+		writeError(w, metric.Name, "Error", http.StatusInternalServerError)
+	}
+}
+
+// buildResponse derives the display color and message from an instant vector,
+// applying label extraction, value override, value template, and prefix/suffix.
+// ok is false when a required label is missing (caller responds with "No Data").
+func (h *Handler) buildResponse(metric *resolvedMetric, vector model.Vector, log *slog.Logger) (color config.MetricColor, message string, ok bool) {
 	var response string
 	if len(vector) > 0 {
-		resultValue := float64(vector[0].Value)
-		colorConfig = GetColorConfig(metric.Colors, resultValue)
-		response = strconv.FormatFloat(resultValue, 'f', -1, 64)
+		value := float64(vector[0].Value)
+		color = GetColorConfig(metric.Colors, value)
+		response = strconv.FormatFloat(value, 'f', -1, 64)
 	} else {
 		response = "metric returned no data"
 	}
@@ -124,63 +165,32 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric c
 		labelValue, err := ExtractLabelValue(vector, metric.Label)
 		if err != nil {
 			log.Error("label was not found in query result", "label", metric.Label, "error", err)
-			writeError(w, metric.Name, "No Data", http.StatusOK)
-			return
+			return color, "", false
 		}
 		response = labelValue
 	}
-	if colorConfig.ValueOverride != "" {
-		response = colorConfig.ValueOverride
+	if color.ValueOverride != "" {
+		response = color.ValueOverride
 	}
 
-	if metric.ValueTemplate != "" {
-		tmplStr := metric.ValueTemplate
-		if resolved, ok := h.cfg.Templates[tmplStr]; ok {
-			tmplStr = resolved
+	if metric.template != nil {
+		var buf strings.Builder
+		if err := metric.template.Execute(&buf, response); err != nil {
+			log.Error("failed to apply value template", "error", err) // keep the raw value
+		} else {
+			response = buf.String()
 		}
-		formatted, err := ApplyValueTemplate(tmplStr, response)
-		if err != nil {
-			log.Error("failed to apply value template", "error", err)
-		}
-		response = formatted
 	}
 
-	message := metric.Prefix + response + metric.Suffix
-	title := metricTitle(metric)
-
-	if format == "badge" {
-		h.badges.write(w, r.URL.Query().Get("style"), title, message, colorConfig.Color)
-		return
-	}
-
-	resp := EndpointResponse{
-		SchemaVersion: 1,
-		Label:         title,
-		Message:       message,
-		Color:         colorConfig.Color,      // omitted when empty
-		CacheSeconds:  h.cacheSeconds(metric), // shields.io honors this; omitted when 0
-	}
-	if err := writeJSON(w, resp); err != nil {
-		log.Error("error converting data to json response", "error", err)
-		writeError(w, metric.Name, "Error", http.StatusInternalServerError)
-	}
+	return color, metric.Prefix + response + metric.Suffix, true
 }
 
 // metricTitle returns the display title for a metric (its Title, falling back to Name).
-func metricTitle(metric config.Metric) string {
+func metricTitle(metric *resolvedMetric) string {
 	if metric.Title != "" {
 		return metric.Title
 	}
 	return metric.Name
-}
-
-// cacheSeconds returns the effective Cache-Control max-age for a metric: its own
-// CacheSeconds if set, otherwise the global default. 0 means no caching.
-func (h *Handler) cacheSeconds(m config.Metric) int {
-	if m.CacheSeconds != nil {
-		return *m.CacheSeconds
-	}
-	return h.cfg.CacheSeconds
 }
 
 func writeJSON(w http.ResponseWriter, v any) error {
