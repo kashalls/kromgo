@@ -5,31 +5,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/httprate"
 	"github.com/home-operations/kromgo/internal/config"
 )
 
-// withMiddleware wraps h with recovery, optional access logging, and optional rate limiting.
-// Middleware is applied outermost-first: recover → access log → rate limit → handler.
+// withMiddleware wraps h with recovery and optional access logging. Middleware is
+// applied outermost-first: recover → access log → handler. Rate limiting is
+// intentionally left to a reverse proxy (see the README).
 func withMiddleware(h http.Handler, sc config.ServerConfig) http.Handler {
-	if sc.RatelimitEnable {
-		h = rateLimiter(sc)(h)
-	}
 	if sc.ServerLogging {
 		h = accessLog(h)
 	}
 	return recoverer(h)
-}
-
-func rateLimiter(sc config.ServerConfig) func(http.Handler) http.Handler {
-	switch {
-	case sc.RatelimitAll:
-		return httprate.LimitAll(sc.RatelimitRequestLimit, sc.RatelimitWindowLength)
-	case sc.RatelimitByRealIP:
-		return httprate.LimitByRealIP(sc.RatelimitRequestLimit, sc.RatelimitWindowLength)
-	default:
-		return httprate.LimitByIP(sc.RatelimitRequestLimit, sc.RatelimitWindowLength)
-	}
 }
 
 // statusRecorder captures the response status code for access logging.

@@ -20,12 +20,6 @@ type ServerConfig struct {
 
 	// QueryTimeout bounds each outbound Prometheus query.
 	QueryTimeout time.Duration `env:"QUERY_TIMEOUT" envDefault:"30s"`
-
-	RatelimitEnable       bool          `env:"RATELIMIT_ENABLE"`
-	RatelimitAll          bool          `env:"RATELIMIT_ALL"`
-	RatelimitByRealIP     bool          `env:"RATELIMIT_BY_REAL_IP"`
-	RatelimitRequestLimit int           `env:"RATELIMIT_REQUEST_LIMIT" envDefault:"100"`
-	RatelimitWindowLength time.Duration `env:"RATELIMIT_WINDOW_LENGTH" envDefault:"1m"`
 }
 
 // LoadServer reads ServerConfig from the environment.

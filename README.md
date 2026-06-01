@@ -25,6 +25,7 @@ Works out of the box with [shields.io Endpoint Badges](https://shields.io/badges
 - [Index page](#index-page)
 - [API reference](#api-reference)
 - [Ports](#ports)
+- [Rate limiting](#rate-limiting)
 - [Image verification](#image-verification)
 - [Community](#community)
 
@@ -85,24 +86,19 @@ point your editor's YAML language server at it for inline completion and validat
 
 ### Environment variables
 
-| Variable                  | Required | Default   | Description                                 |
-| ------------------------- | -------- | --------- | ------------------------------------------- |
-| `PROMETHEUS_URL`          | yes      | —         | URL of your Prometheus instance             |
-| `SERVER_HOST`             | no       | `0.0.0.0` | Host to bind the main server                |
-| `SERVER_PORT`             | no       | `8080`    | Port for the main server                    |
-| `HEALTH_HOST`             | no       | `0.0.0.0` | Host to bind the health server              |
-| `HEALTH_PORT`             | no       | `8888`    | Port for the health/metrics server          |
-| `SERVER_LOGGING`          | no       | `false`   | Enable HTTP request access logging          |
-| `SERVER_READ_TIMEOUT`     | no       | —         | HTTP read timeout (e.g. `5s`)               |
-| `SERVER_WRITE_TIMEOUT`    | no       | —         | HTTP write timeout (e.g. `10s`)             |
-| `QUERY_TIMEOUT`           | no       | `30s`     | Timeout applied to each Prometheus query    |
-| `RATELIMIT_ENABLE`        | no       | `false`   | Enable rate limiting                        |
-| `RATELIMIT_ALL`           | no       | `false`   | Rate limit all requests globally            |
-| `RATELIMIT_BY_REAL_IP`    | no       | `false`   | Rate limit by `X-Real-IP` header            |
-| `RATELIMIT_REQUEST_LIMIT` | no       | `100`     | Max requests per window                     |
-| `RATELIMIT_WINDOW_LENGTH` | no       | `1m`      | Rate limit window duration                  |
-| `LOG_LEVEL`               | no       | `info`    | Log level: `debug`, `info`, `warn`, `error` |
-| `LOG_FORMAT`              | no       | `json`    | Log format: `json` or `text`                |
+| Variable               | Required | Default   | Description                                 |
+| ---------------------- | -------- | --------- | ------------------------------------------- |
+| `PROMETHEUS_URL`       | yes      | —         | URL of your Prometheus instance             |
+| `SERVER_HOST`          | no       | `0.0.0.0` | Host to bind the main server                |
+| `SERVER_PORT`          | no       | `8080`    | Port for the main server                    |
+| `HEALTH_HOST`          | no       | `0.0.0.0` | Host to bind the health server              |
+| `HEALTH_PORT`          | no       | `8888`    | Port for the health/metrics server          |
+| `SERVER_LOGGING`       | no       | `false`   | Enable HTTP request access logging          |
+| `SERVER_READ_TIMEOUT`  | no       | —         | HTTP read timeout (e.g. `5s`)               |
+| `SERVER_WRITE_TIMEOUT` | no       | —         | HTTP write timeout (e.g. `10s`)             |
+| `QUERY_TIMEOUT`        | no       | `30s`     | Timeout applied to each Prometheus query    |
+| `LOG_LEVEL`            | no       | `info`    | Log level: `debug`, `info`, `warn`, `error` |
+| `LOG_FORMAT`           | no       | `json`    | Log format: `json` or `text`                |
 
 ### Metrics
 
@@ -304,6 +300,62 @@ GET /node_cpu_usage?format=history&last=24h
 The health server's `/metrics` endpoint exposes Go runtime metrics plus
 `kromgo_requests_total{metric, format}` — a counter of requests handled, broken down by metric name
 and response format.
+
+## Rate limiting
+
+kromgo does not rate limit itself — it's meant to sit behind a reverse proxy on the public web, and
+proxies do this better (shared limits across replicas, per-IP buckets, burst handling, `429`
+responses). Configure it there. Examples for limiting `/` traffic to kromgo on `:8080`:
+
+**nginx** — in the `http {}` block, then reference the zone in your `location`:
+
+```nginx
+limit_req_zone $binary_remote_addr zone=kromgo:10m rate=10r/s;
+
+server {
+    location / {
+        limit_req zone=kromgo burst=20 nodelay;
+        proxy_pass http://kromgo:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+**Caddy** — requires the [caddy-ratelimit](https://github.com/mholt/caddy-ratelimit) module
+(`xcaddy build --with github.com/mholt/caddy-ratelimit`):
+
+```caddyfile
+kromgo.example.com {
+    rate_limit {
+        zone kromgo {
+            key    {remote_host}
+            events 10
+            window 1s
+        }
+    }
+    reverse_proxy kromgo:8080
+}
+```
+
+**Envoy** — the built-in [local rate limit](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/local_rate_limit_filter)
+HTTP filter (100 requests/minute per listener):
+
+```yaml
+http_filters:
+    - name: envoy.filters.http.local_ratelimit
+      typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+          stat_prefix: kromgo_rate_limiter
+          token_bucket:
+              max_tokens: 100
+              tokens_per_fill: 100
+              fill_interval: 60s
+          filter_enabled:
+              default_value: { numerator: 100, denominator: HUNDRED }
+          filter_enforced:
+              default_value: { numerator: 100, denominator: HUNDRED }
+```
 
 ## Image verification
 
