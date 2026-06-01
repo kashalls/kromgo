@@ -1,4 +1,4 @@
-package configuration
+package config
 
 import (
 	"testing"
@@ -81,35 +81,35 @@ func TestParseDuration_Invalid(t *testing.T) {
 	}
 }
 
-func TestValidateHistoryDurations_Valid(t *testing.T) {
-	config := KromgoConfig{
+func TestValidate_Valid(t *testing.T) {
+	cfg := KromgoConfig{
 		History: HistoryConfig{MaxDuration: "24h"},
 		Metrics: []Metric{
 			{Name: "cpu", History: &MetricHistoryConfig{MaxDuration: "7d"}},
 			{Name: "mem"},
 		},
 	}
-	if err := validateHistoryDurations(config); err != nil {
+	if err := cfg.validate(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestValidateHistoryDurations_InvalidGlobal(t *testing.T) {
-	config := KromgoConfig{
+func TestValidate_InvalidGlobal(t *testing.T) {
+	cfg := KromgoConfig{
 		History: HistoryConfig{MaxDuration: "bogus"},
 	}
-	if err := validateHistoryDurations(config); err == nil {
+	if err := cfg.validate(); err == nil {
 		t.Fatal("expected error for invalid global maxDuration")
 	}
 }
 
-func TestValidateHistoryDurations_InvalidMetric(t *testing.T) {
-	config := KromgoConfig{
+func TestValidate_InvalidMetric(t *testing.T) {
+	cfg := KromgoConfig{
 		Metrics: []Metric{
 			{Name: "cpu", History: &MetricHistoryConfig{MaxDuration: "not-a-duration"}},
 		},
 	}
-	if err := validateHistoryDurations(config); err == nil {
+	if err := cfg.validate(); err == nil {
 		t.Fatal("expected error for invalid metric maxDuration")
 	}
 }

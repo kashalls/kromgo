@@ -3,17 +3,15 @@ package kromgo
 import (
 	"fmt"
 	"html"
+	"log/slog"
 	"math"
 	"net/http"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
-	"github.com/kashalls/kromgo/cmd/kromgo/init/configuration"
-	"github.com/kashalls/kromgo/cmd/kromgo/init/prometheus"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/home-operations/kromgo/internal/config"
 	"github.com/prometheus/common/model"
-	"go.uber.org/zap"
 )
 
 var chartColors = []string{
@@ -28,34 +26,37 @@ type chartParams struct {
 	legend      bool
 }
 
-const maxChartDimension = 2048
-const maxStrokeWidth = 20.0
+const (
+	maxChartDimension = 2048
+	maxStrokeWidth    = 20.0
+)
 
 func parseChartParams(r *http.Request) chartParams {
 	p := chartParams{width: 300, height: 80, strokeWidth: 2, legend: true}
-	if s := r.URL.Query().Get("width"); s != "" {
+	q := r.URL.Query()
+	if s := q.Get("width"); s != "" {
 		if v, err := strconv.Atoi(s); err == nil && v > 0 {
 			p.width = min(v, maxChartDimension)
 		}
 	}
-	if s := r.URL.Query().Get("height"); s != "" {
+	if s := q.Get("height"); s != "" {
 		if v, err := strconv.Atoi(s); err == nil && v > 0 {
 			p.height = min(v, maxChartDimension)
 		}
 	}
-	if s := r.URL.Query().Get("stroke"); s != "" {
+	if s := q.Get("stroke"); s != "" {
 		if v, err := strconv.ParseFloat(s, 64); err == nil && v > 0 {
 			p.strokeWidth = min(v, maxStrokeWidth)
 		}
 	}
-	p.color = r.URL.Query().Get("color")
-	if r.URL.Query().Get("legend") == "false" {
+	p.color = q.Get("color")
+	if q.Get("legend") == "false" {
 		p.legend = false
 	}
 	return p
 }
 
-func seriesColor(i int, override string, colors []configuration.MetricColor) string {
+func seriesColor(i int, override string, colors []config.MetricColor) string {
 	if override != "" {
 		return colorNameToHex(override)
 	}
@@ -76,7 +77,7 @@ func seriesLabel(stream *model.SampleStream) string {
 	if len(keys) == 0 {
 		return ""
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	vals := make([]string, 0, len(keys))
 	for _, k := range keys {
 		vals = append(vals, string(stream.Metric[model.LabelName(k)]))
@@ -84,14 +85,14 @@ func seriesLabel(stream *model.SampleStream) string {
 	return strings.Join(vals, ", ")
 }
 
-func renderSparkline(matrix model.Matrix, p chartParams, metricColors []configuration.MetricColor) string {
+func renderSparkline(matrix model.Matrix, p chartParams, metricColors []config.MetricColor) string {
 	const (
-		legendHeight        = 20
-		legendFontSize      = 11
-		legendIndicatorW    = 16
-		legendIndicatorGap  = 5
-		legendItemMargin    = 12
-		legendCharWidth     = 6.5
+		legendHeight       = 20
+		legendFontSize     = 11
+		legendIndicatorW   = 16
+		legendIndicatorGap = 5
+		legendItemMargin   = 12
+		legendCharWidth    = 6.5
 	)
 
 	pad := 4.0
@@ -154,7 +155,7 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []configur
 			}
 		}
 
-		// Filled area under the line
+		// Filled area under the line.
 		var area strings.Builder
 		fmt.Fprintf(&area, "M %.2f,%.2f", pts[0].x, pts[0].y)
 		for _, pt := range pts[1:] {
@@ -163,7 +164,7 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []configur
 		fmt.Fprintf(&area, " L %.2f,%.2f L %.2f,%.2f Z", pts[n-1].x, bottom, pts[0].x, bottom)
 		fmt.Fprintf(&sb, `<path d="%s" fill="%s" fill-opacity="0.15" stroke="none"/>`, area.String(), color)
 
-		// Line
+		// Line.
 		var line strings.Builder
 		for j, pt := range pts {
 			if j > 0 {
@@ -175,7 +176,7 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []configur
 			line.String(), color, p.strokeWidth)
 	}
 
-	// Legend row
+	// Legend row.
 	if len(items) > 0 {
 		lineY := float64(p.height) + float64(legendHeight)/2
 		textY := lineY + float64(legendFontSize)/2 - 1
@@ -194,37 +195,16 @@ func renderSparkline(matrix model.Matrix, p chartParams, metricColors []configur
 	return sb.String()
 }
 
-func (h *KromgoHandler) handleChart(w http.ResponseWriter, r *http.Request, metric configuration.Metric) {
+func (h *Handler) handleChart(w http.ResponseWriter, r *http.Request, metric config.Metric, log *slog.Logger) {
 	start, end, step, ok := h.validateHistoryAccess(w, r, metric)
 	if !ok {
 		return
 	}
 
-	cp := parseChartParams(r)
-
-	result, warnings, err := prometheus.Papi.QueryRange(r.Context(), metric.Query, v1.Range{
-		Start: start,
-		End:   end,
-		Step:  step,
-	})
-	if err != nil {
-		requestLog(r).With(zap.Error(err)).Error("error executing chart query")
-		HandleError(w, r, metric.Name, "Query Error", http.StatusInternalServerError)
-		return
-	}
-	if len(warnings) > 0 {
-		for _, warning := range warnings {
-			requestLog(r).With(zap.String("warning", warning)).Warn("encountered warnings while executing chart query")
-		}
-	}
-
-	matrix, ok := result.(model.Matrix)
+	matrix, ok := h.queryMatrix(w, r, metric, start, end, step, log)
 	if !ok {
-		requestLog(r).Error("chart query did not return a matrix")
-		HandleError(w, r, metric.Name, "Unexpected result type", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "image/svg+xml")
-	w.Write([]byte(renderSparkline(matrix, cp, metric.Colors)))
+	writeSVG(w, []byte(renderSparkline(matrix, parseChartParams(r), metric.Colors)))
 }

@@ -33,7 +33,7 @@ func TestSimplifyDays_InvalidInput(t *testing.T) {
 func TestHumanBytes(t *testing.T) {
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		want  string
 	}{
 		{"zero", "0", "0B"},
@@ -57,7 +57,7 @@ func TestHumanBytes(t *testing.T) {
 func TestHumanSIBytes(t *testing.T) {
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		want  string
 	}{
 		{"zero", "0", "0B"},

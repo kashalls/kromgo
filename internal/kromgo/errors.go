@@ -3,10 +3,10 @@ package kromgo
 import (
 	"encoding/json"
 	"net/http"
-
-	"go.uber.org/zap"
 )
 
+// EndpointResponse is the shields.io-compatible JSON envelope returned for both
+// successful metric responses and errors.
 type EndpointResponse struct {
 	SchemaVersion int    `json:"schemaVersion"`
 	Label         string `json:"label"`
@@ -16,21 +16,19 @@ type EndpointResponse struct {
 	Style         string `json:"style,omitempty"`
 }
 
-func HandleError(w http.ResponseWriter, r *http.Request, metric string, reason string, code int) {
-	response := EndpointResponse{
+// writeError writes a shields.io-compatible error response with the given status code.
+func writeError(w http.ResponseWriter, metric, reason string, code int) {
+	body, err := json.Marshal(EndpointResponse{
 		SchemaVersion: 1,
 		Label:         metric,
 		Message:       reason,
 		Error:         true,
-	}
-
-	jsonResponse, err := json.Marshal(response)
+	})
 	if err != nil {
-		requestLog(r).With(zap.Error(err)).Error("error converting data to json response")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonResponse)
+	w.WriteHeader(code)
+	_, _ = w.Write(body)
 }

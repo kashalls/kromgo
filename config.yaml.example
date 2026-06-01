@@ -1,8 +1,9 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/kashalls/kromgo/main/config.schema.json
-badge:
-  font: Verdana.ttf # Relative to /kromgo - Verdana.ttf is available in the container
-  size: 12
+# yaml-language-server: $schema=https://raw.githubusercontent.com/home-operations/kromgo/main/config.schema.json
+# badge is optional — kromgo ships with an embedded default font.
+# badge:
+#   font: /kromgo/Verdana.ttf  # optional path to a custom TrueType font to mount
+#   size: 12                   # optional; defaults to 11
 # hideAll: false  # Show all metrics on the index page (GET /) by default. Default is true (all hidden).
 
 # history controls access to format=history and format=chart.

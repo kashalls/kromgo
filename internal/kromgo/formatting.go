@@ -36,7 +36,7 @@ func ApplyValueTemplate(tmplStr string, value string) (string, error) {
 }
 
 // toFloat converts a string, int, or float64 to float64.
-func toFloat(v interface{}) (float64, error) {
+func toFloat(v any) (float64, error) {
 	switch val := v.(type) {
 	case float64:
 		return val, nil
@@ -51,7 +51,7 @@ func toFloat(v interface{}) (float64, error) {
 
 // simplifyDays converts a day count into a compact human-readable string.
 // For example, 1159 days becomes "3y64d".
-func simplifyDays(v interface{}) string {
+func simplifyDays(v any) string {
 	f, err := toFloat(v)
 	if err != nil {
 		return fmt.Sprintf("%v", v)
@@ -68,7 +68,7 @@ func simplifyDays(v interface{}) string {
 // humanBytes converts a byte count into a human-readable size string using
 // IEC binary units (powers of 1024). For example, 1572864 becomes "1.5MiB".
 // For SI decimal units (powers of 1000, kB/MB/GB...) use humanSIBytes.
-func humanBytes(v interface{}) string {
+func humanBytes(v any) string {
 	f, err := toFloat(v)
 	if err != nil {
 		return fmt.Sprintf("%v", v)
@@ -79,7 +79,7 @@ func humanBytes(v interface{}) string {
 // humanSIBytes converts a byte count into a human-readable size string using
 // SI decimal units (powers of 1000). For example, 1500000 becomes "1.5MB".
 // For IEC binary units (powers of 1024, KiB/MiB/GiB...) use humanBytes.
-func humanSIBytes(v interface{}) string {
+func humanSIBytes(v any) string {
 	f, err := toFloat(v)
 	if err != nil {
 		return fmt.Sprintf("%v", v)
@@ -101,19 +101,18 @@ func scaleBytes(f float64, base float64, units []string) string {
 
 // humanizeThousands formats a number with comma thousands separators.
 // For example, 157121 becomes "157,121".
-func humanizeThousands(v interface{}) string {
+func humanizeThousands(v any) string {
 	f, err := toFloat(v)
 	if err != nil {
 		return fmt.Sprintf("%v", v)
 	}
 
-	// Format as integer if no fractional part, otherwise keep decimals
+	// Format as integer if no fractional part, otherwise keep decimals.
 	var intPart int64
 	var fracStr string
 	if f == math.Trunc(f) {
 		intPart = int64(math.Round(f))
 	} else {
-		// Split on decimal point
 		s := strconv.FormatFloat(f, 'f', -1, 64)
 		parts := strings.SplitN(s, ".", 2)
 		intPart, _ = strconv.ParseInt(parts[0], 10, 64)
@@ -145,7 +144,7 @@ func humanizeThousands(v interface{}) string {
 
 // humanDuration converts a duration in seconds into a compact human-readable string.
 // For example, 9000 seconds becomes "2h30m".
-func humanDuration(v interface{}) string {
+func humanDuration(v any) string {
 	f, err := toFloat(v)
 	if err != nil {
 		return fmt.Sprintf("%v", v)

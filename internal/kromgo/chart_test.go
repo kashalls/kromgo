@@ -60,16 +60,13 @@ func TestRenderSparkline_Structure(t *testing.T) {
 
 func TestRenderSparkline_PolylineCount(t *testing.T) {
 	cases := []struct {
-		name     string
-		matrix   model.Matrix
+		name      string
+		matrix    model.Matrix
 		wantLines int
 	}{
 		{"single", makeMatrix([][]float64{{1, 2, 3}}), 1},
 		{"two_series", makeMatrix([][]float64{{1, 2}, {3, 4}}), 2},
-		{"empty_series_skipped", func() model.Matrix {
-			m := makeMatrix([][]float64{{1, 2}, {}})
-			return m
-		}(), 1},
+		{"empty_series_skipped", makeMatrix([][]float64{{1, 2}, {}}), 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
