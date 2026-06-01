@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.12.0](https://github.com/home-operations/kromgo/compare/0.11.1...0.12.0) (2026-06-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* typed badge/graph endpoints with themed SVG/PNG graphs (0.12) ([#194](https://github.com/home-operations/kromgo/issues/194))
+
+### Features
+
+* typed badge/graph endpoints with themed SVG/PNG graphs (0.12) ([#194](https://github.com/home-operations/kromgo/issues/194)) ([3c15810](https://github.com/home-operations/kromgo/commit/3c15810905432056bad7abb530246a931e0dfae1))
+
 ## [0.11.1](https://github.com/home-operations/kromgo/compare/0.11.0...0.11.1) (2026-06-01)
 
 
