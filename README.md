@@ -223,6 +223,7 @@ On top of those, these humanizer functions are available (byte and number format
 | `humanizeNumber(result)`   | `humanizeNumber(157121.0)`   | `157,121` | comma grouping                         |
 | `humanizeFloat(result)`    | `humanizeFloat(2.50)`        | `2.5`     | plain decimal, trailing zeros stripped |
 | `humanizeDuration(result)` | `humanizeDuration(9000.0)`   | `2h30m`   | **seconds** → compact time span        |
+| `humanizeDays(result)`     | `humanizeDays(5961600.0)`    | `69d`     | **seconds** → whole days, no roll-up   |
 
 `humanizeDuration` takes **seconds** (so it drops onto a `time() - created_ts` query directly) and
 adapts to the magnitude, emitting the up-to-three most-significant units — `90` → `1m30s`, `9000` →

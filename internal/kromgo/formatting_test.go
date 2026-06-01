@@ -33,6 +33,16 @@ func TestHumanizeFloat(t *testing.T) {
 	assert.Equal(t, "1234.567", humanizeFloat(1234.567))
 }
 
+func TestHumanizeDays(t *testing.T) {
+	const day = 86400.0
+	assert.Equal(t, "69d", humanizeDays(69*day))
+	assert.Equal(t, "544d", humanizeDays(544*day))
+	assert.Equal(t, "6769d", humanizeDays(6769*day))
+	assert.Equal(t, "1d", humanizeDays(1.5*day)) // truncates
+	assert.Equal(t, "0d", humanizeDays(3600))    // under a day
+	assert.Equal(t, "0d", humanizeDays(-5))      // clamped
+}
+
 func TestHumanizeDuration(t *testing.T) {
 	const day = 86400.0
 	// Sub-day: fine-grained, top-3 significant units.
