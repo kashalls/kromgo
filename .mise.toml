@@ -13,9 +13,21 @@ run = "go fmt ./..."
 description = "Run go vet against code"
 run = "go vet ./..."
 
+[tasks.generate]
+description = "Regenerate committed generated files (config.schema.json)"
+run = "go run ./cmd/schema > config.schema.json && oxfmt config.schema.json"
+
 [tasks.test]
 description = "Run tests with coverage"
 run = "go test $(go list ./...) -coverprofile cover.out"
+
+[tasks.test-e2e]
+description = "Run end-to-end tests (builds the binary, runs it against a mock Prometheus)"
+run = "go test -tags e2e -timeout 5m -v ./test/e2e/..."
+
+[tasks.test-integration]
+description = "Run integration tests against a real Prometheus (set PROMETHEUS_URL)"
+run = "go test -tags integration -timeout 5m -v ./test/integration/..."
 
 [tasks.lint]
 description = "Run golangci-lint"

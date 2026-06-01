@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Tests
+name: E2E
 
 on:
   push:
@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Tests
+  e2e:
+    name: E2E
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,15 +36,5 @@ jobs:
           experimental: true
           install_args: --locked
 
-      - name: Check go.mod tidiness
-        run: |
-          go mod tidy
-          git diff --exit-code go.mod go.sum
-
-      - name: Check generated schema is current
-        run: |
-          mise run generate
-          git diff --exit-code config.schema.json
-
-      - name: Run unit tests
-        run: mise run test
+      - name: Run e2e tests
+        run: mise run test-e2e

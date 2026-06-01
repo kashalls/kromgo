@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/kashalls/kromgo/cmd/kromgo/init/configuration/kromgo-config",
+  "$id": "https://github.com/home-operations/kromgo/internal/config/kromgo-config",
   "$ref": "#/$defs/KromgoConfig",
   "$defs": {
     "Badge": {
@@ -13,26 +13,22 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "font",
-        "size"
-      ]
+      "type": "object"
     },
-    "HistoryConfig": {
+    "Defaults": {
       "properties": {
-        "enabled": {
+        "hidden": {
           "type": "boolean"
         },
-        "maxDuration": {
-          "type": "string"
+        "cacheSeconds": {
+          "type": "integer"
+        },
+        "timeseries": {
+          "$ref": "#/$defs/TimeseriesConfig"
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "enabled"
-      ]
+      "type": "object"
     },
     "KromgoConfig": {
       "properties": {
@@ -48,24 +44,13 @@
         "badge": {
           "$ref": "#/$defs/Badge"
         },
-        "templates": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
-        },
-        "hideAll": {
-          "type": "boolean"
-        },
-        "history": {
-          "$ref": "#/$defs/HistoryConfig"
+        "defaults": {
+          "$ref": "#/$defs/Defaults"
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "metrics"
-      ]
+      "required": ["metrics"]
     },
     "Metric": {
       "properties": {
@@ -78,61 +63,33 @@
         "query": {
           "type": "string"
         },
-        "label": {
+        "type": {
           "type": "string"
         },
-        "prefix": {
+        "range": {
+          "$ref": "#/$defs/RangeQuery"
+        },
+        "value": {
           "type": "string"
-        },
-        "suffix": {
-          "type": "string"
-        },
-        "valueTemplate": {
-          "type": "string"
-        },
-        "colors": {
-          "items": {
-            "$ref": "#/$defs/MetricColor"
-          },
-          "type": "array"
-        },
-        "hidden": {
-          "type": "boolean"
-        },
-        "history": {
-          "$ref": "#/$defs/MetricHistoryConfig"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "name",
-        "query"
-      ]
-    },
-    "MetricColor": {
-      "properties": {
-        "min": {
-          "type": "number"
-        },
-        "max": {
-          "type": "number"
         },
         "color": {
           "type": "string"
         },
-        "valueOverride": {
-          "type": "string"
+        "hidden": {
+          "type": "boolean"
+        },
+        "timeseries": {
+          "$ref": "#/$defs/MetricTimeseriesConfig"
+        },
+        "cacheSeconds": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "min",
-        "max"
-      ]
+      "required": ["name", "query"]
     },
-    "MetricHistoryConfig": {
+    "MetricTimeseriesConfig": {
       "properties": {
         "enabled": {
           "type": "boolean"
@@ -143,6 +100,38 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "RangeQuery": {
+      "properties": {
+        "last": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "reduce": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["last"]
+    },
+    "TimeseriesConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxDuration": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["enabled"]
     }
   }
 }
