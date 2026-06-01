@@ -11,11 +11,12 @@ on:
       - published
 
 jobs:
-  build:
+  release:
+    name: Release
     permissions:
       contents: read
-      packages: write
       id-token: write
+      packages: write
     uses: docker/github-builder/.github/workflows/build.yml@17bd7d64200cae4ba58ffc099934e8012ae320f2 # v1.10.0
     with:
       meta-images: ghcr.io/${{ github.repository }}
