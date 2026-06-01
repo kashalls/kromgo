@@ -25,3 +25,4 @@ tmp/
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 kromgo-gallery.html
+kromgo-demo.yaml

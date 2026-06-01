@@ -20,6 +20,8 @@ kromgo sits between the public web and your Prometheus. You define two kinds of 
 
 Each maps a URL path to a PromQL query. Only the endpoints you define are reachable — Prometheus itself is never exposed.
 
+The root path `/` serves a **gallery** that previews every endpoint next to its copy-paste Markdown snippet — handy for grabbing a badge for a README.
+
 ## Quick start
 
 ```bash
