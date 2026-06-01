@@ -35,6 +35,8 @@ func TestNewBadgeRenderer_DefaultFont(t *testing.T) {
 	assert.True(t, strings.HasPrefix(svg, "<svg"))
 	assert.Contains(t, svg, ">label<")
 	assert.Contains(t, svg, ">msg<")
+	assert.Contains(t, svg, "textLength=", "text width pinned to prevent overflow")
+	assert.Contains(t, svg, "viewBox=", "scalable")
 }
 
 func TestNewBadgeRenderer_UnknownFont(t *testing.T) {

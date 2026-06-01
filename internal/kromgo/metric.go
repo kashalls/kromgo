@@ -99,6 +99,7 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
 			legend: firstBool(true, g.Legend, def.Graph.Legend),
 			theme:  theme,
+			title:  displayTitle(g.Title, g.ID),
 			font:   font,
 			format: formatSVG,
 		},

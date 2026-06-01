@@ -38,6 +38,13 @@ func TestRenderChart_SVG(t *testing.T) {
 	assert.Contains(t, string(svg), `<svg width="400" height="150"`)
 }
 
+func TestRenderChart_Title(t *testing.T) {
+	svg, err := renderChart(makeMatrix([][]float64{{1, 2, 3}}),
+		chartParams{width: 400, height: 150, title: "CPU usage", format: formatSVG})
+	require.NoError(t, err)
+	assert.Contains(t, string(svg), "CPU usage")
+}
+
 func TestRenderChart_PNG(t *testing.T) {
 	png, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
 		chartParams{width: 400, height: 150, format: formatPNG})

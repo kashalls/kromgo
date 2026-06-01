@@ -69,10 +69,14 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 		labelLeft = iconX + iconSize + iconGap
 	}
 
+	labelW := 0
+	if hasLabel {
+		labelW = b.measure(label)
+	}
 	var labelSeg int
 	switch {
 	case hasLabel:
-		labelSeg = labelLeft + b.measure(label) + xPad
+		labelSeg = labelLeft + labelW + xPad
 	case hasIcon:
 		labelSeg = iconX + iconSize + xPad // icon-only label side
 	}
@@ -111,21 +115,24 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	if hasLabel || message != "" {
 		fmt.Fprintf(&s, `<g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="%d">`, size)
 		if hasLabel {
-			writeBadgeText(&s, labelLeft+b.measure(label)/2, baseline, label)
+			writeBadgeText(&s, labelLeft+labelW/2, baseline, labelW, label)
 		}
-		writeBadgeText(&s, labelSeg+xPad+msgW/2, baseline, message)
+		writeBadgeText(&s, labelSeg+xPad+msgW/2, baseline, msgW, message)
 		s.WriteString(`</g>`)
 	}
 	s.WriteString(`</svg>`)
 	return []byte(s.String())
 }
 
-// writeBadgeText writes centered text with a subtle drop shadow. The text is
-// HTML-escaped — message/label can derive from metric labels (untrusted).
-func writeBadgeText(s *strings.Builder, x, y int, text string) {
+// writeBadgeText writes centered text with a subtle drop shadow. textLength pins
+// the rendered width to our measured width (lengthAdjust spaces the glyphs to
+// fit), so text never overflows its segment even when the viewer substitutes a
+// wider font than the one we measured. The text is HTML-escaped — message/label
+// can derive from metric labels (untrusted).
+func writeBadgeText(s *strings.Builder, x, y, width int, text string) {
 	esc := html.EscapeString(text)
-	fmt.Fprintf(s, `<text x="%d" y="%d" fill="#010101" fill-opacity=".3">%s</text>`, x, y+1, esc)
-	fmt.Fprintf(s, `<text x="%d" y="%d">%s</text>`, x, y, esc)
+	fmt.Fprintf(s, `<text x="%d" y="%d" textLength="%d" lengthAdjust="spacingAndGlyphs" fill="#010101" fill-opacity=".3">%s</text>`, x, y+1, width, esc)
+	fmt.Fprintf(s, `<text x="%d" y="%d" textLength="%d" lengthAdjust="spacingAndGlyphs">%s</text>`, x, y, width, esc)
 }
 
 var hexColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)

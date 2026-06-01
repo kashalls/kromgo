@@ -28,6 +28,7 @@ type chartParams struct {
 	height int
 	legend bool
 	theme  string
+	title  string         // chart title, rendered top-left
 	font   *truetype.Font // nil uses the chart library's default font
 	format string         // "svg" (default) or "png"
 }
@@ -120,6 +121,9 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 	opt := charts.NewLineChartOptionWithData(values)
 	opt.Theme = chartTheme(p.theme)
 	opt.XAxis.Labels = xAxis
+	if p.title != "" {
+		opt.Title = charts.TitleOption{Text: p.title, Offset: charts.OffsetLeft}
+	}
 	if p.legend && haveLabels {
 		opt.Legend.SeriesNames = labels
 	} else {
