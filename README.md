@@ -145,7 +145,7 @@ The **entire** Material Design Icons set (~7,400 glyphs) is embedded in the bina
 disk access at runtime — so any `mdi:<name>` from [the library](https://pictogrammers.com/library/mdi/)
 works (e.g. `mdi:kubernetes`, `mdi:database-outline`, `mdi:rocket-launch`). The set is stored
 compressed (~0.8 MB) and decoded into memory on first use. An unknown name fails fast at startup. The
-icon data is pulled from the pinned `@mdi/svg` release **at build time** (not committed) — see
+icon data is built from the `@mdi/svg` npm package **at build time** (not committed) — see
 [Building from source](#building-from-source).
 
 #### Range badges
@@ -250,19 +250,19 @@ opt-in to expose range data for that query — there is no separate enable flag.
 [go-analyze/charts](https://github.com/go-analyze/charts) as **SVG** (default) or **PNG**
 (`?format=png`).
 
-| Field          | Required | Description                                                            |
-| -------------- | -------- | ---------------------------------------------------------------------- |
-| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                           |
-| `query`        | yes      | PromQL expression run as a range query                                 |
-| `title`        | no       | Display label (defaults to `id`)                                       |
-| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)   |
-| `width`        | no       | Image width in px (overrides `defaults.graph.width`)                   |
-| `height`       | no       | Image height in px (overrides `defaults.graph.height`)                 |
-| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)             |
-| `theme`        | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes) |
-| `font`         | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes)    |
-| `hidden`       | no       | Override `defaults.hidden` for this graph                              |
-| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                        |
+| Field          | Required | Description                                                                      |
+| -------------- | -------- | -------------------------------------------------------------------------------- |
+| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                                     |
+| `query`        | yes      | PromQL expression run as a range query                                           |
+| `title`        | no       | Display label (defaults to `id`)                                                 |
+| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)             |
+| `width`        | no       | Image width in px (overrides `defaults.graph.width`)                             |
+| `height`       | no       | Image height in px (overrides `defaults.graph.height`)                           |
+| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)                       |
+| `theme`        | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts) |
+| `font`         | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)    |
+| `hidden`       | no       | Override `defaults.hidden` for this graph                                        |
+| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                                  |
 
 ```yaml
 graphs:
