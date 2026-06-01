@@ -23,13 +23,29 @@ import (
 func boolPtr(b bool) *bool { return &b }
 
 const (
-	// wave is a 0..100 sawtooth so the chart line has a visible shape.
-	wave      = "(time() % 1800) / 18"
 	threshold = `result <= 35 ? "green" : result <= 75 ? "orange" : "red"`
 	gdim      = "last=1h&width=480&height=200"
 )
 
 var graphFonts = []string{"roboto", "notosans", "notosans-bold", "go-regular", "go-bold", "go-medium", "go-mono"}
+
+// graphExamples are distinct synthetic series so each graph in the gallery has its
+// own shape and title instead of repeating one sawtooth. Every query is a
+// deterministic scalar expression on time() (works against any Prometheus); the
+// titles/units are illustrative — the data is synthetic.
+var graphExamples = []struct{ id, title, query string }{
+	{"cpu", "CPU %", "(time() % 1800) / 18"},                                   // sawtooth, ~2 teeth/hr
+	{"memory", "Memory %", "abs(vector((time() % 2400) - 1200)) / 12"},         // triangle wave
+	{"network", "Network MB/s", "(time() % 600) / 6"},                          // dense sawtooth
+	{"latency", "Latency ms", "30 + (time() % 1200) / 40"},                     // low-amplitude sawtooth
+	{"disk", "Disk used %", "100 - (time() % 3600) / 36"},                      // descending ramp
+	{"requests", "Requests/s", "((time() % 180) < bool 60) * 70 + 15"},         // square pulses
+	{"temp", "Temp °C", "48 + abs(vector((time() % 900) - 450)) / 90"},         // shallow triangle
+	{"throughput", "Throughput k/s", "abs(vector((time() % 1200) - 600)) / 6"}, // triangle, ~3 teeth/hr
+	{"goroutines", "Goroutines", "(time() % 3000) / 30"},                       // wide sawtooth
+	{"errors", "Errors/min", "((time() % 360) < bool 60) * 12"},                // sparse pulses
+	{"saturation", "Saturation %", "100 - (time() % 1200) / 12"},               // descending, faster
+}
 
 // TestGallery renders a wide matrix of badge/graph variations through the real
 // handler and writes a self-contained, Tailwind-styled HTML page — each item shown
@@ -64,10 +80,14 @@ func TestGallery(t *testing.T) {
 	cfg := config.KromgoConfig{
 		Defaults: config.Defaults{Hidden: boolPtr(false)},
 		Badges:   badges,
-		Graphs:   []config.Graph{{ID: "g", Title: "CPU", Query: wave}},
 	}
-	for _, f := range graphFonts {
-		cfg.Graphs = append(cfg.Graphs, config.Graph{ID: "font_" + f, Title: "CPU", Query: wave, Font: f, Theme: "dark"})
+	for _, ex := range graphExamples {
+		cfg.Graphs = append(cfg.Graphs, config.Graph{ID: ex.id, Title: ex.title, Query: ex.query})
+	}
+	// One graph per font, each showing a different example series.
+	for i, f := range graphFonts {
+		ex := graphExamples[i%len(graphExamples)]
+		cfg.Graphs = append(cfg.Graphs, config.Graph{ID: "gf_" + f, Title: ex.title, Query: ex.query, Font: f, Theme: "dark"})
 	}
 	h, err := kromgo.New(cfg, client)
 	require.NoError(t, err)
@@ -101,21 +121,27 @@ func TestGallery(t *testing.T) {
 		}
 	})
 	group(&b, "Graph themes (PNG)", func() {
-		for _, th := range []string{"light", "dark", "grafana", "ocean", "slate", "gray",
-			"catppuccin-latte", "catppuccin-mocha", "dracula", "monokai", "night-owl"} {
-			g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Theme: th}
-			cell(t, h, &b, "Theme: "+th, "/graphs/g?"+gdim+"&format=png&theme="+th, false, yamlFor("graphs", g))
+		// Each theme renders a different example series so the section shows variety,
+		// not the same line eleven times.
+		themes := []string{"light", "dark", "grafana", "ocean", "slate", "gray",
+			"catppuccin-latte", "catppuccin-mocha", "dracula", "monokai", "night-owl"}
+		for i, th := range themes {
+			ex := graphExamples[i%len(graphExamples)]
+			g := config.Graph{ID: ex.id, Title: ex.title, Query: ex.query, Theme: th}
+			cell(t, h, &b, "Theme: "+th, "/graphs/"+ex.id+"?"+gdim+"&format=png&theme="+th, false, yamlFor("graphs", g))
 		}
 	})
 	group(&b, "SVG vs PNG", func() {
-		g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Theme: "grafana"}
-		cell(t, h, &b, "SVG output (default)", "/graphs/g?"+gdim+"&theme=grafana", false, yamlFor("graphs", g))
-		cell(t, h, &b, "PNG output (?format=png)", "/graphs/g?"+gdim+"&format=png&theme=grafana", false, yamlFor("graphs", g))
+		ex := graphExamples[0]
+		g := config.Graph{ID: ex.id, Title: ex.title, Query: ex.query, Theme: "grafana"}
+		cell(t, h, &b, "SVG output (default)", "/graphs/"+ex.id+"?"+gdim+"&theme=grafana", false, yamlFor("graphs", g))
+		cell(t, h, &b, "PNG output (?format=png)", "/graphs/"+ex.id+"?"+gdim+"&format=png&theme=grafana", false, yamlFor("graphs", g))
 	})
 	group(&b, "Graph fonts (PNG, dark)", func() {
-		for _, f := range graphFonts {
-			g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Font: f, Theme: "dark"}
-			cell(t, h, &b, "Font: "+f, "/graphs/font_"+f+"?"+gdim+"&format=png", false, yamlFor("graphs", g))
+		for i, f := range graphFonts {
+			ex := graphExamples[i%len(graphExamples)]
+			g := config.Graph{ID: ex.id, Title: ex.title, Query: ex.query, Font: f, Theme: "dark"}
+			cell(t, h, &b, "Font: "+f, "/graphs/gf_"+f+"?"+gdim+"&format=png", false, yamlFor("graphs", g))
 		}
 	})
 
