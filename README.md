@@ -102,6 +102,7 @@ defaults:
         height: 200 # image height in px
         legend: true # show the series legend
         theme: light # color theme — see Themes below
+        font: roboto # text font — see Themes below
 ```
 
 ### Badges
@@ -232,6 +233,7 @@ opt-in to expose range data for that query — there is no separate enable flag.
 | `height`       | no       | Image height in px (overrides `defaults.graph.height`)                 |
 | `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)             |
 | `theme`        | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes) |
+| `font`         | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes)    |
 | `hidden`       | no       | Override `defaults.hidden` for this graph                              |
 | `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                        |
 
@@ -253,11 +255,12 @@ The time window is chosen by these query parameters:
 | `end`     | now        | Window end — Unix timestamp or RFC3339                                   |
 | `step`    | window/100 | Resolution between points (min `1m`); supports `s/m/h/d/y` units         |
 
-The rendering fields (`width`, `height`, `legend`, `theme`) and the output `format` (`svg`/`png`) may
-also be overridden per request via query parameters, e.g.
-`/graphs/node_cpu_usage?theme=dracula&format=png&width=800&last=24h`.
+The rendering fields `width`, `height`, `legend`, and `theme`, plus the output `format` (`svg`/`png`),
+may also be overridden per request via query parameters, e.g.
+`/graphs/node_cpu_usage?theme=dracula&format=png&width=800&last=24h`. (`font` is config-only — it's
+resolved once at startup.)
 
-#### Themes
+#### Themes and fonts
 
 `theme` accepts a [go-analyze/charts](https://github.com/go-analyze/charts) built-in or one of
 kromgo's bundled palettes (an unknown value falls back to the default):
@@ -268,6 +271,11 @@ kromgo's bundled palettes (an unknown value falls back to the default):
 - **Bundled:** `catppuccin-latte`, `catppuccin-frappe`, `catppuccin-macchiato`, `catppuccin-mocha`
   (via the official [catppuccin/go](https://github.com/catppuccin/go) palette), `dracula`, `monokai`,
   `night-owl`.
+
+`font` accepts a built-in name — `roboto` (default), `notosans`, `notosans-bold`, or the embedded Go
+family `go-regular` / `go-bold` / `go-medium` / `go-mono` — or a path to a `.ttf` mounted into the
+container. Fonts are compiled into the binary (no system fonts required); an invalid name or
+unreadable path fails fast at startup.
 
 ## Index page
 

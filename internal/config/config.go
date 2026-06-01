@@ -56,6 +56,8 @@ type GraphDefaults struct {
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
 	// Theme selects the color theme (e.g. "dark", "grafana", "catppuccin-mocha", "dracula").
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
+	// Font selects the text font: a built-in name (roboto, notosans, go-regular, …) or a .ttf path.
+	Font string `yaml:"font,omitempty" json:"font,omitempty"`
 }
 
 // Badge defines an instant-value endpoint at /badges/{id}.
@@ -101,6 +103,8 @@ type Graph struct {
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
 	// Theme overrides defaults.graph.theme for this graph.
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
+	// Font overrides defaults.graph.font for this graph.
+	Font string `yaml:"font,omitempty" json:"font,omitempty"`
 	// Hidden overrides defaults.hidden for this graph.
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// CacheSeconds overrides defaults.cacheSeconds for this graph.

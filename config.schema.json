@@ -99,6 +99,9 @@
         "theme": {
           "type": "string"
         },
+        "font": {
+          "type": "string"
+        },
         "hidden": {
           "type": "boolean"
         },
@@ -125,6 +128,9 @@
           "type": "boolean"
         },
         "theme": {
+          "type": "string"
+        },
+        "font": {
           "type": "string"
         }
       },

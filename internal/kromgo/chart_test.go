@@ -97,6 +97,32 @@ func TestChartParams_WithOverrides(t *testing.T) {
 	assert.Equal(t, maxChartDimension, clamped.width)
 }
 
+func TestResolveGraphFont(t *testing.T) {
+	for _, name := range []string{"", "roboto", "notosans", "go-regular", "go-bold", "go-medium", "go-mono"} {
+		t.Run("ok/"+name, func(t *testing.T) {
+			f, err := resolveGraphFont(name)
+			require.NoError(t, err)
+			if name == "" {
+				assert.Nil(t, f, "empty name uses the library default")
+			} else {
+				assert.NotNil(t, f)
+			}
+		})
+	}
+	// An unknown name is treated as a (missing) file path and errors.
+	_, err := resolveGraphFont("not-a-font")
+	assert.Error(t, err)
+}
+
+func TestRenderChart_CustomFont(t *testing.T) {
+	font, err := resolveGraphFont("go-bold")
+	require.NoError(t, err)
+	svg, err := renderChart(makeMatrix([][]float64{{1, 2, 3}}),
+		chartParams{width: 400, height: 150, font: font, format: formatSVG})
+	require.NoError(t, err)
+	assert.Contains(t, string(svg), "<svg")
+}
+
 func TestValidTheme(t *testing.T) {
 	assert.True(t, validTheme("dark"))             // built-in
 	assert.True(t, validTheme("grafana"))          // built-in

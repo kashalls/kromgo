@@ -79,6 +79,11 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 		return nil, fmt.Errorf("graph %q: unknown theme %q", g.ID, theme)
 	}
 
+	font, err := resolveGraphFont(cmp.Or(g.Font, def.Graph.Font))
+	if err != nil {
+		return nil, fmt.Errorf("graph %q font: %w", g.ID, err)
+	}
+
 	rg := &resolvedGraph{
 		Graph:        g,
 		cacheSeconds: intOr(g.CacheSeconds, def.CacheSeconds),
@@ -88,6 +93,7 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
 			legend: firstBool(true, g.Legend, def.Graph.Legend),
 			theme:  theme,
+			font:   font,
 			format: formatSVG,
 		},
 	}

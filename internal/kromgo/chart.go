@@ -10,6 +10,7 @@ import (
 	"time"
 
 	charts "github.com/go-analyze/charts"
+	"github.com/golang/freetype/truetype"
 	"github.com/prometheus/common/model"
 )
 
@@ -25,7 +26,8 @@ type chartParams struct {
 	height int
 	legend bool
 	theme  string
-	format string // "svg" (default) or "png"
+	font   *truetype.Font // nil uses the chart library's default font
+	format string         // "svg" (default) or "png"
 }
 
 // withOverrides returns the graph's default params with request query parameters
@@ -113,24 +115,25 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 		}
 	}
 
-	opts := []charts.OptionFunc{
-		charts.DimensionsOptionFunc(p.width, p.height),
-		charts.ThemeOptionFunc(chartTheme(p.theme)),
-	}
-	if len(xAxis) > 0 {
-		opts = append(opts, charts.XAxisLabelsOptionFunc(xAxis))
-	}
+	opt := charts.NewLineChartOptionWithData(values)
+	opt.Theme = chartTheme(p.theme)
+	opt.XAxis.Labels = xAxis
 	if p.legend && haveLabels {
-		opts = append(opts, charts.LegendLabelsOptionFunc(labels))
-	}
-	if p.format == formatPNG {
-		opts = append(opts, charts.PNGOutputOptionFunc())
+		opt.Legend.SeriesNames = labels
 	} else {
-		opts = append(opts, charts.SVGOutputOptionFunc())
+		hide := false
+		opt.Legend.Show = &hide
 	}
 
-	painter, err := charts.LineRender(values, opts...)
-	if err != nil {
+	// Font is set on the painter (the non-deprecated default-font hook); nil leaves
+	// the chart library's default.
+	painter := charts.NewPainter(charts.PainterOptions{
+		OutputFormat: p.format, // "svg" or "png"
+		Width:        p.width,
+		Height:       p.height,
+		Font:         p.font,
+	})
+	if err := painter.LineChart(opt); err != nil {
 		return nil, err
 	}
 	return painter.Bytes()
