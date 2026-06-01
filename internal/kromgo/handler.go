@@ -147,15 +147,13 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric c
 		return
 	}
 
-	data := map[string]any{
-		"schemaVersion": 1,
-		"label":         title,
-		"message":       message,
+	resp := EndpointResponse{
+		SchemaVersion: 1,
+		Label:         title,
+		Message:       message,
+		Color:         colorConfig.Color, // omitted when empty
 	}
-	if colorConfig.Color != "" {
-		data["color"] = colorConfig.Color
-	}
-	if err := writeJSON(w, data); err != nil {
+	if err := writeJSON(w, resp); err != nil {
 		log.Error("error converting data to json response", "error", err)
 		writeError(w, metric.Name, "Error", http.StatusInternalServerError)
 	}

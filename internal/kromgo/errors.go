@@ -13,7 +13,6 @@ type EndpointResponse struct {
 	Message       string `json:"message"`
 	Color         string `json:"color,omitempty"`
 	Error         bool   `json:"isError,omitempty"`
-	Style         string `json:"style,omitempty"`
 }
 
 // writeError writes a shields.io-compatible error response with the given status code.
