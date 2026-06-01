@@ -46,14 +46,6 @@ func baseConfig() config.KromgoConfig {
 	}
 }
 
-func doGet(t *testing.T, h *Handler, target string) *httptest.ResponseRecorder {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, target, nil)
-	w := httptest.NewRecorder()
-	h.Mux().ServeHTTP(w, req)
-	return w
-}
-
 func counterValue(t *testing.T, c promclient.Counter) float64 {
 	t.Helper()
 	var m dto.Metric
@@ -68,8 +60,8 @@ func TestServeMetric_CounterCardinalityBounded(t *testing.T) {
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
 	before := counterValue(t, requestsTotal.WithLabelValues("unknown", "json"))
-	doGet(t, h, "/does-not-exist")
-	doGet(t, h, "/also-missing?format=bogus")
+	promtest.Get(t, h.Mux(), "/does-not-exist")
+	promtest.Get(t, h.Mux(), "/also-missing?format=bogus")
 	after := counterValue(t, requestsTotal.WithLabelValues("unknown", "json"))
 
 	assert.Equal(t, before+2, after)
@@ -79,7 +71,7 @@ func TestServeMetric_JSON(t *testing.T) {
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := doGet(t, h, "/cpu")
+	w := promtest.Get(t, h.Mux(), "/cpu")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
@@ -95,7 +87,7 @@ func TestServeMetric_QueryParamForm(t *testing.T) {
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := doGet(t, h, "/query?metric=cpu")
+	w := promtest.Get(t, h.Mux(), "/query?metric=cpu")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"label":"cpu"`)
@@ -105,7 +97,7 @@ func TestServeMetric_Raw(t *testing.T) {
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := doGet(t, h, "/cpu?format=raw")
+	w := promtest.Get(t, h.Mux(), "/cpu?format=raw")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
@@ -118,7 +110,7 @@ func TestServeMetric_Badge(t *testing.T) {
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
 	for _, style := range []string{"", "flat-square", "plastic"} {
-		w := doGet(t, h, "/cpu?format=badge&style="+style)
+		w := promtest.Get(t, h.Mux(), "/cpu?format=badge&style="+style)
 		assert.Equal(t, http.StatusOK, w.Code, "style=%q", style)
 		assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"), "style=%q", style)
 		assert.True(t, strings.HasPrefix(w.Body.String(), "<svg"), "style=%q", style)
@@ -142,7 +134,7 @@ func TestServeMetric_NotFound(t *testing.T) {
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := doGet(t, h, "/does-not-exist")
+	w := promtest.Get(t, h.Mux(), "/does-not-exist")
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	assert.Contains(t, w.Body.String(), `"isError":true`)
@@ -159,7 +151,7 @@ func TestServeMetric_ValueExpression(t *testing.T) {
 	srv := mockProm(t, "9000", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	w := doGet(t, h, "/uptime")
+	w := promtest.Get(t, h.Mux(), "/uptime")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"message":"2h30m"`)
@@ -169,7 +161,7 @@ func TestServeMetric_History(t *testing.T) {
 	srv := mockProm(t, "0", []float64{1, 2, 3})
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := doGet(t, h, "/cpu?format=history&last=1h")
+	w := promtest.Get(t, h.Mux(), "/cpu?format=history&last=1h")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
@@ -186,7 +178,7 @@ func TestServeMetric_HistoryDisabled(t *testing.T) {
 	srv := mockProm(t, "0", []float64{1, 2, 3})
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	w := doGet(t, h, "/cpu?format=history")
+	w := promtest.Get(t, h.Mux(), "/cpu?format=history")
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
@@ -195,7 +187,7 @@ func TestServeMetric_Chart(t *testing.T) {
 	srv := mockProm(t, "0", []float64{10, 20, 15, 30})
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := doGet(t, h, "/cpu?format=chart&last=1h")
+	w := promtest.Get(t, h.Mux(), "/cpu?format=chart&last=1h")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
@@ -206,7 +198,7 @@ func TestServeMetric_HistoryWindowTooLarge(t *testing.T) {
 	srv := mockProm(t, "0", []float64{1, 2})
 	h := newHandlerForTest(t, baseConfig(), srv.URL) // MaxDuration 24h
 
-	w := doGet(t, h, "/cpu?format=history&last=7d")
+	w := promtest.Get(t, h.Mux(), "/cpu?format=history&last=7d")
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -216,7 +208,7 @@ func TestServeMetric_ValueFromLabel(t *testing.T) {
 	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Value: `labels["version"]`}}}
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	w := doGet(t, h, "/ver")
+	w := promtest.Get(t, h.Mux(), "/ver")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"message":"v1.2.3"`)
@@ -228,7 +220,7 @@ func TestServeMetric_ValueExpressionError(t *testing.T) {
 	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Value: `labels["version"]`}}}
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	w := doGet(t, h, "/ver")
+	w := promtest.Get(t, h.Mux(), "/ver")
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), `"isError":true`)
@@ -244,7 +236,7 @@ func TestServeMetric_StateExpressions(t *testing.T) {
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	w := doGet(t, h, "/ceph")
+	w := promtest.Get(t, h.Mux(), "/ceph")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"message":"Healthy"`)
@@ -255,7 +247,7 @@ func TestServeMetric_EmptyVector_NoData(t *testing.T) {
 	srv := promtest.Server(t, nil, nil) // empty instant vector
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
 
-	w := doGet(t, h, "/cpu")
+	w := promtest.Get(t, h.Mux(), "/cpu")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "metric returned no data")
@@ -273,13 +265,13 @@ func TestCacheControl_PerMetric(t *testing.T) {
 	h := newHandlerForTest(t, cfg, srv.URL)
 
 	t.Run("global default", func(t *testing.T) {
-		w := doGet(t, h, "/fast")
+		w := promtest.Get(t, h.Mux(), "/fast")
 		assert.Equal(t, "public, max-age=60", w.Header().Get("Cache-Control"))
 		assert.Contains(t, w.Body.String(), `"cacheSeconds":60`)
 	})
 
 	t.Run("per-metric override", func(t *testing.T) {
-		w := doGet(t, h, "/slow")
+		w := promtest.Get(t, h.Mux(), "/slow")
 		assert.Equal(t, "public, max-age=3600", w.Header().Get("Cache-Control"))
 		assert.Contains(t, w.Body.String(), `"cacheSeconds":3600`)
 	})
@@ -289,7 +281,7 @@ func TestCacheControl_DisabledByDefault(t *testing.T) {
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL) // no CacheSeconds
 
-	w := doGet(t, h, "/cpu")
+	w := promtest.Get(t, h.Mux(), "/cpu")
 
 	assert.Empty(t, w.Header().Get("Cache-Control"))
 	assert.NotContains(t, w.Body.String(), "cacheSeconds")
@@ -304,7 +296,7 @@ func TestCacheControl_ErrorsNotCached(t *testing.T) {
 	h := newHandlerForTest(t, cfg, srv.URL)
 
 	// Range queries are disabled → 403 error; the cache header must be no-store, not max-age.
-	w := doGet(t, h, "/cpu?format=history")
+	w := promtest.Get(t, h.Mux(), "/cpu?format=history")
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
@@ -324,7 +316,7 @@ func TestServeMetric_RangeType(t *testing.T) {
 	srv := promtest.Server(t, nil, []float64{10, 20, 30})
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	w := doGet(t, h, "/cpu_avg")
+	w := promtest.Get(t, h.Mux(), "/cpu_avg")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"message":"20%"`)
@@ -336,7 +328,7 @@ func TestIndexRoute(t *testing.T) {
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
 
-	w := doGet(t, h, "/")
+	w := promtest.Get(t, h.Mux(), "/")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `<a href="/cpu">cpu</a>`)

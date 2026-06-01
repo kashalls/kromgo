@@ -122,42 +122,38 @@ func renderSparkline(matrix model.Matrix, p chartParams) string {
 	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">`,
 		p.width, totalHeight, p.width, totalHeight)
 
+	type point struct{ x, y float64 }
 	for i, stream := range matrix {
 		// Prometheus can return NaN/Inf samples (counter resets, staleness gaps);
-		// they would poison min/max and emit NaN SVG coordinates, so skip them.
+		// they would poison min/max and emit NaN SVG coordinates, so skip them. A
+		// single pass collects each finite sample's x (from its original index, so
+		// skipped samples leave a gap) and raw value while tracking min/max; y is
+		// finalized below once the range is known.
+		n := len(stream.Values)
+		pts := make([]point, 0, n)
 		minVal := math.Inf(1)
 		maxVal := math.Inf(-1)
-		for _, pt := range stream.Values {
+		for j, pt := range stream.Values {
 			v := float64(pt.Value)
 			if math.IsNaN(v) || math.IsInf(v, 0) {
 				continue
 			}
 			minVal = min(minVal, v)
 			maxVal = max(maxVal, v)
+			pts = append(pts, point{x: pad + float64(j)/float64(max(n-1, 1))*w, y: v})
 		}
-		if math.IsInf(minVal, 1) {
+		if len(pts) == 0 {
 			continue // no finite samples to plot
 		}
 		valRange := maxVal - minVal
 		if valRange == 0 {
 			valRange = 1
 		}
-
-		n := len(stream.Values)
-		color := seriesColor(i, p.color)
-
-		type point struct{ x, y float64 }
-		pts := make([]point, 0, n)
-		for j, pt := range stream.Values {
-			v := float64(pt.Value)
-			if math.IsNaN(v) || math.IsInf(v, 0) {
-				continue
-			}
-			pts = append(pts, point{
-				x: pad + float64(j)/float64(max(n-1, 1))*w,
-				y: pad + (1-(v-minVal)/valRange)*h,
-			})
+		for k := range pts {
+			pts[k].y = pad + (1-(pts[k].y-minVal)/valRange)*h
 		}
+
+		color := seriesColor(i, p.color)
 
 		// Filled area under the line.
 		var area strings.Builder

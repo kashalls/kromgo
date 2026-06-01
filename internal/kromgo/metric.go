@@ -122,6 +122,14 @@ func autoStep(window time.Duration) time.Duration {
 	return max(window/100, minRangeStep)
 }
 
+// metricTitle returns the display title for a metric (its Title, falling back to Name).
+func metricTitle(metric *resolvedMetric) string {
+	if metric.Title != "" {
+		return metric.Title
+	}
+	return metric.Name
+}
+
 // effectiveMaxDuration returns the metric's timeseries max-duration string (per-metric
 // override, else default), or "" when neither is set (caller uses the built-in default).
 func effectiveMaxDuration(m config.Metric, cfg config.KromgoConfig) string {

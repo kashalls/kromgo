@@ -9,7 +9,6 @@ package integration
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/home-operations/kromgo/internal/config"
 	"github.com/home-operations/kromgo/internal/kromgo"
 	"github.com/home-operations/kromgo/internal/prometheus"
+	"github.com/home-operations/kromgo/internal/promtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,18 +42,10 @@ func newHandler(t *testing.T) *kromgo.Handler {
 	return h
 }
 
-func get(t *testing.T, h *kromgo.Handler, target string) *httptest.ResponseRecorder {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, target, nil)
-	w := httptest.NewRecorder()
-	h.Mux().ServeHTTP(w, req)
-	return w
-}
-
 func TestIntegration_JSON(t *testing.T) {
 	h := newHandler(t)
 
-	w := get(t, h, "/up")
+	w := promtest.Get(t, h.Mux(), "/up")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
@@ -63,7 +55,7 @@ func TestIntegration_JSON(t *testing.T) {
 func TestIntegration_History(t *testing.T) {
 	h := newHandler(t)
 
-	w := get(t, h, "/up?format=history&last=1h")
+	w := promtest.Get(t, h.Mux(), "/up?format=history&last=1h")
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"metric":"up"`)
