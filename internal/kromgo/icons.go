@@ -11,8 +11,8 @@ import (
 
 // mdiData is the full Material Design Icons set (https://pictogrammers.com/library/mdi/,
 // Apache-2.0): a gzipped, tab-separated "name\tpath" table, one 24x24 glyph path per
-// line. It is fetched at build time by cmd/genassets (not committed) and embedded; see
-// assets/ATTRIBUTION.md and the README's "Building from source".
+// line. It is built from the @mdi/svg npm package by cmd/genassets (not committed) and
+// embedded; see the README's "Building from source".
 //
 //go:embed assets/mdi.txt.gz
 var mdiData []byte

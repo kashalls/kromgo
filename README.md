@@ -314,8 +314,8 @@ reverse proxy's `X-Forwarded-Proto` is honored for the scheme).
 
 The page is self-contained: its JavaScript and CSS are embedded in the binary and served from
 `/assets/` — no external CDN — so it works air-gapped and keeps a strict `script-src 'self'`
-Content-Security-Policy. (To update the vendored `marked`/`github-markdown-css`, see
-[`internal/kromgo/assets/ATTRIBUTION.md`](internal/kromgo/assets/ATTRIBUTION.md).)
+Content-Security-Policy. See [Building from source](#building-from-source) for how the assets are
+vendored.
 
 **Which endpoints appear.** By default all endpoints are hidden. Set `defaults.hidden: false` to list
 everything, then opt individual endpoints out with `hidden: true`; or keep the default and opt

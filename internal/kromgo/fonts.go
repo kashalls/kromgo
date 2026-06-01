@@ -31,7 +31,7 @@ var builtinGraphFonts = map[string]bool{
 }
 
 // resolveBadgeFont returns the TTF bytes for a badge font name (empty = the default
-// Go regular face). Badges render through go-badge, which needs the raw bytes.
+// Go regular face). The badge renderer parses these bytes with sfnt to draw glyph paths.
 func resolveBadgeFont(name string) ([]byte, error) {
 	if name == "" {
 		return goregular.TTF, nil

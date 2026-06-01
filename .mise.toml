@@ -2,7 +2,8 @@
 go = "1.26.3"
 golangci-lint = "2.12.2"
 lefthook = "2.1.9"
-node = "22"
+node = "24.16.0"
+npm = "11.16.0"
 oxfmt = "0.52.0"
 zizmor = "1.25.2"
 

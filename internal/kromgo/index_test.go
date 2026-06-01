@@ -213,7 +213,7 @@ func TestAssetsHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, js.Code)
 	assert.Contains(t, js.Header().Get("Content-Type"), "javascript")
 
-	assert.Equal(t, http.StatusNotFound, get("/assets/ATTRIBUTION.md").Code, "non-embedded files are not served")
+	assert.Equal(t, http.StatusNotFound, get("/assets/mdi.txt.gz").Code, "icon data is embedded but not web-served")
 	assert.Equal(t, http.StatusNotFound, get("/assets/nope.txt").Code)
 	// No directory listing, and a traversal attempt cannot escape the embedded FS.
 	assert.Equal(t, http.StatusNotFound, get("/assets/").Code, "no directory listing")

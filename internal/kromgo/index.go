@@ -14,7 +14,7 @@ import (
 // galleryAssets holds the vendored (marked, github-markdown-css) and first-party
 // (gallery.css, gallery.js) files served under /assets/. They are embedded so the
 // service stays self-contained and the index page keeps a strict script-src 'self'
-// CSP — no external CDN. See assets/ATTRIBUTION.md.
+// CSP — no external CDN. They are vendored via npm and built by cmd/genassets.
 //
 //go:embed assets/marked.js assets/github-markdown.css assets/gallery.css assets/gallery.js
 var galleryAssets embed.FS
