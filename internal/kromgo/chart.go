@@ -121,6 +121,11 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 	opt := charts.NewLineChartOptionWithData(values)
 	opt.Theme = chartTheme(p.theme)
 	opt.XAxis.Labels = xAxis
+	// One label per sample collides; cap the count by width so the library samples
+	// an evenly-spaced, non-overlapping subset.
+	if n := len(xAxis); n > 0 {
+		opt.XAxis.LabelCount = min(max(p.width/110, 2), n)
+	}
 	if p.title != "" {
 		opt.Title = charts.TitleOption{Text: p.title, Offset: charts.OffsetLeft}
 	}

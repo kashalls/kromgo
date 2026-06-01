@@ -106,7 +106,7 @@ func TestGallery(t *testing.T) {
 		}
 	})
 
-	b.WriteString("</main></body></html>")
+	b.WriteString(`</main><script>hljs.highlightAll();</script></body></html>`)
 
 	out := os.Getenv("GALLERY_OUT")
 	if out == "" {
@@ -129,7 +129,10 @@ const galleryHead = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>kromgo gallery</title>
 <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-<style>.badge svg{height:42px;width:auto}</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<style>.badge svg{height:42px;width:auto}
+pre code.hljs{padding:0;background:transparent}</style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
 <main class="max-w-7xl mx-auto px-6 py-10">
@@ -170,7 +173,7 @@ func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path str
 <div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Markdown</div>
 <pre class="text-[11px] leading-snug bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre></div>
 <div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Config</div>
-<pre class="text-[11px] leading-snug bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre></div>
+<pre class="text-[11px] leading-snug bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto"><code class="language-yaml">%s</code></pre></div>
 </figure>`, cls, media, caption, html.EscapeString(markdown), html.EscapeString(cfgYAML))
 }
 
