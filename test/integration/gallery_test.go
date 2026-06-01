@@ -5,6 +5,7 @@ package integration
 import (
 	"encoding/base64"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/home-operations/kromgo/internal/prometheus"
 	"github.com/home-operations/kromgo/internal/promtest"
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v4"
 )
 
 func boolPtr(b bool) *bool { return &b }
@@ -30,8 +32,8 @@ const (
 var graphFonts = []string{"roboto", "notosans", "notosans-bold", "go-regular", "go-bold", "go-medium", "go-mono"}
 
 // TestGallery renders a wide matrix of badge/graph variations through the real
-// handler and writes a self-contained HTML page (Tailwind-styled) to inspect the
-// styling. Run:
+// handler and writes a self-contained, Tailwind-styled HTML page — each item shown
+// with the kromgo config that produced it. Run:
 //
 //	PROMETHEUS_URL=https://prom.example mise run gallery   # then open kromgo-gallery.html
 //
@@ -44,19 +46,25 @@ func TestGallery(t *testing.T) {
 	client, err := prometheus.New(url, 30*time.Second)
 	require.NoError(t, err)
 
+	badges := []config.Badge{
+		{ID: "cpu", Title: "CPU", Query: "vector(4.6)", Value: `string(result) + "%"`, Color: threshold, Icon: "mdi:cpu-64-bit"},
+		{ID: "cpu_hot", Title: "CPU", Query: "vector(82)", Value: `string(result) + "%"`, Color: threshold},
+		{ID: "mem", Title: "Memory", Query: "vector(56012345678)", Value: "humanizeBytes(result)", Icon: "mdi:memory"},
+		{ID: "pods", Title: "Pods", Query: "vector(1204)", Value: "humanizeNumber(result)", Icon: "mdi:kubernetes"},
+		{ID: "uptime", Title: "Uptime", Query: "vector(40348800)", Value: "humanizeDuration(result)", Icon: "mdi:clock-outline"},
+		{ID: "age", Title: "Age", Query: "vector(5961600)", Value: "humanizeDays(result)", Icon: "mdi:server-outline"},
+		{ID: "ver", Title: "Kubernetes", Query: `label_replace(vector(1), "v", "1.36.1", "", "")`, Value: `labels["v"]`, Color: `"blue"`, Icon: "mdi:kubernetes"},
+		{ID: "ok", Query: "vector(1)", Value: `"online"`, Color: `"green"`, Icon: "mdi:check-circle-outline"},
+	}
+	byID := map[string]config.Badge{}
+	for _, b := range badges {
+		byID[b.ID] = b
+	}
+
 	cfg := config.KromgoConfig{
 		Defaults: config.Defaults{Hidden: boolPtr(false)},
-		Badges: []config.Badge{
-			{ID: "cpu", Title: "CPU", Query: "vector(4.6)", Value: `string(result) + "%"`, Color: threshold, Icon: "mdi:cpu-64-bit"},
-			{ID: "cpu_hot", Title: "CPU", Query: "vector(82)", Value: `string(result) + "%"`, Color: threshold},
-			{ID: "mem", Title: "Memory", Query: "vector(56012345678)", Value: "humanizeBytes(result)", Icon: "mdi:memory"},
-			{ID: "pods", Title: "Pods", Query: "vector(1204)", Value: "humanizeNumber(result)", Icon: "mdi:kubernetes"},
-			{ID: "uptime", Title: "Uptime", Query: "vector(40348800)", Value: "humanizeDuration(result)", Icon: "mdi:clock-outline"},
-			{ID: "age", Title: "Age", Query: "vector(5961600)", Value: "humanizeDays(result)", Icon: "mdi:server-outline"},
-			{ID: "ver", Title: "Kubernetes", Query: `label_replace(vector(1), "v", "1.36.1", "", "")`, Value: `labels["v"]`, Color: `"blue"`, Icon: "mdi:kubernetes"},
-			{ID: "ok", Query: "vector(1)", Value: `"online"`, Color: `"green"`, Icon: "mdi:check-circle-outline"}, // icon, no title
-		},
-		Graphs: []config.Graph{{ID: "g", Title: "CPU", Query: wave}},
+		Badges:   badges,
+		Graphs:   []config.Graph{{ID: "g", Title: "CPU", Query: wave}},
 	}
 	for _, f := range graphFonts {
 		cfg.Graphs = append(cfg.Graphs, config.Graph{ID: "font_" + f, Title: "CPU", Query: wave, Font: f, Theme: "dark"})
@@ -69,28 +77,32 @@ func TestGallery(t *testing.T) {
 
 	group(&b, "Badges — value formatters & icons", func() {
 		for _, id := range []string{"cpu", "cpu_hot", "mem", "pods", "uptime", "age", "ver", "ok"} {
-			cell(t, h, &b, id, "/badges/"+id, true)
+			cell(t, h, &b, id, "/badges/"+id, true, yamlFor("badges", byID[id]))
 		}
 	})
 	group(&b, "Badge styles", func() {
 		for _, style := range []string{"flat", "flat-square", "plastic"} {
-			cell(t, h, &b, style, "/badges/mem?style="+style, true)
+			bd := byID["mem"]
+			bd.Style = style
+			cell(t, h, &b, style, "/badges/mem?style="+style, true, yamlFor("badges", bd))
 		}
 	})
 	group(&b, "Graph themes (PNG)", func() {
-		themes := []string{"light", "dark", "grafana", "ocean", "slate", "gray",
-			"catppuccin-latte", "catppuccin-mocha", "dracula", "monokai", "night-owl"}
-		for _, th := range themes {
-			cell(t, h, &b, th, "/graphs/g?"+gdim+"&format=png&theme="+th, false)
+		for _, th := range []string{"light", "dark", "grafana", "ocean", "slate", "gray",
+			"catppuccin-latte", "catppuccin-mocha", "dracula", "monokai", "night-owl"} {
+			g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Theme: th}
+			cell(t, h, &b, th, "/graphs/g?"+gdim+"&format=png&theme="+th, false, yamlFor("graphs", g))
 		}
 	})
 	group(&b, "SVG vs PNG", func() {
-		cell(t, h, &b, "grafana · SVG", "/graphs/g?"+gdim+"&theme=grafana", false)
-		cell(t, h, &b, "grafana · PNG", "/graphs/g?"+gdim+"&format=png&theme=grafana", false)
+		g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Theme: "grafana"}
+		cell(t, h, &b, "grafana · SVG", "/graphs/g?"+gdim+"&theme=grafana", false, yamlFor("graphs", g))
+		cell(t, h, &b, "grafana · PNG (?format=png)", "/graphs/g?"+gdim+"&format=png&theme=grafana", false, yamlFor("graphs", g))
 	})
 	group(&b, "Graph fonts (PNG, dark)", func() {
 		for _, f := range graphFonts {
-			cell(t, h, &b, f, "/graphs/font_"+f+"?"+gdim+"&format=png", false)
+			g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Font: f, Theme: "dark"}
+			cell(t, h, &b, f, "/graphs/font_"+f+"?"+gdim+"&format=png", false, yamlFor("graphs", g))
 		}
 	})
 
@@ -104,6 +116,15 @@ func TestGallery(t *testing.T) {
 	t.Logf("gallery written: open %q", out)
 }
 
+// yamlFor marshals a single endpoint under its top-level key (badges:/graphs:).
+func yamlFor(key string, v any) string {
+	out, err := yaml.Marshal(map[string]any{key: []any{v}})
+	if err != nil {
+		return err.Error()
+	}
+	return strings.TrimRight(string(out), "\n")
+}
+
 const galleryHead = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>kromgo gallery</title>
@@ -114,19 +135,19 @@ const galleryHead = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <main class="max-w-7xl mx-auto px-6 py-10">
 <header class="mb-10">
   <h1 class="text-3xl font-bold tracking-tight text-slate-900">kromgo gallery</h1>
-  <p class="mt-1 text-slate-500">Badge &amp; graph rendering variations — synthetic data.</p>
+  <p class="mt-1 text-slate-500">Badge &amp; graph variations, each with the config that produced it — synthetic data.</p>
 </header>`
 
 // group renders a titled section whose body emits cells, with valid nesting.
 func group(b *strings.Builder, title string, body func()) {
 	fmt.Fprintf(b, `<section class="mb-12">
 <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-4">%s</h2>
-<div class="flex flex-wrap gap-4 items-start">`, title)
+<div class="flex flex-wrap gap-5 items-start">`, title)
 	body()
 	b.WriteString(`</div></section>`)
 }
 
-func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path string, badge bool) {
+func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path string, badge bool, cfgYAML string) {
 	t.Helper()
 	w := promtest.Get(t, h.Mux(), path)
 	if w.Code != 200 {
@@ -138,11 +159,14 @@ func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path str
 	} else {
 		media = w.Body.String() // inline SVG (our own trusted output)
 	}
-	cls := "rounded-xl border border-slate-200 bg-white shadow-sm p-4 flex flex-col gap-3"
+	cls := "rounded-xl border border-slate-200 bg-white shadow-sm p-4 flex flex-col gap-3 max-w-lg"
 	if badge {
 		cls += " badge"
 	}
-	fmt.Fprintf(b, `<figure class="%s">%s<figcaption class="text-xs font-mono text-slate-400">%s</figcaption></figure>`, cls, media, caption)
+	fmt.Fprintf(b, `<figure class="%s">
+<div class="flex items-center gap-3"><div>%s</div><figcaption class="text-xs font-mono text-slate-400">%s</figcaption></div>
+<pre class="text-[11px] leading-snug bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre>
+</figure>`, cls, media, caption, html.EscapeString(cfgYAML))
 }
 
 // moduleRoot walks up from the test's working directory to the directory holding go.mod.

@@ -113,22 +113,23 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	}
 
 	if hasLabel || message != "" {
-		fmt.Fprintf(&s, `<g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="%d">`, size)
+		fmt.Fprintf(&s, `<g fill="#fff" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="%d">`, size)
 		if hasLabel {
-			writeBadgeText(&s, labelLeft+labelW/2, baseline, labelW, label)
+			writeBadgeText(&s, labelLeft, baseline, labelW, label)
 		}
-		writeBadgeText(&s, labelSeg+xPad+msgW/2, baseline, msgW, message)
+		writeBadgeText(&s, labelSeg+xPad, baseline, msgW, message)
 		s.WriteString(`</g>`)
 	}
 	s.WriteString(`</svg>`)
 	return []byte(s.String())
 }
 
-// writeBadgeText writes centered text with a subtle drop shadow. textLength pins
-// the rendered width to our measured width (lengthAdjust spaces the glyphs to
-// fit), so text never overflows its segment even when the viewer substitutes a
-// wider font than the one we measured. The text is HTML-escaped — message/label
-// can derive from metric labels (untrusted).
+// writeBadgeText writes left-anchored text (x is the left edge) with a subtle drop
+// shadow. textLength pins the rendered width to our measured width — combined with
+// the default start anchor (shields' approach, avoiding the middle-anchor+textLength
+// browser quirk), text never overflows its segment even when the viewer substitutes
+// a wider font. The text is HTML-escaped — message/label can derive from metric
+// labels (untrusted).
 func writeBadgeText(s *strings.Builder, x, y, width int, text string) {
 	esc := html.EscapeString(text)
 	fmt.Fprintf(s, `<text x="%d" y="%d" textLength="%d" lengthAdjust="spacingAndGlyphs" fill="#010101" fill-opacity=".3">%s</text>`, x, y+1, width, esc)
