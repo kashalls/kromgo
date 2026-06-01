@@ -152,8 +152,8 @@ const galleryHead = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
-<style>.badge svg{height:42px;width:auto}
-.cell img{max-width:100%;height:auto}
+<style>.cell img{max-width:100%;height:auto}
+.badge img{height:44px;width:auto;max-width:none} /* scale badges up uniformly */
 pre code.hljs{padding:0;background:transparent}</style>
 </head>
 <body class="bg-slate-950 text-slate-200 antialiased">
@@ -178,12 +178,15 @@ func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path str
 	if w.Code != 200 {
 		t.Fatalf("%s -> %d: %s", path, w.Code, w.Body.String())
 	}
-	var media string
+	// Render every result as an <img> data-URI — exactly how badges/graphs are
+	// embedded in the wild. (Inlining SVG and scaling it with CSS width:auto hits a
+	// browser quirk where the clip/viewBox mis-maps, giving asymmetric corners and
+	// clipped text; an <img> scales uniformly from its intrinsic size.)
+	mime := "image/svg+xml"
 	if strings.Contains(w.Header().Get("Content-Type"), "png") {
-		media = fmt.Sprintf(`<img class="block rounded" src="data:image/png;base64,%s">`, base64.StdEncoding.EncodeToString(w.Body.Bytes()))
-	} else {
-		media = w.Body.String() // inline SVG (our own trusted output)
+		mime = "image/png"
 	}
+	media := fmt.Sprintf(`<img class="block" src="data:%s;base64,%s">`, mime, base64.StdEncoding.EncodeToString(w.Body.Bytes()))
 	cls := "cell rounded-xl border border-slate-800 bg-slate-900 shadow-sm p-4 flex flex-col gap-3"
 	if badge {
 		cls += " badge"
