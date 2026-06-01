@@ -18,6 +18,7 @@ func writeConfig(t *testing.T, body string) string {
 }
 
 func TestLoad_Valid(t *testing.T) {
+	t.Parallel()
 	path := writeConfig(t, `
 prometheus: http://prom:9090
 gallery:
@@ -55,22 +56,26 @@ graphs:
 }
 
 func TestLoad_MissingFile(t *testing.T) {
+	t.Parallel()
 	_, err := Load(filepath.Join(t.TempDir(), "nope.yaml"))
 	assert.Error(t, err)
 }
 
 func TestLoad_InvalidYAML(t *testing.T) {
+	t.Parallel()
 	_, err := Load(writeConfig(t, "badges: [: bad"))
 	assert.Error(t, err)
 }
 
 func TestLoad_RejectsUnknownKey(t *testing.T) {
+	t.Parallel()
 	// A non-legacy typo'd key must error under strict decoding.
 	_, err := Load(writeConfig(t, "badges: []\nbogus: true\n"))
 	assert.Error(t, err)
 }
 
 func TestLoad_LegacyConfigErrors(t *testing.T) {
+	t.Parallel()
 	// A pre-0.12 config (top-level metrics:) gets a pointed migration error.
 	_, err := Load(writeConfig(t, "metrics:\n  - name: cpu\n    query: q\n"))
 	require.Error(t, err)
@@ -78,22 +83,26 @@ func TestLoad_LegacyConfigErrors(t *testing.T) {
 }
 
 func TestLoad_InvalidDuration(t *testing.T) {
+	t.Parallel()
 	_, err := Load(writeConfig(t, "defaults:\n  graph:\n    maxDuration: bogus\n"))
 	assert.Error(t, err)
 }
 
 func TestLoad_DuplicateID(t *testing.T) {
+	t.Parallel()
 	_, err := Load(writeConfig(t, "badges:\n  - id: cpu\n    query: q\n  - id: cpu\n    query: q\n"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate")
 }
 
 func TestLoad_RangeBadgeRequiresLast(t *testing.T) {
+	t.Parallel()
 	_, err := Load(writeConfig(t, "badges:\n  - id: cpu\n    query: q\n    type: range\n"))
 	assert.Error(t, err)
 }
 
 func TestLoad_InvalidID(t *testing.T) {
+	t.Parallel()
 	// ids are URL path segments and gallery Markdown; reject unsafe characters.
 	_, err := Load(writeConfig(t, "badges:\n  - id: a/b\n    query: q\n"))
 	require.Error(t, err)

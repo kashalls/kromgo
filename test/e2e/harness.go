@@ -6,7 +6,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/home-operations/kromgo/internal/promtest"
+	"github.com/home-operations/kromgo/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,7 +48,7 @@ type harness struct {
 func start(t *testing.T) *harness {
 	t.Helper()
 
-	root := moduleRoot(t)
+	root := testutil.ModuleRoot(t)
 	bin := filepath.Join(t.TempDir(), "kromgo")
 	build := exec.Command("go", "build", "-o", bin, "./cmd/kromgo")
 	build.Dir = root
@@ -61,8 +61,8 @@ func start(t *testing.T) *harness {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(configYAML), 0o600))
 
-	serverPort := freePort(t)
-	healthPort := freePort(t)
+	serverPort := testutil.FreePort(t)
+	healthPort := testutil.FreePort(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, bin, "-config", configPath)
@@ -114,29 +114,4 @@ func (h *harness) get(path string) *http.Response {
 	resp, err := http.Get(h.baseURL + path)
 	require.NoError(h.t, err)
 	return resp
-}
-
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
-// moduleRoot walks up from this file's directory to the directory containing go.mod.
-func moduleRoot(t *testing.T) string {
-	t.Helper()
-	dir, err := os.Getwd()
-	require.NoError(t, err)
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("could not locate go.mod")
-		}
-		dir = parent
-	}
 }

@@ -37,7 +37,7 @@ func Run(ctx context.Context, sc config.ServerConfig, app http.Handler) error {
 	}
 	health := &http.Server{
 		Addr:              net.JoinHostPort(sc.HealthHost, strconv.Itoa(sc.HealthPort)),
-		Handler:           recoverer(secureHeaders(healthMux())),
+		Handler:           injectLogger(recoverer(secureHeaders(healthMux()))),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       sc.ServerReadTimeout,
 		WriteTimeout:      sc.ServerWriteTimeout,

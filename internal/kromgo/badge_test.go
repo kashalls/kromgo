@@ -10,6 +10,7 @@ import (
 )
 
 func TestColorNameToHex(t *testing.T) {
+	t.Parallel()
 	cases := map[string]string{
 		"":          "#007ec6", // default blue
 		"blue":      "#007ec6",
@@ -22,12 +23,14 @@ func TestColorNameToHex(t *testing.T) {
 	}
 	for in, want := range cases {
 		t.Run(in, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, want, colorNameToHex(in))
 		})
 	}
 }
 
 func TestNewBadgeRenderer_DefaultFont(t *testing.T) {
+	t.Parallel()
 	r, err := newBadgeRenderer(config.BadgeDefaults{})
 	require.NoError(t, err)
 	require.NotNil(t, r)
@@ -39,17 +42,20 @@ func TestNewBadgeRenderer_DefaultFont(t *testing.T) {
 }
 
 func TestNewBadgeRenderer_UnknownFont(t *testing.T) {
+	t.Parallel()
 	_, err := newBadgeRenderer(config.BadgeDefaults{Font: "not-a-font"})
 	assert.Error(t, err)
 }
 
 func TestNewBadgeRenderer_NamedFont(t *testing.T) {
+	t.Parallel()
 	r, err := newBadgeRenderer(config.BadgeDefaults{Font: "go-bold"})
 	require.NoError(t, err)
 	require.NotNil(t, r)
 }
 
 func TestBadgeRender_Icon(t *testing.T) {
+	t.Parallel()
 	r, err := newBadgeRenderer(config.BadgeDefaults{})
 	require.NoError(t, err)
 
@@ -62,6 +68,7 @@ func TestBadgeRender_Icon(t *testing.T) {
 }
 
 func TestResolveIcon(t *testing.T) {
+	t.Parallel()
 	path, err := resolveIcon("mdi:server-outline")
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(path, "M"))
@@ -83,6 +90,7 @@ func TestResolveIcon(t *testing.T) {
 }
 
 func TestMDIIconsEmbedded(t *testing.T) {
+	t.Parallel()
 	// The full Material Design Icons set is embedded and decodes cleanly.
 	assert.Greater(t, len(mdiIcons()), 7000, "full MDI set should be embedded")
 }

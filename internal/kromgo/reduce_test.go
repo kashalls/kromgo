@@ -19,6 +19,7 @@ func samples(values ...float64) []model.SamplePair {
 }
 
 func TestReduceSamples(t *testing.T) {
+	t.Parallel()
 	vals := samples(10, 30, 20, 40)
 	cases := map[string]float64{
 		config.ReduceFirst: 10,
@@ -30,6 +31,7 @@ func TestReduceSamples(t *testing.T) {
 	}
 	for op, want := range cases {
 		t.Run(op, func(t *testing.T) {
+			t.Parallel()
 			got, _, ok := reduceSamples(vals, op)
 			require.True(t, ok)
 			assert.Equal(t, want, float64(got))
@@ -38,6 +40,7 @@ func TestReduceSamples(t *testing.T) {
 }
 
 func TestReduceSamples_SkipsNonFinite(t *testing.T) {
+	t.Parallel()
 	vals := samples(10, math.NaN(), 30, math.Inf(1))
 	got, _, ok := reduceSamples(vals, config.ReduceAvg)
 	require.True(t, ok)
@@ -45,11 +48,13 @@ func TestReduceSamples_SkipsNonFinite(t *testing.T) {
 }
 
 func TestReduceSamples_AllNonFinite(t *testing.T) {
+	t.Parallel()
 	_, _, ok := reduceSamples(samples(math.NaN(), math.Inf(-1)), config.ReduceLast)
 	assert.False(t, ok)
 }
 
 func TestReduceMatrix_DropsEmptySeries(t *testing.T) {
+	t.Parallel()
 	matrix := model.Matrix{
 		&model.SampleStream{Metric: model.Metric{"a": "1"}, Values: samples(1, 2, 3)},
 		&model.SampleStream{Metric: model.Metric{"b": "2"}, Values: samples(math.NaN())},

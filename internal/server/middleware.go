@@ -3,21 +3,39 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/home-operations/kromgo/internal/config"
+	"github.com/home-operations/kromgo/internal/logging"
 )
 
-// withMiddleware wraps h with recovery, security headers, and optional access
-// logging. Middleware is applied outermost-first: recover → access log → security
-// headers → handler. Rate limiting is intentionally left to a reverse proxy (see
-// the README).
+// withMiddleware wraps h with request-logger injection, recovery, optional access
+// logging, and security headers. Middleware is applied outermost-first: inject logger
+// → recover → access log → security headers → handler. Rate limiting is intentionally
+// left to a reverse proxy (see the README).
 func withMiddleware(h http.Handler, sc config.ServerConfig) http.Handler {
 	h = secureHeaders(h)
 	if sc.ServerLogging {
 		h = accessLog(h)
 	}
-	return recoverer(h)
+	return injectLogger(recoverer(h))
+}
+
+var requestCounter atomic.Uint64
+
+// injectLogger attaches a request-scoped logger (request_id, method, path) to the
+// request context so downstream middleware and handlers share one set of base fields.
+func injectLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := slog.With(
+			slog.String("request_id", strconv.FormatUint(requestCounter.Add(1), 36)),
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+		)
+		next.ServeHTTP(w, r.WithContext(logging.WithLogger(r.Context(), log)))
+	})
 }
 
 // secureHeaders sets defensive response headers. nosniff stops MIME confusion; the
@@ -49,9 +67,7 @@ func accessLog(next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
-		slog.LogAttrs(r.Context(), slog.LevelInfo, "request",
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
+		logging.FromContext(r.Context()).LogAttrs(r.Context(), slog.LevelInfo, "request",
 			slog.Int("status", rec.status),
 			slog.Duration("duration", time.Since(start)),
 		)
@@ -62,9 +78,8 @@ func recoverer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.LogAttrs(r.Context(), slog.LevelError, "panic recovered",
+				logging.FromContext(r.Context()).LogAttrs(r.Context(), slog.LevelError, "panic recovered",
 					slog.Any("panic", rec),
-					slog.String("path", r.URL.Path),
 				)
 				w.WriteHeader(http.StatusInternalServerError)
 			}

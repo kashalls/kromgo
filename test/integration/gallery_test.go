@@ -16,6 +16,7 @@ import (
 	"github.com/home-operations/kromgo/internal/kromgo"
 	"github.com/home-operations/kromgo/internal/prometheus"
 	"github.com/home-operations/kromgo/internal/promtest"
+	"github.com/home-operations/kromgo/internal/testutil"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v4"
 )
@@ -152,7 +153,7 @@ hljs.highlightAll();
 
 	out := os.Getenv("GALLERY_OUT")
 	if out == "" {
-		out = filepath.Join(moduleRoot(t), "kromgo-gallery.html")
+		out = filepath.Join(testutil.ModuleRoot(t), "kromgo-gallery.html")
 	}
 	require.NoError(t, os.WriteFile(out, []byte(b.String()), 0o644))
 	t.Logf("gallery written: open %q", out)
@@ -246,19 +247,4 @@ func idFromPath(path string) string {
 		p = p[:i]
 	}
 	return p
-}
-
-// moduleRoot walks up from the test's working directory to the directory holding go.mod.
-func moduleRoot(t *testing.T) string {
-	t.Helper()
-	dir, err := os.Getwd()
-	require.NoError(t, err)
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		require.NotEqual(t, parent, dir, "could not locate go.mod")
-		dir = parent
-	}
 }

@@ -31,6 +31,7 @@ func makeMatrix(series [][]float64) model.Matrix {
 }
 
 func TestRenderChart_SVG(t *testing.T) {
+	t.Parallel()
 	svg, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
 		chartParams{width: 400, height: 150, legend: true, format: formatSVG})
 	require.NoError(t, err)
@@ -39,6 +40,7 @@ func TestRenderChart_SVG(t *testing.T) {
 }
 
 func TestRenderChart_Title(t *testing.T) {
+	t.Parallel()
 	svg, err := renderChart(makeMatrix([][]float64{{1, 2, 3}}),
 		chartParams{width: 400, height: 150, title: "CPU usage", format: formatSVG})
 	require.NoError(t, err)
@@ -46,6 +48,7 @@ func TestRenderChart_Title(t *testing.T) {
 }
 
 func TestRenderChart_PNG(t *testing.T) {
+	t.Parallel()
 	png, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
 		chartParams{width: 400, height: 150, format: formatPNG})
 	require.NoError(t, err)
@@ -55,6 +58,7 @@ func TestRenderChart_PNG(t *testing.T) {
 }
 
 func TestRenderChart_NaNAndInfBecomeGaps(t *testing.T) {
+	t.Parallel()
 	// Non-finite samples must not produce a broken image or literal NaN/Inf text.
 	matrix := makeMatrix([][]float64{{10, 20, 30, 40}})
 	matrix[0].Values[1].Value = model.SampleValue(math.NaN())
@@ -67,6 +71,7 @@ func TestRenderChart_NaNAndInfBecomeGaps(t *testing.T) {
 }
 
 func TestRenderChart_Theme(t *testing.T) {
+	t.Parallel()
 	// A custom theme's background color should appear in the rendered SVG.
 	matrix := makeMatrix([][]float64{{1, 2, 3}})
 	svg, err := renderChart(matrix, chartParams{width: 400, height: 150, theme: "dracula", format: formatSVG})
@@ -76,6 +81,7 @@ func TestRenderChart_Theme(t *testing.T) {
 }
 
 func TestSeriesLabel(t *testing.T) {
+	t.Parallel()
 	stream := &model.SampleStream{Metric: model.Metric{
 		"__name__": "x", "instance": "node-1", "job": "kube",
 	}}
@@ -87,6 +93,7 @@ func TestSeriesLabel(t *testing.T) {
 }
 
 func TestChartParams_WithOverrides(t *testing.T) {
+	t.Parallel()
 	base := chartParams{width: 300, height: 80, legend: true, theme: "dark", format: formatSVG}
 
 	req := httptest.NewRequest(http.MethodGet,
@@ -106,8 +113,10 @@ func TestChartParams_WithOverrides(t *testing.T) {
 }
 
 func TestResolveGraphFont(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"", "roboto", "notosans", "go-regular", "go-bold", "go-medium", "go-mono"} {
 		t.Run("ok/"+name, func(t *testing.T) {
+			t.Parallel()
 			f, err := resolveGraphFont(name)
 			require.NoError(t, err)
 			if name == "" {
@@ -118,11 +127,15 @@ func TestResolveGraphFont(t *testing.T) {
 		})
 	}
 	// An unknown font name errors (no disk fallback).
-	_, err := resolveGraphFont("not-a-font")
-	assert.Error(t, err)
+	t.Run("unknown errors", func(t *testing.T) {
+		t.Parallel()
+		_, err := resolveGraphFont("not-a-font")
+		assert.Error(t, err)
+	})
 }
 
 func TestRenderChart_CustomFont(t *testing.T) {
+	t.Parallel()
 	font, err := resolveGraphFont("go-bold")
 	require.NoError(t, err)
 	svg, err := renderChart(makeMatrix([][]float64{{1, 2, 3}}),
@@ -132,10 +145,22 @@ func TestRenderChart_CustomFont(t *testing.T) {
 }
 
 func TestValidTheme(t *testing.T) {
-	assert.True(t, validTheme("dark"))             // built-in
-	assert.True(t, validTheme("grafana"))          // built-in
-	assert.True(t, validTheme("dracula"))          // custom
-	assert.True(t, validTheme("catppuccin-mocha")) // custom
-	assert.False(t, validTheme("nope"))
-	assert.False(t, validTheme(""))
+	t.Parallel()
+	cases := []struct {
+		theme string
+		want  bool
+	}{
+		{"dark", true},             // built-in
+		{"grafana", true},          // built-in
+		{"dracula", true},          // custom
+		{"catppuccin-mocha", true}, // custom
+		{"nope", false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.theme, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, validTheme(tc.theme))
+		})
+	}
 }

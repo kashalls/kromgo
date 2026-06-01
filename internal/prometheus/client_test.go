@@ -15,17 +15,20 @@ import (
 )
 
 func TestNew_EmptyAddress(t *testing.T) {
+	t.Parallel()
 	_, err := New("", 0)
 	assert.Error(t, err)
 }
 
 func TestNew_Valid(t *testing.T) {
+	t.Parallel()
 	c, err := New("http://localhost:9090", 0)
 	require.NoError(t, err)
 	assert.NotNil(t, c)
 }
 
 func TestQuery_Vector(t *testing.T) {
+	t.Parallel()
 	srv := promtest.Server(t, promtest.Scalar("17.5", map[string]string{"job": "node"}), nil)
 	c, err := New(srv.URL, 0)
 	require.NoError(t, err)
@@ -40,6 +43,7 @@ func TestQuery_Vector(t *testing.T) {
 }
 
 func TestQueryRange_Matrix(t *testing.T) {
+	t.Parallel()
 	srv := promtest.Server(t, nil, []float64{1, 2, 3})
 	c, err := New(srv.URL, 0)
 	require.NoError(t, err)
@@ -55,6 +59,7 @@ func TestQueryRange_Matrix(t *testing.T) {
 }
 
 func TestQuery_ServerError(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
 	}))
@@ -68,6 +73,7 @@ func TestQuery_ServerError(t *testing.T) {
 }
 
 func TestQuery_TimeoutApplied(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)

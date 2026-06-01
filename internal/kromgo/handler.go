@@ -4,7 +4,6 @@ package kromgo
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/home-operations/kromgo/internal/config"
@@ -73,14 +72,6 @@ func (h *Handler) Mux() http.Handler {
 	return mux
 }
 
-// setCache applies a successful response's cache policy; writeError later overrides
-// it with no-store on failures.
-func setCache(w http.ResponseWriter, cacheSeconds int) {
-	if cacheSeconds > 0 {
-		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", cacheSeconds))
-	}
-}
-
 // labelMap converts a Prometheus label set to a plain string map for CEL/JSON use.
 func labelMap(m model.Metric) map[string]string {
 	out := make(map[string]string, len(m))
@@ -88,14 +79,4 @@ func labelMap(m model.Metric) map[string]string {
 		out[string(k)] = string(v)
 	}
 	return out
-}
-
-func requestLogger(r *http.Request, kind, id, format string) *slog.Logger {
-	return slog.With(
-		slog.String("method", r.Method),
-		slog.String("path", r.URL.Path),
-		slog.String("kind", kind),
-		slog.String("id", id),
-		slog.String("format", format),
-	)
 }

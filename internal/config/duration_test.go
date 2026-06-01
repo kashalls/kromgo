@@ -9,6 +9,7 @@ import (
 )
 
 func TestParseDuration(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name    string
 		in      string
@@ -29,6 +30,7 @@ func TestParseDuration(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := ParseDuration(tc.in)
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -41,6 +43,7 @@ func TestParseDuration(t *testing.T) {
 }
 
 func TestValidate_Durations(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name    string
 		cfg     KromgoConfig
@@ -70,6 +73,7 @@ func TestValidate_Durations(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := tc.cfg.validate()
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -81,6 +85,7 @@ func TestValidate_Durations(t *testing.T) {
 }
 
 func TestValidate_RangeType(t *testing.T) {
+	t.Parallel()
 	badge := func(b Badge) KromgoConfig { return KromgoConfig{Badges: []Badge{b}} }
 	cases := []struct {
 		name    string
@@ -98,6 +103,7 @@ func TestValidate_RangeType(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := tc.cfg.validate()
 			if tc.wantErr {
 				assert.Error(t, err)

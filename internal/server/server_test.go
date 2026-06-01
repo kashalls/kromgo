@@ -3,18 +3,19 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/home-operations/kromgo/internal/config"
+	"github.com/home-operations/kromgo/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSecureHeaders(t *testing.T) {
+	t.Parallel()
 	h := secureHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -28,9 +29,11 @@ func TestSecureHeaders(t *testing.T) {
 }
 
 func TestHealthMux(t *testing.T) {
+	t.Parallel()
 	mux := healthMux()
 	for _, path := range []string{"/healthz", "/-/health", "/readyz", "/-/ready", "/metrics"} {
 		t.Run(path, func(t *testing.T) {
+			t.Parallel()
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			w := httptest.NewRecorder()
 			mux.ServeHTTP(w, req)
@@ -40,6 +43,7 @@ func TestHealthMux(t *testing.T) {
 }
 
 func TestRecoverer_TurnsPanicInto500(t *testing.T) {
+	t.Parallel()
 	h := recoverer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom")
 	}))
@@ -49,6 +53,7 @@ func TestRecoverer_TurnsPanicInto500(t *testing.T) {
 }
 
 func TestAccessLog_PassesThrough(t *testing.T) {
+	t.Parallel()
 	h := accessLog(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
 		_, _ = w.Write([]byte("hi"))
@@ -60,6 +65,7 @@ func TestAccessLog_PassesThrough(t *testing.T) {
 }
 
 func TestWithMiddleware_LoggingOptional(t *testing.T) {
+	t.Parallel()
 	called := false
 	base := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
@@ -77,9 +83,10 @@ func TestWithMiddleware_LoggingOptional(t *testing.T) {
 }
 
 func TestRun_GracefulShutdown(t *testing.T) {
+	t.Parallel()
 	sc := config.ServerConfig{
-		ServerHost: "127.0.0.1", ServerPort: freePort(t),
-		HealthHost: "127.0.0.1", HealthPort: freePort(t),
+		ServerHost: "127.0.0.1", ServerPort: testutil.FreePort(t),
+		HealthHost: "127.0.0.1", HealthPort: testutil.FreePort(t),
 	}
 	app := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -107,12 +114,4 @@ func TestRun_GracefulShutdown(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("Run did not return after context cancellation")
 	}
-}
-
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port
 }

@@ -6,57 +6,76 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHumanizeBytes(t *testing.T) {
-	// IEC binary units via go-humanize (spaced).
-	assert.Equal(t, "1.0 KiB", humanizeBytes(1024))
-	assert.Equal(t, "1.5 MiB", humanizeBytes(1572864))
-	assert.Equal(t, "2.0 GiB", humanizeBytes(2147483648))
-	assert.Equal(t, "512 B", humanizeBytes(512))
-}
+const day = 86400.0
 
-func TestHumanizeSIBytes(t *testing.T) {
-	assert.Equal(t, "1.0 kB", humanizeSIBytes(1000))
-	assert.Equal(t, "1.5 MB", humanizeSIBytes(1500000))
-}
-
-func TestHumanizeNumber(t *testing.T) {
-	assert.Equal(t, "157,121", humanizeNumber(157121))
-	assert.Equal(t, "1,000,000", humanizeNumber(1000000))
-	assert.Equal(t, "1,234.56", humanizeNumber(1234.56))
-	assert.Equal(t, "-1,234", humanizeNumber(-1234))
-}
-
-func TestHumanizeFloat(t *testing.T) {
-	assert.Equal(t, "200", humanizeFloat(200))
-	assert.Equal(t, "2.5", humanizeFloat(2.50))
-	assert.Equal(t, "2", humanizeFloat(2.0))
-	assert.Equal(t, "1234.567", humanizeFloat(1234.567))
-}
-
-func TestHumanizeDays(t *testing.T) {
-	const day = 86400.0
-	assert.Equal(t, "69d", humanizeDays(69*day))
-	assert.Equal(t, "544d", humanizeDays(544*day))
-	assert.Equal(t, "6769d", humanizeDays(6769*day))
-	assert.Equal(t, "1d", humanizeDays(1.5*day)) // truncates
-	assert.Equal(t, "0d", humanizeDays(3600))    // under a day
-	assert.Equal(t, "0d", humanizeDays(-5))      // clamped
+func TestHumanizers(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		fn   func(float64) string
+		in   float64
+		want string
+	}{
+		// humanizeBytes: IEC binary units via go-humanize (spaced).
+		{"bytes KiB", humanizeBytes, 1024, "1.0 KiB"},
+		{"bytes MiB", humanizeBytes, 1572864, "1.5 MiB"},
+		{"bytes GiB", humanizeBytes, 2147483648, "2.0 GiB"},
+		{"bytes B", humanizeBytes, 512, "512 B"},
+		// humanizeSIBytes: SI decimal units.
+		{"sibytes kB", humanizeSIBytes, 1000, "1.0 kB"},
+		{"sibytes MB", humanizeSIBytes, 1500000, "1.5 MB"},
+		// humanizeNumber: thousands separators.
+		{"number int", humanizeNumber, 157121, "157,121"},
+		{"number million", humanizeNumber, 1000000, "1,000,000"},
+		{"number float", humanizeNumber, 1234.56, "1,234.56"},
+		{"number negative", humanizeNumber, -1234, "-1,234"},
+		// humanizeFloat: minimal float formatting.
+		{"float int-valued", humanizeFloat, 200, "200"},
+		{"float one decimal", humanizeFloat, 2.50, "2.5"},
+		{"float whole", humanizeFloat, 2.0, "2"},
+		{"float many decimals", humanizeFloat, 1234.567, "1234.567"},
+		// humanizeDays: whole days, truncated and clamped at zero.
+		{"days 69", humanizeDays, 69 * day, "69d"},
+		{"days 544", humanizeDays, 544 * day, "544d"},
+		{"days 6769", humanizeDays, 6769 * day, "6769d"},
+		{"days truncates", humanizeDays, 1.5 * day, "1d"},
+		{"days under a day", humanizeDays, 3600, "0d"},
+		{"days clamped", humanizeDays, -5, "0d"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, tc.fn(tc.in))
+		})
+	}
 }
 
 func TestHumanizeDuration(t *testing.T) {
-	const day = 86400.0
-	// Sub-day: fine-grained, top-3 significant units.
-	assert.Equal(t, "45s", humanizeDuration(45))
-	assert.Equal(t, "1m30s", humanizeDuration(90))
-	assert.Equal(t, "2h30m", humanizeDuration(9000)) // trailing 0s dropped
-	assert.Equal(t, "1d2h3m", humanizeDuration(93780))
-	// Long spans roll up to months ("mo") and years; sub-day noise drops off.
-	assert.Equal(t, "1y3mo12d", humanizeDuration(467*day))   // 365 + 3*30 + 12
-	assert.Equal(t, "5y8mo12d", humanizeDuration(179452910)) // 5y8mo12d1m50s, trimmed to top 3
-	assert.Equal(t, "1y", humanizeDuration(365*day))         // exact year
-	assert.Equal(t, "1mo5d", humanizeDuration(35*day))       // 1 month 5 days
-	assert.Equal(t, "5d4h", humanizeDuration(5*day+4*3600))  // skips zero minutes/seconds
-	// Edges.
-	assert.Equal(t, "0s", humanizeDuration(0))
-	assert.Equal(t, "0s", humanizeDuration(-5)) // clamped
+	t.Parallel()
+	cases := []struct {
+		name string
+		in   float64
+		want string
+	}{
+		// Sub-day: fine-grained, top-3 significant units.
+		{"seconds", 45, "45s"},
+		{"minutes", 90, "1m30s"},
+		{"trailing zeros dropped", 9000, "2h30m"},
+		{"day hour minute", 93780, "1d2h3m"},
+		// Long spans roll up to months ("mo") and years; sub-day noise drops off.
+		{"year months days", 467 * day, "1y3mo12d"},  // 365 + 3*30 + 12
+		{"trimmed to top 3", 179452910, "5y8mo12d"},  // 5y8mo12d1m50s
+		{"exact year", 365 * day, "1y"},              // exact year
+		{"month and days", 35 * day, "1mo5d"},        // 1 month 5 days
+		{"skips zero units", 5*day + 4*3600, "5d4h"}, // skips zero minutes/seconds
+		// Edges.
+		{"zero", 0, "0s"},
+		{"negative clamped", -5, "0s"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, humanizeDuration(tc.in))
+		})
+	}
 }
