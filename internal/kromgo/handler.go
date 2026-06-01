@@ -184,9 +184,9 @@ func writeSVG(w http.ResponseWriter, svg []byte) {
 
 func requestLogger(r *http.Request, metric, format string) *slog.Logger {
 	return slog.With(
-		"req_method", r.Method,
-		"req_path", r.URL.Path,
-		"metric", metric,
-		"format", format,
+		slog.String("method", r.Method),
+		slog.String("path", r.URL.Path),
+		slog.String("metric", metric),
+		slog.String("format", format),
 	)
 }

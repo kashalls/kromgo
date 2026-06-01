@@ -102,6 +102,19 @@ func TestServeMetric_Badge(t *testing.T) {
 	}
 }
 
+func TestServeMetric_NonGETRejected(t *testing.T) {
+	// Only safe (idempotent) GET requests are routed; the ServeMux returns 405 otherwise.
+	srv := mockProm(t, "17.5", nil)
+	h := newHandlerForTest(t, baseConfig(), srv.URL)
+
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+		req := httptest.NewRequest(method, "/cpu", nil)
+		w := httptest.NewRecorder()
+		h.Mux().ServeHTTP(w, req)
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "method=%s", method)
+	}
+}
+
 func TestServeMetric_NotFound(t *testing.T) {
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, baseConfig(), srv.URL)
@@ -225,7 +238,7 @@ func TestServeMetric_EmptyVector_NoData(t *testing.T) {
 
 func TestIndexRoute(t *testing.T) {
 	cfg := baseConfig()
-	cfg.HideAll = boolPtr(false)
+	cfg.HideAll = new(false)
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
 

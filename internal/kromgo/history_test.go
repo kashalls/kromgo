@@ -270,7 +270,7 @@ func TestHistoryEnabled_GlobalOn(t *testing.T) {
 
 func TestHistoryEnabled_PerMetricOverrideOn(t *testing.T) {
 	h := newHistoryHandler(config.HistoryConfig{Enabled: false})
-	metric := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: boolPtr(true)}}
+	metric := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(true)}}
 	if !h.historyEnabled(metric) {
 		t.Error("expected per-metric history override to enable history")
 	}
@@ -278,7 +278,7 @@ func TestHistoryEnabled_PerMetricOverrideOn(t *testing.T) {
 
 func TestHistoryEnabled_PerMetricOverrideOff(t *testing.T) {
 	h := newHistoryHandler(config.HistoryConfig{Enabled: true})
-	metric := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: boolPtr(false)}}
+	metric := config.Metric{Name: "test", History: &config.MetricHistoryConfig{Enabled: new(false)}}
 	if h.historyEnabled(metric) {
 		t.Error("expected per-metric history override to disable history")
 	}

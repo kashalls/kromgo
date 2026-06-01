@@ -64,6 +64,9 @@ func (c *Client) withTimeout(ctx context.Context) (context.Context, context.Canc
 
 func logWarnings(ctx context.Context, query string, warnings v1.Warnings) {
 	for _, w := range warnings {
-		slog.WarnContext(ctx, "prometheus query warning", "query", query, "warning", w)
+		slog.LogAttrs(ctx, slog.LevelWarn, "prometheus query warning",
+			slog.String("query", query),
+			slog.String("warning", w),
+		)
 	}
 }

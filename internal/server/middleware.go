@@ -34,11 +34,11 @@ func accessLog(next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
-		slog.InfoContext(r.Context(), "request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rec.status,
-			"duration", time.Since(start).String(),
+		slog.LogAttrs(r.Context(), slog.LevelInfo, "request",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Int("status", rec.status),
+			slog.Duration("duration", time.Since(start)),
 		)
 	})
 }
@@ -47,7 +47,10 @@ func recoverer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.ErrorContext(r.Context(), "panic recovered", "panic", rec, "path", r.URL.Path)
+				slog.LogAttrs(r.Context(), slog.LevelError, "panic recovered",
+					slog.Any("panic", rec),
+					slog.String("path", r.URL.Path),
+				)
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}()

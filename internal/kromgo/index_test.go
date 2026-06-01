@@ -10,9 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// boolPtr makes *bool literals concise in tests.
-func boolPtr(b bool) *bool { return &b }
-
 // --- isHidden ---
 
 func TestIsHidden_NoGlobal_NoPerMetric_DefaultsTrue(t *testing.T) {
@@ -22,31 +19,31 @@ func TestIsHidden_NoGlobal_NoPerMetric_DefaultsTrue(t *testing.T) {
 
 func TestIsHidden_GlobalFalse_NoPerMetric_Visible(t *testing.T) {
 	m := config.Metric{Name: "foo"}
-	assert.False(t, isHidden(m, boolPtr(false)))
+	assert.False(t, isHidden(m, new(false)))
 }
 
 func TestIsHidden_GlobalTrue_NoPerMetric_Hidden(t *testing.T) {
 	m := config.Metric{Name: "foo"}
-	assert.True(t, isHidden(m, boolPtr(true)))
+	assert.True(t, isHidden(m, new(true)))
 }
 
 func TestIsHidden_GlobalFalse_PerMetricTrue_Hidden(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: boolPtr(true)}
-	assert.True(t, isHidden(m, boolPtr(false)))
+	m := config.Metric{Name: "foo", Hidden: new(true)}
+	assert.True(t, isHidden(m, new(false)))
 }
 
 func TestIsHidden_GlobalTrue_PerMetricFalse_Visible(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: boolPtr(false)}
-	assert.False(t, isHidden(m, boolPtr(true)))
+	m := config.Metric{Name: "foo", Hidden: new(false)}
+	assert.False(t, isHidden(m, new(true)))
 }
 
 func TestIsHidden_NoGlobal_PerMetricFalse_Visible(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: boolPtr(false)}
+	m := config.Metric{Name: "foo", Hidden: new(false)}
 	assert.False(t, isHidden(m, nil))
 }
 
 func TestIsHidden_NoGlobal_PerMetricTrue_Hidden(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: boolPtr(true)}
+	m := config.Metric{Name: "foo", Hidden: new(true)}
 	assert.True(t, isHidden(m, nil))
 }
 
@@ -75,7 +72,7 @@ func TestIndexHandler_AllHidden_ShowsIntentionallyBlank(t *testing.T) {
 func TestIndexHandler_AllVisible_AllLinksPresent(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
 		Metrics: []config.Metric{{Name: "cpu"}, {Name: "mem"}},
-		HideAll: boolPtr(false),
+		HideAll: new(false),
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -92,7 +89,7 @@ func TestIndexHandler_AllVisible_AllLinksPresent(t *testing.T) {
 func TestIndexHandler_MixedVisibility(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
 		Metrics: []config.Metric{
-			{Name: "cpu", Hidden: boolPtr(false)},
+			{Name: "cpu", Hidden: new(false)},
 			{Name: "mem"}, // hidden by global default
 		},
 	})
@@ -110,9 +107,9 @@ func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
 		Metrics: []config.Metric{
 			{Name: "cpu"},
-			{Name: "secret", Hidden: boolPtr(true)},
+			{Name: "secret", Hidden: new(true)},
 		},
-		HideAll: boolPtr(false),
+		HideAll: new(false),
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -127,7 +124,7 @@ func TestIndexHandler_GlobalFalse_PerMetricOverrideHidden(t *testing.T) {
 func TestIndexHandler_NoMetrics_ShowsIntentionallyBlank(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
 		Metrics: []config.Metric{},
-		HideAll: boolPtr(false),
+		HideAll: new(false),
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
