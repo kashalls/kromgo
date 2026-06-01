@@ -4,7 +4,7 @@ golangci-lint = "2.12.2"
 lefthook = "2.1.9"
 node = "24.16.0"
 npm = "11.16.0"
-oxfmt = "0.52.0"
+oxfmt = "0.53.0"
 zizmor = "1.25.2"
 
 # Vendor the npm packages and build the embedded assets. sources/outputs make this a
