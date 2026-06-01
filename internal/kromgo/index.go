@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/home-operations/kromgo/internal/config"
 )
 
 // galleryAssets holds the vendored (marked, github-markdown-css) and first-party
@@ -27,10 +29,11 @@ var assetsFS = func() fs.FS {
 }()
 
 // indexCSP relaxes the default strict policy just enough for the gallery page:
-// scripts/styles/images load only from this origin (the embedded assets), inline
-// data: images cover github-markdown-css's anchor icon, and there are no inline
-// scripts (gallery.js is external), so no 'unsafe-inline'/'unsafe-eval' is needed.
-const indexCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'"
+// scripts, styles, and images load only from this origin (the embedded assets and
+// the badge/graph endpoints), and gallery.js is an external file (no inline
+// scripts), so no 'unsafe-inline'/'unsafe-eval' is needed. frame-ancestors blocks
+// clickjacking; base-uri/form-action are locked down for completeness.
+const indexCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
 var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
 <html lang="en">
@@ -103,8 +106,12 @@ type galleryItem struct {
 // index renders the gallery of visible badges and graphs (the default), or a
 // minimal landing page when defaults.gallery is false.
 func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Security-Policy", indexCSP) // override the strict default
-	w.Header().Set("Content-Type", mimeHTML)
+	header := w.Header()
+	header.Set("Content-Security-Policy", indexCSP) // override the strict default
+	header.Set("Content-Type", mimeHTML)
+	// Snippet URLs embed the request Host, so the page is per-Host and must never be
+	// served from a shared cache.
+	header.Set("Cache-Control", "no-store")
 
 	if !firstBool(true, h.cfg.Defaults.Gallery) {
 		_ = landingTmpl.Execute(w, nil)
@@ -112,25 +119,38 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	base := baseURL(r)
-	var view galleryView
-	for _, b := range h.cfg.Badges {
-		if !hidden(b.Hidden, h.cfg.Defaults.Hidden) {
-			view.Badges = append(view.Badges, markdownItem(base, "badges", b.ID, displayTitle(b.Title, b.ID)))
-		}
-	}
-	for _, g := range h.cfg.Graphs {
-		if !hidden(g.Hidden, h.cfg.Defaults.Hidden) {
-			view.Graphs = append(view.Graphs, markdownItem(base, "graphs", g.ID, displayTitle(g.Title, g.ID)))
-		}
+	view := galleryView{
+		Badges: galleryItems(base, "badges", h.cfg.Badges, h.cfg.Defaults.Hidden,
+			func(b config.Badge) (string, string, *bool) { return b.ID, displayTitle(b.Title, b.ID), b.Hidden }),
+		Graphs: galleryItems(base, "graphs", h.cfg.Graphs, h.cfg.Defaults.Hidden,
+			func(g config.Graph) (string, string, *bool) { return g.ID, displayTitle(g.Title, g.ID), g.Hidden }),
 	}
 	_ = galleryTmpl.Execute(w, view)
 }
 
+// galleryItems builds Markdown snippets for the visible endpoints of one kind.
+// meta extracts each item's id, display title, and per-endpoint hidden override.
+func galleryItems[T any](base, kind string, items []T, def *bool, meta func(T) (id, title string, hidden *bool)) []galleryItem {
+	var out []galleryItem
+	for _, it := range items {
+		id, title, h := meta(it)
+		if !hidden(h, def) {
+			out = append(out, markdownItem(base, kind, id, title))
+		}
+	}
+	return out
+}
+
 // assetsHandler serves the embedded gallery assets under /assets/ with a long
-// cache lifetime (they only change when the binary does).
+// cache lifetime (they only change when the binary does). Directory paths get a
+// 404 rather than a listing.
 func assetsHandler() http.Handler {
 	fileServer := http.FileServerFS(assetsFS)
 	return http.StripPrefix("/assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" || strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		fileServer.ServeHTTP(w, r)
 	}))

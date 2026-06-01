@@ -82,6 +82,17 @@ func TestLoad_RangeBadgeRequiresLast(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLoad_InvalidID(t *testing.T) {
+	// ids are URL path segments and gallery Markdown; reject unsafe characters.
+	_, err := Load(writeConfig(t, "badges:\n  - id: a/b\n    query: q\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "id must match")
+
+	_, err = Load(writeConfig(t, "graphs:\n  - id: 'a b'\n    query: q\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "id must match")
+}
+
 func TestLoadServer_Defaults(t *testing.T) {
 	// Clear any inherited env so envDefault applies. t.Setenv registers the
 	// restore; os.Unsetenv then removes the var for the duration of the test.

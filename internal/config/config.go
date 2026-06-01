@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"go.yaml.in/yaml/v4"
 )
@@ -238,10 +239,25 @@ func (c KromgoConfig) validate() error {
 	return nil
 }
 
+// validID constrains endpoint ids to URL-path-safe characters: they form the
+// /badges/{id} and /graphs/{id} path segments and appear in gallery Markdown.
+var validID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// validateID reports whether id is a safe URL path segment.
+func validateID(kind, id string) error {
+	if !validID.MatchString(id) {
+		return fmt.Errorf("%s %q: id must match %s", kind, id, validID)
+	}
+	return nil
+}
+
 // validate checks a badge's id, query, style, and range-query block.
 func (b Badge) validate() error {
 	if b.ID == "" || b.Query == "" {
 		return fmt.Errorf("badge %q: id and query are required", b.ID)
+	}
+	if err := validateID("badge", b.ID); err != nil {
+		return err
 	}
 	if b.Style != "" && !ValidStyle[b.Style] {
 		return fmt.Errorf("badge %q: unknown style %q", b.ID, b.Style)
@@ -276,6 +292,9 @@ func (b Badge) validate() error {
 func (g Graph) validate() error {
 	if g.ID == "" || g.Query == "" {
 		return fmt.Errorf("graph %q: id and query are required", g.ID)
+	}
+	if err := validateID("graph", g.ID); err != nil {
+		return err
 	}
 	if g.MaxDuration != "" {
 		if _, err := ParseDuration(g.MaxDuration); err != nil {

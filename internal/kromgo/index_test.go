@@ -104,8 +104,11 @@ func TestIndexHandler_GalleryHeadersAndAssets(t *testing.T) {
 	// CSP is relaxed for the page but stays free of unsafe-inline/eval and CDNs.
 	csp := w.Header().Get("Content-Security-Policy")
 	assert.Contains(t, csp, "script-src 'self'")
+	assert.Contains(t, csp, "frame-ancestors 'none'")
 	assert.NotContains(t, csp, "unsafe-inline")
 	assert.NotContains(t, csp, "unsafe-eval")
+	// Per-Host page must not be shared-cached.
+	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	// Self-hosted assets, no external origins.
 	assert.Contains(t, body, `/assets/marked.min.js`)
 	assert.Contains(t, body, `/assets/github-markdown.css`)
@@ -212,4 +215,7 @@ func TestAssetsHandler(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, get("/assets/ATTRIBUTION.md").Code, "non-embedded files are not served")
 	assert.Equal(t, http.StatusNotFound, get("/assets/nope.txt").Code)
+	// No directory listing, and a traversal attempt cannot escape the embedded FS.
+	assert.Equal(t, http.StatusNotFound, get("/assets/").Code, "no directory listing")
+	assert.NotEqual(t, http.StatusOK, get("/assets/../handler.go").Code, "no path traversal")
 }
