@@ -2,41 +2,23 @@ package kromgo
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/home-operations/kromgo/internal/config"
 	"github.com/home-operations/kromgo/internal/prometheus"
+	"github.com/home-operations/kromgo/internal/promtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// mockProm returns an httptest server that speaks just enough of the Prometheus
-// HTTP API for the handler: an instant vector for /query and a matrix for /query_range.
+// mockProm returns a mock Prometheus serving the given instant value (labelled
+// job=node) and range matrix.
 func mockProm(t *testing.T, vectorValue string, matrixValues []float64) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		now := time.Now().Unix()
-		switch r.URL.Path {
-		case "/api/v1/query":
-			_, _ = fmt.Fprintf(w, `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"job":"node"},"value":[%d,%q]}]}}`, now, vectorValue)
-		case "/api/v1/query_range":
-			points := make([]string, len(matrixValues))
-			for i, v := range matrixValues {
-				points[i] = fmt.Sprintf("[%d,%q]", now+int64(i*60), fmt.Sprintf("%g", v))
-			}
-			_, _ = fmt.Fprintf(w, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"instance":"a"},"values":[%s]}]}}`, strings.Join(points, ","))
-		default:
-			http.Error(w, "unexpected path "+r.URL.Path, http.StatusNotFound)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv
+	return promtest.Server(t, promtest.Scalar(vectorValue, map[string]string{"job": "node"}), matrixValues)
 }
 
 func newHandlerForTest(t *testing.T, cfg config.KromgoConfig, srvURL string) *Handler {
@@ -191,6 +173,54 @@ func TestServeMetric_HistoryWindowTooLarge(t *testing.T) {
 	w := doGet(t, h, "/cpu?format=history&last=7d")
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestServeMetric_LabelExtraction(t *testing.T) {
+	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"version": "v1.2.3"}), nil)
+	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Label: "version"}}}
+	h := newHandlerForTest(t, cfg, srv.URL)
+
+	w := doGet(t, h, "/ver")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"message":"v1.2.3"`)
+}
+
+func TestServeMetric_LabelMissing_NoData(t *testing.T) {
+	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"other": "x"}), nil)
+	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Label: "version"}}}
+	h := newHandlerForTest(t, cfg, srv.URL)
+
+	w := doGet(t, h, "/ver")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"isError":true`)
+}
+
+func TestServeMetric_ColorValueOverride(t *testing.T) {
+	cfg := config.KromgoConfig{Metrics: []config.Metric{{
+		Name:   "ceph",
+		Query:  "q",
+		Colors: []config.MetricColor{{Min: 0, Max: 0, Color: "green", ValueOverride: "Healthy"}},
+	}}}
+	srv := mockProm(t, "0", nil)
+	h := newHandlerForTest(t, cfg, srv.URL)
+
+	w := doGet(t, h, "/ceph")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"message":"Healthy"`)
+	assert.Contains(t, w.Body.String(), `"color":"green"`)
+}
+
+func TestServeMetric_EmptyVector_NoData(t *testing.T) {
+	srv := promtest.Server(t, nil, nil) // empty instant vector
+	h := newHandlerForTest(t, baseConfig(), srv.URL)
+
+	w := doGet(t, h, "/cpu")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "metric returned no data")
 }
 
 func TestIndexRoute(t *testing.T) {

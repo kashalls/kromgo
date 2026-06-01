@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/home-operations/kromgo/internal/promtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,12 +32,6 @@ history:
   maxDuration: 24h
 hideAll: false
 `
-
-const vectorBody = `{"status":"success","data":{"resultType":"vector",` +
-	`"result":[{"metric":{"job":"node"},"value":[%d,"17.5"]}]}}`
-
-const matrixBody = `{"status":"success","data":{"resultType":"matrix","result":` +
-	`[{"metric":{"instance":"a"},"values":[[%d,"10"],[%d,"20"],[%d,"15"]]}]}}`
 
 type harness struct {
 	t         *testing.T
@@ -58,7 +53,7 @@ func start(t *testing.T) *harness {
 		t.Fatalf("building kromgo: %v\n%s", err, out)
 	}
 
-	prom := mockProm(t)
+	prom := promtest.Server(t, promtest.Scalar("17.5", map[string]string{"job": "node"}), []float64{10, 20, 15})
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(configYAML), 0o600))
@@ -116,25 +111,6 @@ func (h *harness) get(path string) *http.Response {
 	resp, err := http.Get(h.baseURL + path)
 	require.NoError(h.t, err)
 	return resp
-}
-
-// mockProm serves a static instant vector and range matrix.
-func mockProm(t *testing.T) *httptest.Server {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		now := time.Now().Unix()
-		switch r.URL.Path {
-		case "/api/v1/query":
-			_, _ = fmt.Fprintf(w, vectorBody, now)
-		case "/api/v1/query_range":
-			_, _ = fmt.Fprintf(w, matrixBody, now, now+60, now+120)
-		default:
-			http.Error(w, "unexpected path", http.StatusNotFound)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv
 }
 
 func freePort(t *testing.T) int {
