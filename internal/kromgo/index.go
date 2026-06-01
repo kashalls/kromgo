@@ -1,43 +1,173 @@
 package kromgo
 
 import (
+	"embed"
 	"html/template"
+	"io/fs"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
-var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
-<html>
+// galleryAssets holds the vendored (marked, github-markdown-css) and first-party
+// (gallery.css, gallery.js) files served under /assets/. They are embedded so the
+// service stays self-contained and the index page keeps a strict script-src 'self'
+// CSP — no external CDN. See assets/ATTRIBUTION.md.
+//
+//go:embed assets/marked.min.js assets/github-markdown.css assets/gallery.css assets/gallery.js
+var galleryAssets embed.FS
+
+// assetsFS is galleryAssets rooted at the assets/ directory, for serving under /assets/.
+var assetsFS = func() fs.FS {
+	sub, err := fs.Sub(galleryAssets, "assets")
+	if err != nil {
+		panic(err) // embedded paths are fixed; this cannot fail at runtime
+	}
+	return sub
+}()
+
+// indexCSP relaxes the default strict policy just enough for the gallery page:
+// scripts/styles/images load only from this origin (the embedded assets), inline
+// data: images cover github-markdown-css's anchor icon, and there are no inline
+// scripts (gallery.js is external), so no 'unsafe-inline'/'unsafe-eval' is needed.
+const indexCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'"
+
+var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kromgo</title>
+<link rel="stylesheet" href="/assets/github-markdown.css">
+<link rel="stylesheet" href="/assets/gallery.css">
+</head>
 <body>
-{{- if .}}
-{{- range .}}
-<a href="{{.Href}}">{{.Label}}</a><br>
+<div class="wrap">
+<header class="masthead">
+<h1>kromgo</h1>
+<p>Prometheus metrics as badges &amp; graphs &mdash; copy a snippet into your Markdown.</p>
+</header>
+{{- if or .Badges .Graphs}}
+{{- if .Badges}}
+<section>
+<h2>Badges</h2>
+<div class="grid">{{range .Badges}}{{template "card" .}}{{end}}</div>
+</section>
+{{- end}}
+{{- if .Graphs}}
+<section>
+<h2>Graphs</h2>
+<div class="grid">{{range .Graphs}}{{template "card" .}}{{end}}</div>
+</section>
 {{- end}}
 {{- else}}
-<i>page intentionally blank</i>
+<p class="empty">No endpoints are visible. Set <code>defaults.hidden: false</code> (or per-endpoint <code>hidden: false</code>) to list them here.</p>
 {{- end}}
+</div>
+<script src="/assets/marked.min.js"></script>
+<script src="/assets/gallery.js"></script>
+</body>
+</html>
+{{- define "card"}}<div class="card"><div class="preview"><div class="markdown-body"></div></div><div class="snippet"><button class="copy" type="button" aria-label="Copy Markdown">Copy</button><pre><code>{{.Markdown}}</code></pre></div></div>{{end}}`))
+
+var landingTmpl = template.Must(template.New("landing").Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kromgo</title>
+<link rel="stylesheet" href="/assets/gallery.css">
+</head>
+<body>
+<div class="landing">
+<div>
+<h1>kromgo</h1>
+<p>Running.</p>
+</div>
+</div>
 </body>
 </html>`))
 
-type indexLink struct {
-	Href  string
-	Label string
+// galleryView is the gallery template's data: visible badges and graphs as
+// copy-pasteable Markdown snippets, badges first.
+type galleryView struct {
+	Badges []galleryItem
+	Graphs []galleryItem
 }
 
-// index renders an HTML page listing all visible badges and graphs.
-func (h *Handler) index(w http.ResponseWriter, _ *http.Request) {
-	var links []indexLink
+// galleryItem is one endpoint rendered as a Markdown image snippet.
+type galleryItem struct {
+	Markdown string
+}
+
+// index renders the gallery of visible badges and graphs (the default), or a
+// minimal landing page when defaults.gallery is false.
+func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Security-Policy", indexCSP) // override the strict default
+	w.Header().Set("Content-Type", mimeHTML)
+
+	if !firstBool(true, h.cfg.Defaults.Gallery) {
+		_ = landingTmpl.Execute(w, nil)
+		return
+	}
+
+	base := baseURL(r)
+	var view galleryView
 	for _, b := range h.cfg.Badges {
 		if !hidden(b.Hidden, h.cfg.Defaults.Hidden) {
-			links = append(links, indexLink{Href: "/badges/" + b.ID, Label: displayTitle(b.Title, b.ID)})
+			view.Badges = append(view.Badges, markdownItem(base, "badges", b.ID, displayTitle(b.Title, b.ID)))
 		}
 	}
 	for _, g := range h.cfg.Graphs {
 		if !hidden(g.Hidden, h.cfg.Defaults.Hidden) {
-			links = append(links, indexLink{Href: "/graphs/" + g.ID, Label: displayTitle(g.Title, g.ID)})
+			view.Graphs = append(view.Graphs, markdownItem(base, "graphs", g.ID, displayTitle(g.Title, g.ID)))
 		}
 	}
-	w.Header().Set("Content-Type", mimeHTML)
-	_ = indexTmpl.Execute(w, links)
+	_ = galleryTmpl.Execute(w, view)
+}
+
+// assetsHandler serves the embedded gallery assets under /assets/ with a long
+// cache lifetime (they only change when the binary does).
+func assetsHandler() http.Handler {
+	fileServer := http.FileServerFS(assetsFS)
+	return http.StripPrefix("/assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		fileServer.ServeHTTP(w, r)
+	}))
+}
+
+// markdownItem builds a Markdown image snippet for an endpoint, e.g.
+// "![CPU](https://host/badges/cpu)". A relative URL is used if the request Host is
+// unusable (see baseURL).
+func markdownItem(base, kind, id, alt string) galleryItem {
+	return galleryItem{Markdown: "![" + mdEscapeAlt(alt) + "](" + base + "/" + kind + "/" + id + ")"}
+}
+
+// mdAltReplacer escapes characters that would break Markdown image alt text.
+var mdAltReplacer = strings.NewReplacer(`\`, `\\`, "[", `\[`, "]", `\]`, "\n", " ", "\r", " ")
+
+func mdEscapeAlt(s string) string { return mdAltReplacer.Replace(s) }
+
+// validHost matches a hostname or bracketed IPv6 literal with an optional port,
+// rejecting any character that could break out of the Markdown/URL context.
+var validHost = regexp.MustCompile(`^[A-Za-z0-9.\-:\[\]]+$`)
+
+// baseURL builds the absolute origin (scheme://host) for snippet URLs from the
+// request, honoring an X-Forwarded-Proto from a trusted proxy. The Host header is
+// validated so an attacker-controlled value cannot inject into the page; an
+// unusable Host yields "" (snippets fall back to relative URLs).
+func baseURL(r *http.Request) string {
+	if !validHost.MatchString(r.Host) {
+		return ""
+	}
+	scheme := "http"
+	switch proto := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0]); {
+	case proto == "https", proto == "http":
+		scheme = proto
+	case r.TLS != nil:
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
 }
 
 // hidden reports whether an endpoint should be hidden from the index, given its own

@@ -67,6 +67,7 @@ func New(cfg config.KromgoConfig, prom *prometheus.Client) (*Handler, error) {
 func (h *Handler) Mux() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", h.index)
+	mux.Handle("GET /assets/", assetsHandler())
 	mux.HandleFunc("GET /badges/{id}", h.serveBadge)
 	mux.HandleFunc("GET /graphs/{id}", h.serveGraph)
 	return mux

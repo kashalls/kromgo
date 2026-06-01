@@ -60,6 +60,9 @@
     },
     "Defaults": {
       "properties": {
+        "gallery": {
+          "type": "boolean"
+        },
         "hidden": {
           "type": "boolean"
         },

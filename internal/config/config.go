@@ -24,6 +24,9 @@ type KromgoConfig struct {
 
 // Defaults holds values applied to every endpoint, each overridable per endpoint.
 type Defaults struct {
+	// Gallery toggles the index gallery page at "/". Defaults to true; false serves
+	// a minimal landing page instead.
+	Gallery *bool `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 	// Hidden is the default index-page visibility. Defaults to true (all hidden).
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// CacheSeconds is the default Cache-Control max-age (in seconds). 0 disables caching.

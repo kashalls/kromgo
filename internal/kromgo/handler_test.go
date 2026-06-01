@@ -372,6 +372,17 @@ func TestIndexRoute(t *testing.T) {
 	w := promtest.Get(t, h.Mux(), "/")
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `<a href="/badges/cpu">cpu</a>`)
-	assert.Contains(t, w.Body.String(), `<a href="/graphs/cpu">cpu</a>`)
+	body := w.Body.String()
+	assert.Contains(t, body, `![cpu](http://example.com/badges/cpu)`)
+	assert.Contains(t, body, `![cpu](http://example.com/graphs/cpu)`)
+}
+
+func TestAssetsRoute(t *testing.T) {
+	srv := mockProm(t, "0", nil)
+	h := newHandlerForTest(t, baseConfig(), srv.URL)
+
+	w := promtest.Get(t, h.Mux(), "/assets/gallery.js")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "javascript")
 }

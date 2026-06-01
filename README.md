@@ -90,7 +90,8 @@ same-named field. All keys are optional.
 
 ```yaml
 defaults:
-    hidden: true # index visibility — true (default) hides every endpoint unless it opts in
+    gallery: true # serve the HTML gallery at "/" (default); false serves a minimal landing page
+    hidden: true # gallery visibility — true (default) hides every endpoint unless it opts in
     cacheSeconds: 0 # Cache-Control max-age in seconds; 0 disables caching
     badge:
         font: go-regular # go-regular (default), go-bold, go-medium, go-mono
@@ -300,14 +301,25 @@ family `go-regular` / `go-bold` / `go-medium` / `go-mono`. (Badges use the Go fa
 defaults to `go-regular`.) Fonts are compiled into the binary — there's no reading from disk, so add a
 new face by PRing it into the registry. An unknown name fails fast at startup.
 
-## Index page
+## Gallery
 
-`GET /` returns an HTML page listing all visible badges and graphs as clickable links. By default all
-endpoints are hidden.
+`GET /` serves a gallery: a responsive page (up to three columns, collapsing to one on mobile) that
+previews every visible badge and graph and shows the copy-pasteable Markdown snippet for each — the
+preview is rendered from that same snippet with [marked](https://github.com/markedjs/marked), so what
+you see is what a GitHub README will show. Snippet URLs are absolute, built from the request host (a
+reverse proxy's `X-Forwarded-Proto` is honored for the scheme).
 
-Set `defaults.hidden: false` to show everything, then opt individual endpoints out with
-`hidden: true`; or keep the default and opt specific ones in with `hidden: false`. When nothing is
-visible, the page displays _page intentionally blank_.
+The page is self-contained: its JavaScript and CSS are embedded in the binary and served from
+`/assets/` — no external CDN — so it works air-gapped and keeps a strict `script-src 'self'`
+Content-Security-Policy. (To update the vendored `marked`/`github-markdown-css`, see
+[`internal/kromgo/assets/ATTRIBUTION.md`](internal/kromgo/assets/ATTRIBUTION.md).)
+
+**Which endpoints appear.** By default all endpoints are hidden. Set `defaults.hidden: false` to list
+everything, then opt individual endpoints out with `hidden: true`; or keep the default and opt
+specific ones in with `hidden: false`. When nothing is visible the gallery shows a short hint instead.
+
+**Turning it off.** Set `defaults.gallery: false` to serve a minimal landing page at `/` instead of
+the gallery (the badge and graph endpoints are unaffected).
 
 ## API reference
 
@@ -315,7 +327,8 @@ visible, the page displays _page intentionally blank_.
 | ------------------ | ----------------------- | ------------------------------------------------------------------ |
 | `GET /badges/{id}` | SVG badge (`?style=…`)  | `?format=shields` → shields.io JSON · `?format=json` → kromgo JSON |
 | `GET /graphs/{id}` | SVG chart (`?theme=…`)  | `?format=png` → PNG image · `?format=json` → time-series data      |
-| `GET /`            | HTML index of endpoints |                                                                    |
+| `GET /`            | HTML gallery            | landing page when `defaults.gallery: false`                        |
+| `GET /assets/…`    | Embedded gallery JS/CSS |                                                                    |
 
 **`/badges/{id}`** (default SVG):
 
@@ -493,9 +506,12 @@ kromgo is built to face the public web. Its posture:
 - **Prometheus is never exposed.** Only the endpoints you define are reachable; query parameters are
   parsed as durations/timestamps/enums and never interpolated into PromQL.
 - **SVG output is safe.** Badge text and graph labels (which can derive from attacker-influenceable
-  metric label values) are HTML-escaped, and every response carries
+  metric label values) are HTML-escaped, and badge/graph/JSON responses carry
   `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'` and
   `X-Content-Type-Options: nosniff`, so an SVG can't execute script even when opened directly.
+- **The gallery loads nothing external.** Its JS/CSS are embedded and served from `/assets/`, so the
+  page ships a tightened-but-still-locked-down CSP (`script-src 'self'`, no `unsafe-inline`/`unsafe-eval`,
+  no CDN). The Host header used to build snippet URLs is validated before use.
 - **Bounded work.** Each Prometheus query is bounded by `QUERY_TIMEOUT` (default 30s); graph windows
   are capped by `maxDuration` and image dimensions are clamped. A 10s `ReadHeaderTimeout` guards
   against Slowloris; tune `SERVER_READ_TIMEOUT`/`SERVER_WRITE_TIMEOUT` to your proxy.

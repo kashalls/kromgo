@@ -65,12 +65,21 @@ func TestE2E(t *testing.T) {
 		assert.Contains(t, bodyString(t, resp), `"id":"cpu"`)
 	})
 
-	t.Run("index", func(t *testing.T) {
+	t.Run("index gallery", func(t *testing.T) {
 		resp := h.get("/")
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		body := bodyString(t, resp)
-		assert.Contains(t, body, `<a href="/badges/cpu">cpu</a>`)
-		assert.Contains(t, body, `<a href="/graphs/cpu">cpu</a>`)
+		// Copy-pasteable Markdown snippets (absolute URL built from the request host).
+		assert.Contains(t, body, `/badges/cpu)`)
+		assert.Contains(t, body, `/graphs/cpu)`)
+		assert.Contains(t, body, `/assets/marked.min.js`)
+		assert.Contains(t, resp.Header.Get("Content-Security-Policy"), "script-src 'self'")
+	})
+
+	t.Run("gallery asset", func(t *testing.T) {
+		resp := h.get("/assets/gallery.css")
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Contains(t, resp.Header.Get("Content-Type"), "text/css")
 	})
 
 	t.Run("security headers", func(t *testing.T) {
