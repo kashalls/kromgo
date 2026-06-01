@@ -54,8 +54,8 @@ type Metric struct {
 	Type string `yaml:"type,omitempty" json:"type,omitempty"`
 	// Range configures the windowed range query when Type is "range".
 	Range *RangeQuery `yaml:"range,omitempty" json:"range,omitempty"`
-	// Label extracts the value from this query-result label instead of the sample value.
-	Label string `yaml:"label,omitempty" json:"label,omitempty"`
+	// FromLabel uses the value of this query-result label instead of the sample value.
+	FromLabel string `yaml:"fromLabel,omitempty" json:"fromLabel,omitempty"`
 	// Prefix is prepended to the value in the response.
 	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 	// Suffix is appended to the value in the response.
@@ -98,10 +98,11 @@ type MetricTimeseriesConfig struct {
 
 // MetricColor maps a numeric range to a color and an optional display override.
 type MetricColor struct {
-	Min           float64 `yaml:"min" json:"min"`
-	Max           float64 `yaml:"max" json:"max"`
-	Color         string  `yaml:"color,omitempty" json:"color,omitempty"`
-	ValueOverride string  `yaml:"valueOverride,omitempty" json:"valueOverride,omitempty"`
+	Min   float64 `yaml:"min" json:"min"`
+	Max   float64 `yaml:"max" json:"max"`
+	Color string  `yaml:"color,omitempty" json:"color,omitempty"`
+	// Display replaces the shown value when this range matches (e.g. "Healthy").
+	Display string `yaml:"display,omitempty" json:"display,omitempty"`
 }
 
 // Badge configures SVG badge rendering.

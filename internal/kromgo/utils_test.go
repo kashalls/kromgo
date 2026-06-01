@@ -10,14 +10,14 @@ import (
 
 func TestGetColorConfig_MatchingRange(t *testing.T) {
 	colors := []config.MetricColor{
-		{Min: 0, Max: 10, Color: "blue", ValueOverride: "low"},
-		{Min: 11, Max: 20, Color: "green", ValueOverride: "medium"},
-		{Min: 21, Max: 30, Color: "red", ValueOverride: "high"},
+		{Min: 0, Max: 10, Color: "blue", Display: "low"},
+		{Min: 11, Max: 20, Color: "green", Display: "medium"},
+		{Min: 21, Max: 30, Color: "red", Display: "high"},
 	}
 
 	result := GetColorConfig(colors, 15.0)
 
-	expected := config.MetricColor{Min: 11, Max: 20, Color: "green", ValueOverride: "medium"}
+	expected := config.MetricColor{Min: 11, Max: 20, Color: "green", Display: "medium"}
 	assert.Equal(t, expected, result)
 }
 

@@ -69,7 +69,7 @@
         "range": {
           "$ref": "#/$defs/RangeQuery"
         },
-        "label": {
+        "fromLabel": {
           "type": "string"
         },
         "prefix": {
@@ -112,7 +112,7 @@
         "color": {
           "type": "string"
         },
-        "valueOverride": {
+        "display": {
           "type": "string"
         }
       },

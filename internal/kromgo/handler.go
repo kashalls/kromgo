@@ -164,16 +164,16 @@ func (h *Handler) buildResponse(metric *resolvedMetric, vector model.Vector, log
 		response = "metric returned no data"
 	}
 
-	if metric.Label != "" {
-		labelValue, err := ExtractLabelValue(vector, metric.Label)
+	if metric.FromLabel != "" {
+		labelValue, err := ExtractLabelValue(vector, metric.FromLabel)
 		if err != nil {
-			log.Error("label was not found in query result", "label", metric.Label, "error", err)
+			log.Error("label was not found in query result", "label", metric.FromLabel, "error", err)
 			return color, "", false
 		}
 		response = labelValue
 	}
-	if color.ValueOverride != "" {
-		response = color.ValueOverride
+	if color.Display != "" {
+		response = color.Display
 	}
 
 	if metric.template != nil {

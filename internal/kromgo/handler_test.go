@@ -190,7 +190,7 @@ func TestServeMetric_HistoryWindowTooLarge(t *testing.T) {
 
 func TestServeMetric_LabelExtraction(t *testing.T) {
 	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"version": "v1.2.3"}), nil)
-	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Label: "version"}}}
+	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", FromLabel: "version"}}}
 	h := newHandlerForTest(t, cfg, srv.URL)
 
 	w := doGet(t, h, "/ver")
@@ -201,7 +201,7 @@ func TestServeMetric_LabelExtraction(t *testing.T) {
 
 func TestServeMetric_LabelMissing_NoData(t *testing.T) {
 	srv := promtest.Server(t, promtest.Scalar("0", map[string]string{"other": "x"}), nil)
-	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", Label: "version"}}}
+	cfg := config.KromgoConfig{Metrics: []config.Metric{{Name: "ver", Query: "q", FromLabel: "version"}}}
 	h := newHandlerForTest(t, cfg, srv.URL)
 
 	w := doGet(t, h, "/ver")
@@ -210,11 +210,11 @@ func TestServeMetric_LabelMissing_NoData(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"isError":true`)
 }
 
-func TestServeMetric_ColorValueOverride(t *testing.T) {
+func TestServeMetric_ColorDisplay(t *testing.T) {
 	cfg := config.KromgoConfig{Metrics: []config.Metric{{
 		Name:   "ceph",
 		Query:  "q",
-		Colors: []config.MetricColor{{Min: 0, Max: 0, Color: "green", ValueOverride: "Healthy"}},
+		Colors: []config.MetricColor{{Min: 0, Max: 0, Color: "green", Display: "Healthy"}},
 	}}}
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)

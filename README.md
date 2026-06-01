@@ -115,7 +115,7 @@ Each entry under `metrics:` defines one queryable endpoint at `/{name}`.
 | `type`          | no       | `instant` (default) or `range` — see [Range queries](#range-queries)                            |
 | `range`         | no\*     | Range-query window when `type: range` — see [Range queries](#range-queries)                     |
 | `title`         | no       | Display label in badge/endpoint responses (defaults to `name`)                                  |
-| `label`         | no       | Extract value from this metric label instead of the sample value                                |
+| `fromLabel`     | no       | Use the value of this query-result label instead of the sample value                            |
 | `prefix`        | no       | String prepended to the value in the response (e.g. `v`)                                        |
 | `suffix`        | no       | String appended to the value in the response (e.g. `%`)                                         |
 | `valueTemplate` | no       | Go template applied to the value before prefix/suffix — see [Value templates](#value-templates) |
@@ -163,8 +163,8 @@ returns a single value.
 
 ### Colors
 
-Assign a badge color based on the numeric value. Use `valueOverride` to replace the displayed value
-text entirely.
+Assign a badge color based on the numeric value. Use `display` to replace the shown value text
+entirely.
 
 ```yaml
 metrics:
@@ -179,9 +179,9 @@ metrics:
     - name: ceph_health
       query: "ceph_health_status{}"
       colors:
-          - { color: "green", min: 0, max: 0, valueOverride: "Healthy" }
-          - { color: "orange", min: 1, max: 1, valueOverride: "Warning" }
-          - { color: "red", min: 2, max: 2, valueOverride: "Critical" }
+          - { color: "green", min: 0, max: 0, display: "Healthy" }
+          - { color: "orange", min: 1, max: 1, display: "Warning" }
+          - { color: "red", min: 2, max: 2, display: "Critical" }
 ```
 
 Supported color names: `blue`, `brightgreen`, `green`, `grey`, `lightgrey`, `orange`, `red`,
@@ -483,6 +483,7 @@ formats are unchanged — but a few deployment details changed:
 | **`LOG_FORMAT=test` renamed to `LOG_FORMAT=text`.**                                                                                                                                                                                                                                                                                                            | Set `LOG_FORMAT=text` for human-readable logs (default remains JSON).                                                                                                                 |
 | **Built-in rate limiting removed** (`RATELIMIT_*` env vars).                                                                                                                                                                                                                                                                                                   | Rate limit at your reverse proxy — see [Rate limiting](#rate-limiting).                                                                                                               |
 | **Config schema reorganized.** Top-level `hideAll`/`history`/`cacheSeconds` defaults moved under a `defaults:` block (`defaults.hidden`, `defaults.timeseries`, `defaults.cacheSeconds`); per-metric `history` is now `timeseries`; the named-`templates` map was removed. (`range` is now a metric query [type](#range-queries), not the history/chart gate.) | Move global defaults under `defaults:`, rename per-metric `history` → `timeseries`, and inline value templates (use a YAML anchor to reuse one). See [Configuration](#configuration). |
+| **Per-metric keys renamed** for clarity: `label` → `fromLabel`, and a color's `valueOverride` → `display`.                                                                                                                                                                                                                                                     | Rename those keys in your metric definitions.                                                                                                                                         |
 | **Missing `PROMETHEUS_URL` now fails fast** instead of starting degraded.                                                                                                                                                                                                                                                                                      | Ensure `PROMETHEUS_URL` (or `prometheus` in config) is set.                                                                                                                           |
 | **Schema URL** in `config.yaml` examples.                                                                                                                                                                                                                                                                                                                      | Point `# yaml-language-server: $schema=` at `home-operations/kromgo`.                                                                                                                 |
 
