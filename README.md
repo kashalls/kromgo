@@ -79,8 +79,9 @@ metrics:
       suffix: "%"
 ```
 
-See [config.yaml.example](./config.yaml.example) for a full example with colors, templates, and
-badges. A JSON Schema for editor validation is published at [config.schema.json](./config.schema.json).
+See the sections below for the full set of options — colors, value templates, history/charts, and
+badges. A JSON Schema for editor validation is published at [config.schema.json](./config.schema.json);
+point your editor's YAML language server at it for inline completion and validation.
 
 ### Environment variables
 
