@@ -35,6 +35,7 @@ func humanizerFuncs() []cel.EnvOption {
 		fn("humanBytes", humanBytes),
 		fn("humanSIBytes", humanSIBytes),
 		fn("humanizeThousands", humanizeThousands),
+		fn("humanizeFtoa", humanizeFtoa),
 		fn("humanDuration", humanDuration),
 		fn("humanizeAge", humanizeAge),
 	}

@@ -30,8 +30,9 @@ func TestCEL_Expressions(t *testing.T) {
 		{"label", `labels["version"]`, 0, map[string]string{"version": "v1.2.3"}, "v1.2.3"},
 		{"humanBytes", `humanBytes(result)`, 1572864, nil, "1.5 MiB"},
 		{"humanDuration", `humanDuration(result)`, 9000, nil, "2h30m"},
-		{"humanizeAge", `humanizeAge(result)`, 467, nil, "1y3m12d"},
+		{"humanizeAge", `humanizeAge(result)`, 467 * 86400, nil, "1y3m12d"},
 		{"humanizeThousands", `humanizeThousands(result)`, 1000000, nil, "1,000,000"},
+		{"humanizeFtoa", `humanizeFtoa(result)`, 2.5, nil, "2.5"},
 		{"string method", `labels["x"].startsWith("v") ? "yes" : "no"`, 0, map[string]string{"x": "v1"}, "yes"},
 		{"safe label", `"version" in labels ? labels["version"] : "unknown"`, 0, nil, "unknown"},
 	}

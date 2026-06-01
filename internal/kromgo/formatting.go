@@ -22,6 +22,12 @@ func humanSIBytes(f float64) string { return humanize.Bytes(uint64(f)) }
 // humanizeThousands adds comma thousands separators, e.g. 157121 -> "157,121".
 func humanizeThousands(f float64) string { return humanize.Commaf(f) }
 
+// humanizeFtoa formats a float as plain decimal with trailing zeros stripped,
+// e.g. 200.0 -> "200", 2.50 -> "2.5". Unlike humanizeThousands it adds no
+// separators — handy when CEL's own string(result) would use scientific
+// notation or keep noisy zeros.
+func humanizeFtoa(f float64) string { return humanize.Ftoa(f) }
+
 // humanDuration formats a number of seconds as a compact duration, e.g. 9000 -> "2h30m".
 func humanDuration(f float64) string {
 	total := int(math.Round(f))
@@ -48,11 +54,14 @@ func humanDuration(f float64) string {
 	return strings.Join(parts, "")
 }
 
-// humanizeAge formats a number of days as a coarse age — years, months, days, no
-// hours/minutes/seconds — e.g. 467 -> "1y3m12d". Months use 30 days and years 365
-// (approximate, which is fine for an "age" badge). Zero components are omitted.
+// humanizeAge formats a number of seconds as a coarse age — years, months,
+// days, no hours/minutes/seconds — e.g. ~467d -> "1y3m12d". Takes seconds (like
+// humanDuration) so it drops straight onto a `time() - created` query; it just
+// renders at a coarser resolution. Months use 30 days and years 365
+// (approximate, which is fine for an "age" badge). Zero components are omitted;
+// anything under a day rounds down to "0d".
 func humanizeAge(f float64) string {
-	days := int(math.Round(f))
+	days := int(f / 86400)
 	if days < 0 {
 		days = 0
 	}

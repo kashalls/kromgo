@@ -197,13 +197,18 @@ Besides CEL's built-ins (arithmetic, comparisons, ternary `?:`, `in`, the `strin
 `startsWith`, `matches`, `upperAscii`, …) these humanizer functions are available (byte and comma
 formatting come from [go-humanize](https://github.com/dustin/go-humanize)):
 
-| Function                    | Example                       | Result    |
-| --------------------------- | ----------------------------- | --------- |
-| `humanBytes(result)`        | `humanBytes(1572864.0)`       | `1.5 MiB` |
-| `humanSIBytes(result)`      | `humanSIBytes(1500000.0)`     | `1.5 MB`  |
-| `humanizeThousands(result)` | `humanizeThousands(157121.0)` | `157,121` |
-| `humanDuration(result)`     | `humanDuration(9000.0)`       | `2h30m`   |
-| `humanizeAge(result)`       | `humanizeAge(467.0)`          | `1y3m12d` |
+| Function                    | Example                       | Result    | Notes                                   |
+| --------------------------- | ----------------------------- | --------- | --------------------------------------- |
+| `humanBytes(result)`        | `humanBytes(1572864.0)`       | `1.5 MiB` | IEC binary units                        |
+| `humanSIBytes(result)`      | `humanSIBytes(1500000.0)`     | `1.5 MB`  | SI decimal units                        |
+| `humanizeThousands(result)` | `humanizeThousands(157121.0)` | `157,121` | comma separators                        |
+| `humanizeFtoa(result)`      | `humanizeFtoa(2.50)`          | `2.5`     | plain decimal, trailing zeros stripped  |
+| `humanDuration(result)`     | `humanDuration(9000.0)`       | `2h30m`   | **seconds** → fine-grained, down to `s` |
+| `humanizeAge(result)`       | `humanizeAge(40348800.0)`     | `1y3m12d` | **seconds** → coarse, `y`/`m`/`d` only  |
+
+`humanDuration` and `humanizeAge` both take **seconds** (so they drop onto a `time() - created_ts`
+query directly); they differ only in resolution — use `humanDuration` for sub-day spans like uptime,
+`humanizeAge` for long-lived "age" badges where hours/minutes are noise.
 
 Two gotchas: CEL is strictly typed, so compare `result` against **decimal** literals (`result <
 35.0`, not `35`); and indexing a missing label errors — use `"k" in labels ? labels["k"] : "n/a"`
