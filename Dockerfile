@@ -1,5 +1,5 @@
-# Vendor the npm packages (marked, github-markdown-css, @mdi/svg) that become the
-# embedded assets. Pinned by package-lock.json and kept current by Renovate.
+# Vendor the npm packages (marked, github-markdown-css, @mdi/svg, simple-icons) that
+# become the embedded assets. Pinned by package-lock.json and kept current by Renovate.
 FROM node:24-alpine AS assets
 WORKDIR /src
 COPY package.json package-lock.json ./

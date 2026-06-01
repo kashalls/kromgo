@@ -1,8 +1,8 @@
 // Command genassets builds the assets that internal/kromgo embeds with //go:embed,
 // from the npm packages vendored in node_modules (marked, github-markdown-css,
-// @mdi/svg). Versions are pinned in package.json / package-lock.json and kept
-// current by Renovate; this program is a pure local transform — it does no network
-// I/O. Run `npm ci` (or `mise run assets`) first to populate node_modules.
+// @mdi/svg, simple-icons). Versions are pinned in package.json / package-lock.json
+// and kept current by Renovate; this program is a pure local transform — it does no
+// network I/O. Run `npm ci` (or `mise run assets`) first to populate node_modules.
 //
 //	npm ci && go run ./cmd/genassets
 //
@@ -31,8 +31,9 @@ var (
 	// sourceMapRe drops a trailing //# sourceMappingURL comment so the embedded JS
 	// references nothing external.
 	sourceMapRe = regexp.MustCompile(`(?m)^\s*//[#@]\s*sourceMappingURL=.*$\n?`)
-	// mdiPathRe extracts the geometry from an MDI glyph's single <path d="…">.
-	mdiPathRe = regexp.MustCompile(`\bd="([^"]+)"`)
+	// svgPathRe extracts the geometry from an icon glyph's single <path d="…">. The
+	// word boundary skips id="…" so it matches only the path's d attribute.
+	svgPathRe = regexp.MustCompile(`\bd="([^"]+)"`)
 )
 
 func main() {
@@ -53,6 +54,7 @@ func run() error {
 		{"marked.js", genMarked},
 		{"github-markdown.css", genMarkdownCSS},
 		{"mdi.txt.gz", genMDI},
+		{"si.txt.gz", genSimpleIcons},
 	}
 	for _, s := range steps {
 		data, err := s.gen()
@@ -80,9 +82,21 @@ func genMarkdownCSS() ([]byte, error) {
 	return os.ReadFile(filepath.Join(nodeModules, "github-markdown-css", "github-markdown.css"))
 }
 
-// genMDI reads every @mdi/svg glyph and builds a gzipped, sorted "name\tpath" table.
+// genMDI builds the Material Design Icons table from @mdi/svg.
 func genMDI() ([]byte, error) {
-	dir := filepath.Join(nodeModules, "@mdi", "svg", "svg")
+	return genIconSet("MDI", filepath.Join(nodeModules, "@mdi", "svg", "svg"))
+}
+
+// genSimpleIcons builds the Simple Icons table from simple-icons. Each file is named
+// by slug and holds a single 24x24 <path> alongside a <title>, like @mdi/svg.
+func genSimpleIcons() ([]byte, error) {
+	return genIconSet("Simple Icons", filepath.Join(nodeModules, "simple-icons", "icons"))
+}
+
+// genIconSet reads every single-path SVG glyph under dir (filename minus ".svg" is the
+// icon name) and builds a gzipped, sorted "name\tpath" table. label is used only in the
+// progress line.
+func genIconSet(label, dir string) ([]byte, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -97,7 +111,7 @@ func genMDI() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		m := mdiPathRe.FindSubmatch(data)
+		m := svgPathRe.FindSubmatch(data)
 		if m == nil {
 			return nil, fmt.Errorf("no path in %s", e.Name())
 		}
@@ -127,6 +141,6 @@ func genMDI() ([]byte, error) {
 	if err := zw.Close(); err != nil {
 		return nil, err
 	}
-	fmt.Printf("      (%d MDI icons)\n", len(names))
+	fmt.Printf("      (%d %s icons)\n", len(names), label)
 	return buf.Bytes(), nil
 }

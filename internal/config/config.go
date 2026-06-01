@@ -97,7 +97,8 @@ type Badge struct {
 	Color string `yaml:"color,omitempty" json:"color,omitempty"`
 	// Style overrides defaults.badge.style for this badge.
 	Style string `yaml:"style,omitempty" json:"style,omitempty"`
-	// Icon renders a Material Design Icon on the SVG badge, e.g. "mdi:server-outline".
+	// Icon renders an icon on the SVG badge, written as "<set>:<name>": a Material Design
+	// Icon (e.g. "mdi:server-outline") or a Simple Icons brand logo (e.g. "si:kubernetes").
 	Icon string `yaml:"icon,omitempty" json:"icon,omitempty"`
 	// Gallery holds this badge's gallery settings (e.g. hidden), overriding defaults.badge.gallery.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
