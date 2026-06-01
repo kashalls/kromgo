@@ -113,7 +113,7 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 	// served from a shared cache.
 	header.Set("Cache-Control", "no-store")
 
-	if !firstBool(true, h.cfg.Gallery.Enabled) {
+	if !firstSet(true, h.cfg.Gallery.Enabled) {
 		_ = landingTmpl.Execute(w, nil)
 		return
 	}
@@ -197,11 +197,5 @@ func baseURL(r *http.Request) string {
 // hidden reports whether an endpoint should be hidden from the gallery, given its
 // own gallery.hidden override and the per-type default. Shown when neither is set.
 func hidden(item, def *bool) bool {
-	if item != nil {
-		return *item
-	}
-	if def != nil {
-		return *def
-	}
-	return false // default: shown when not specified
+	return firstSet(false, item, def)
 }

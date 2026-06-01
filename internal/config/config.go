@@ -228,27 +228,33 @@ func (c KromgoConfig) validate() error {
 	if s := c.Defaults.Badge.Style; s != "" && !ValidStyle[s] {
 		return fmt.Errorf("defaults.badge.style: unknown style %q", s)
 	}
-
-	seen := map[string]bool{}
-	for _, b := range c.Badges {
-		if err := b.validate(); err != nil {
-			return err
-		}
-		if seen[b.ID] {
-			return fmt.Errorf("badge %q: duplicate id", b.ID)
-		}
-		seen[b.ID] = true
+	if err := validateEndpoints(c.Badges, "badge"); err != nil {
+		return err
 	}
+	return validateEndpoints(c.Graphs, "graph")
+}
 
-	seen = map[string]bool{}
-	for _, g := range c.Graphs {
-		if err := g.validate(); err != nil {
+// endpoint is the shape validateEndpoints needs from a badge or graph.
+type endpoint interface {
+	id() string
+	validate() error
+}
+
+func (b Badge) id() string { return b.ID }
+func (g Graph) id() string { return g.ID }
+
+// validateEndpoints validates each endpoint and rejects duplicate ids. kind names
+// the section ("badge"/"graph") for error messages.
+func validateEndpoints[T endpoint](items []T, kind string) error {
+	seen := make(map[string]bool, len(items))
+	for _, it := range items {
+		if err := it.validate(); err != nil {
 			return err
 		}
-		if seen[g.ID] {
-			return fmt.Errorf("graph %q: duplicate id", g.ID)
+		if seen[it.id()] {
+			return fmt.Errorf("%s %q: duplicate id", kind, it.id())
 		}
-		seen[g.ID] = true
+		seen[it.id()] = true
 	}
 	return nil
 }

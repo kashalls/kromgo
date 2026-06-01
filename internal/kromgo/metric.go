@@ -57,7 +57,7 @@ func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedB
 
 	rb := &resolvedBadge{
 		Badge:        b,
-		cacheSeconds: intOr(b.CacheSeconds, def.CacheSeconds),
+		cacheSeconds: firstSet(def.CacheSeconds, b.CacheSeconds),
 		style:        cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
 		iconPath:     iconPath,
 	}
@@ -92,12 +92,12 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 
 	rg := &resolvedGraph{
 		Graph:        g,
-		cacheSeconds: intOr(g.CacheSeconds, def.CacheSeconds),
+		cacheSeconds: firstSet(def.CacheSeconds, g.CacheSeconds),
 		maxDuration:  defaultGraphMaxDuration,
 		defaults: chartParams{
 			width:  cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
 			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
-			legend: firstBool(true, g.Legend, def.Graph.Legend),
+			legend: firstSet(true, g.Legend, def.Graph.Legend),
 			theme:  theme,
 			title:  displayTitle(g.Title, g.ID),
 			font:   font,
@@ -148,20 +148,14 @@ func displayTitle(title, id string) string {
 	return cmp.Or(title, id)
 }
 
-// firstBool returns the first non-nil pointer's value, else fallback.
-func firstBool(fallback bool, vs ...*bool) bool {
-	for _, v := range vs {
-		if v != nil {
-			return *v
+// firstSet returns the value of the first non-nil pointer, else fallback — the
+// "optional override(s) with a default" pattern used across config resolution
+// (a nil pointer means "unset", distinct from a zero value).
+func firstSet[T any](fallback T, ptrs ...*T) T {
+	for _, p := range ptrs {
+		if p != nil {
+			return *p
 		}
-	}
-	return fallback
-}
-
-// intOr returns *override when set, else fallback.
-func intOr(override *int, fallback int) int {
-	if override != nil {
-		return *override
 	}
 	return fallback
 }
