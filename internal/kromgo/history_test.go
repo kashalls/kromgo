@@ -259,65 +259,65 @@ func mustResolve(t *testing.T, m config.Metric, cfg config.KromgoConfig) *resolv
 	return rm
 }
 
-// rangeDefaults builds a config whose only setting is the default range config.
-func rangeDefaults(rc config.RangeConfig) config.KromgoConfig {
-	return config.KromgoConfig{Defaults: config.Defaults{Range: rc}}
+// tsDefaults builds a config whose only setting is the default timeseries config.
+func tsDefaults(rc config.TimeseriesConfig) config.KromgoConfig {
+	return config.KromgoConfig{Defaults: config.Defaults{Timeseries: rc}}
 }
 
-func TestResolveMetric_RangeEnabled_DefaultOff(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{Enabled: false}))
+func TestResolveMetric_TimeseriesEnabled_DefaultOff(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{Enabled: false}))
 	if rm.historyEnabled {
 		t.Error("expected range disabled by default")
 	}
 }
 
-func TestResolveMetric_RangeEnabled_DefaultOn(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{Enabled: true}))
+func TestResolveMetric_TimeseriesEnabled_DefaultOn(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{Enabled: true}))
 	if !rm.historyEnabled {
 		t.Error("expected range enabled via defaults")
 	}
 }
 
-func TestResolveMetric_RangeEnabled_PerMetricOverrideOn(t *testing.T) {
-	m := config.Metric{Name: "test", Range: &config.MetricRangeConfig{Enabled: new(true)}}
-	rm := mustResolve(t, m, rangeDefaults(config.RangeConfig{Enabled: false}))
+func TestResolveMetric_TimeseriesEnabled_PerMetricOverrideOn(t *testing.T) {
+	m := config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(true)}}
+	rm := mustResolve(t, m, tsDefaults(config.TimeseriesConfig{Enabled: false}))
 	if !rm.historyEnabled {
 		t.Error("expected per-metric override to enable range")
 	}
 }
 
-func TestResolveMetric_RangeEnabled_PerMetricOverrideOff(t *testing.T) {
-	m := config.Metric{Name: "test", Range: &config.MetricRangeConfig{Enabled: new(false)}}
-	rm := mustResolve(t, m, rangeDefaults(config.RangeConfig{Enabled: true}))
+func TestResolveMetric_TimeseriesEnabled_PerMetricOverrideOff(t *testing.T) {
+	m := config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(false)}}
+	rm := mustResolve(t, m, tsDefaults(config.TimeseriesConfig{Enabled: true}))
 	if rm.historyEnabled {
 		t.Error("expected per-metric override to disable range")
 	}
 }
 
-func TestResolveMetric_RangeMax_Default(t *testing.T) {
+func TestResolveMetric_TimeseriesMax_Default(t *testing.T) {
 	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{})
 	if rm.historyMax != time.Hour {
 		t.Errorf("expected default max duration 1h, got %v", rm.historyMax)
 	}
 }
 
-func TestResolveMetric_RangeMax_DefaultConfigured(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{MaxDuration: "24h"}))
+func TestResolveMetric_TimeseriesMax_DefaultConfigured(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}))
 	if rm.historyMax != 24*time.Hour {
 		t.Errorf("expected 24h, got %v", rm.historyMax)
 	}
 }
 
-func TestResolveMetric_RangeMax_PerMetricOverridesDefault(t *testing.T) {
-	m := config.Metric{Name: "test", Range: &config.MetricRangeConfig{MaxDuration: "720h"}}
-	rm := mustResolve(t, m, rangeDefaults(config.RangeConfig{MaxDuration: "24h"}))
+func TestResolveMetric_TimeseriesMax_PerMetricOverridesDefault(t *testing.T) {
+	m := config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{MaxDuration: "720h"}}
+	rm := mustResolve(t, m, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}))
 	if rm.historyMax != 720*time.Hour {
 		t.Errorf("expected 720h, got %v", rm.historyMax)
 	}
 }
 
-func TestResolveMetric_RangeMax_Unlimited(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, rangeDefaults(config.RangeConfig{MaxDuration: "0"}))
+func TestResolveMetric_TimeseriesMax_Unlimited(t *testing.T) {
+	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "0"}))
 	if rm.historyMax != 0 {
 		t.Errorf("expected 0 (unlimited), got %v", rm.historyMax)
 	}

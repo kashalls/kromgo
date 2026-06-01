@@ -28,12 +28,13 @@ type Defaults struct {
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// CacheSeconds is the default Cache-Control max-age (in seconds). 0 disables caching.
 	CacheSeconds int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
-	// Range controls access to format=history and format=chart (range query) requests.
-	Range RangeConfig `yaml:"range,omitempty" json:"range,omitempty"`
+	// Timeseries controls access to the format=history and format=chart output formats.
+	Timeseries TimeseriesConfig `yaml:"timeseries,omitempty" json:"timeseries,omitempty"`
 }
 
-// RangeConfig holds the default settings for range-query (history/chart) requests.
-type RangeConfig struct {
+// TimeseriesConfig holds the default settings for the format=history and format=chart
+// time-series output endpoints.
+type TimeseriesConfig struct {
 	// Enabled must be true to allow format=history and format=chart requests. Defaults to false.
 	Enabled bool `yaml:"enabled" json:"enabled"`
 	// MaxDuration caps the time window per request (e.g. "24h", "7d"). Defaults to "1h".
@@ -48,6 +49,11 @@ type Metric struct {
 	Title string `yaml:"title,omitempty" json:"title,omitempty"`
 	// Query is the PromQL expression to run.
 	Query string `yaml:"query" json:"query"`
+	// Type selects how the value is computed: "instant" (default) runs an instant
+	// query; "range" runs a range query over Range's window and reduces it to a value.
+	Type string `yaml:"type,omitempty" json:"type,omitempty"`
+	// Range configures the windowed range query when Type is "range".
+	Range *RangeQuery `yaml:"range,omitempty" json:"range,omitempty"`
 	// Label extracts the value from this query-result label instead of the sample value.
 	Label string `yaml:"label,omitempty" json:"label,omitempty"`
 	// Prefix is prepended to the value in the response.
@@ -63,17 +69,30 @@ type Metric struct {
 	Colors []MetricColor `yaml:"colors,omitempty" json:"colors,omitempty"`
 	// Hidden overrides defaults.hidden for this metric. If nil, the default applies.
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
-	// Range overrides defaults.range for this metric. If nil, the defaults apply.
-	Range *MetricRangeConfig `yaml:"range,omitempty" json:"range,omitempty"`
+	// Timeseries overrides defaults.timeseries for this metric. If nil, the defaults apply.
+	Timeseries *MetricTimeseriesConfig `yaml:"timeseries,omitempty" json:"timeseries,omitempty"`
 	// CacheSeconds overrides defaults.cacheSeconds for this metric. If nil, the default applies.
 	CacheSeconds *int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }
 
-// MetricRangeConfig overrides the default RangeConfig for a single metric.
-type MetricRangeConfig struct {
-	// Enabled overrides defaults.range.enabled for this metric.
+// RangeQuery configures a windowed range query (Metric.Type == "range"). The window
+// is end = now - offset, start = end - last; each series is reduced to one value.
+type RangeQuery struct {
+	// Last is the window length (e.g. "7d"). Required.
+	Last string `yaml:"last" json:"last"`
+	// Offset shifts the window back in time (e.g. "7d"). Defaults to none (window ends now).
+	Offset string `yaml:"offset,omitempty" json:"offset,omitempty"`
+	// Step is the range-query resolution (e.g. "1h"). Defaults to last/100, min 1m.
+	Step string `yaml:"step,omitempty" json:"step,omitempty"`
+	// Reduce collapses each series to one value: last (default), first, avg, min, max, sum.
+	Reduce string `yaml:"reduce,omitempty" json:"reduce,omitempty"`
+}
+
+// MetricTimeseriesConfig overrides the default TimeseriesConfig for a single metric.
+type MetricTimeseriesConfig struct {
+	// Enabled overrides defaults.timeseries.enabled for this metric.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	// MaxDuration overrides defaults.range.maxDuration for this metric (e.g. "24h").
+	// MaxDuration overrides defaults.timeseries.maxDuration for this metric (e.g. "24h").
 	MaxDuration string `yaml:"maxDuration,omitempty" json:"maxDuration,omitempty"`
 }
 
@@ -125,19 +144,70 @@ func (c KromgoConfig) MetricsByName() map[string]Metric {
 	return out
 }
 
-// validate checks that all configured durations parse.
+// Query type and range-reduce values.
+const (
+	TypeInstant = "instant"
+	TypeRange   = "range"
+
+	ReduceLast  = "last"
+	ReduceFirst = "first"
+	ReduceAvg   = "avg"
+	ReduceMin   = "min"
+	ReduceMax   = "max"
+	ReduceSum   = "sum"
+)
+
+// ValidReduce is the set of supported range-query reducers.
+var ValidReduce = map[string]bool{
+	ReduceLast: true, ReduceFirst: true, ReduceAvg: true,
+	ReduceMin: true, ReduceMax: true, ReduceSum: true,
+}
+
+// validate checks durations, query type, and the range-query block.
 func (c KromgoConfig) validate() error {
-	if s := c.Defaults.Range.MaxDuration; s != "" {
+	if s := c.Defaults.Timeseries.MaxDuration; s != "" {
 		if _, err := ParseDuration(s); err != nil {
-			return fmt.Errorf("defaults.range.maxDuration: %w", err)
+			return fmt.Errorf("defaults.timeseries.maxDuration: %w", err)
 		}
 	}
 	for _, m := range c.Metrics {
-		if m.Range != nil && m.Range.MaxDuration != "" {
-			if _, err := ParseDuration(m.Range.MaxDuration); err != nil {
-				return fmt.Errorf("metric %q range.maxDuration: %w", m.Name, err)
+		if m.Timeseries != nil && m.Timeseries.MaxDuration != "" {
+			if _, err := ParseDuration(m.Timeseries.MaxDuration); err != nil {
+				return fmt.Errorf("metric %q timeseries.maxDuration: %w", m.Name, err)
 			}
+		}
+		if err := m.validate(); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// validate checks a metric's query type and range-query block.
+func (m Metric) validate() error {
+	switch m.Type {
+	case "", TypeInstant:
+		if m.Range != nil {
+			return fmt.Errorf("metric %q: range block is only valid with type: range", m.Name)
+		}
+		return nil
+	case TypeRange:
+		if m.Range == nil || m.Range.Last == "" {
+			return fmt.Errorf("metric %q: type range requires range.last", m.Name)
+		}
+		for name, val := range map[string]string{"last": m.Range.Last, "offset": m.Range.Offset, "step": m.Range.Step} {
+			if val == "" {
+				continue
+			}
+			if _, err := ParseDuration(val); err != nil {
+				return fmt.Errorf("metric %q range.%s: %w", m.Name, name, err)
+			}
+		}
+		if m.Range.Reduce != "" && !ValidReduce[m.Range.Reduce] {
+			return fmt.Errorf("metric %q range.reduce: unknown reducer %q", m.Name, m.Range.Reduce)
+		}
+		return nil
+	default:
+		return fmt.Errorf("metric %q: unknown type %q (want %q or %q)", m.Name, m.Type, TypeInstant, TypeRange)
+	}
 }

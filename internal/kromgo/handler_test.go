@@ -40,7 +40,7 @@ func baseConfig() config.KromgoConfig {
 				Colors: []config.MetricColor{{Min: 0, Max: 50, Color: "green"}},
 			},
 		},
-		Defaults: config.Defaults{Range: config.RangeConfig{Enabled: true, MaxDuration: "24h"}},
+		Defaults: config.Defaults{Timeseries: config.TimeseriesConfig{Enabled: true, MaxDuration: "24h"}},
 	}
 }
 
@@ -159,7 +159,7 @@ func TestServeMetric_History(t *testing.T) {
 
 func TestServeMetric_HistoryDisabled(t *testing.T) {
 	cfg := baseConfig()
-	cfg.Defaults.Range.Enabled = false
+	cfg.Defaults.Timeseries.Enabled = false
 	srv := mockProm(t, "0", []float64{1, 2, 3})
 	h := newHandlerForTest(t, cfg, srv.URL)
 
@@ -283,6 +283,26 @@ func TestCacheControl_ErrorsNotCached(t *testing.T) {
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+}
+
+func TestServeMetric_RangeType(t *testing.T) {
+	// type: range reduces a range query to one value (avg of 10,20,30 = 20).
+	cfg := config.KromgoConfig{
+		Metrics: []config.Metric{{
+			Name:   "cpu_avg",
+			Type:   config.TypeRange,
+			Query:  "q",
+			Suffix: "%",
+			Range:  &config.RangeQuery{Last: "1h", Reduce: config.ReduceAvg},
+		}},
+	}
+	srv := promtest.Server(t, nil, []float64{10, 20, 30})
+	h := newHandlerForTest(t, cfg, srv.URL)
+
+	w := doGet(t, h, "/cpu_avg")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"message":"20%"`)
 }
 
 func TestIndexRoute(t *testing.T) {

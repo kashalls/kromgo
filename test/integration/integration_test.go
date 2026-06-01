@@ -35,7 +35,7 @@ func newHandler(t *testing.T) *kromgo.Handler {
 		Metrics: []config.Metric{
 			{Name: "up", Query: "sum(up)"},
 		},
-		Defaults: config.Defaults{Range: config.RangeConfig{Enabled: true, MaxDuration: "24h"}},
+		Defaults: config.Defaults{Timeseries: config.TimeseriesConfig{Enabled: true, MaxDuration: "24h"}},
 	}
 	h, err := kromgo.New(cfg, client)
 	require.NoError(t, err)

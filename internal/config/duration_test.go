@@ -83,9 +83,9 @@ func TestParseDuration_Invalid(t *testing.T) {
 
 func TestValidate_Valid(t *testing.T) {
 	cfg := KromgoConfig{
-		Defaults: Defaults{Range: RangeConfig{MaxDuration: "24h"}},
+		Defaults: Defaults{Timeseries: TimeseriesConfig{MaxDuration: "24h"}},
 		Metrics: []Metric{
-			{Name: "cpu", Range: &MetricRangeConfig{MaxDuration: "7d"}},
+			{Name: "cpu", Timeseries: &MetricTimeseriesConfig{MaxDuration: "7d"}},
 			{Name: "mem"},
 		},
 	}
@@ -96,20 +96,43 @@ func TestValidate_Valid(t *testing.T) {
 
 func TestValidate_InvalidDefault(t *testing.T) {
 	cfg := KromgoConfig{
-		Defaults: Defaults{Range: RangeConfig{MaxDuration: "bogus"}},
+		Defaults: Defaults{Timeseries: TimeseriesConfig{MaxDuration: "bogus"}},
 	}
 	if err := cfg.validate(); err == nil {
-		t.Fatal("expected error for invalid defaults.range.maxDuration")
+		t.Fatal("expected error for invalid defaults.timeseries.maxDuration")
 	}
 }
 
 func TestValidate_InvalidMetric(t *testing.T) {
 	cfg := KromgoConfig{
 		Metrics: []Metric{
-			{Name: "cpu", Range: &MetricRangeConfig{MaxDuration: "not-a-duration"}},
+			{Name: "cpu", Timeseries: &MetricTimeseriesConfig{MaxDuration: "not-a-duration"}},
 		},
 	}
 	if err := cfg.validate(); err == nil {
 		t.Fatal("expected error for invalid metric maxDuration")
+	}
+}
+
+func TestValidate_RangeType(t *testing.T) {
+	ok := KromgoConfig{Metrics: []Metric{
+		{Name: "ok", Type: TypeRange, Range: &RangeQuery{Last: "7d", Offset: "1d", Step: "1h", Reduce: ReduceAvg}},
+	}}
+	if err := ok.validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	bad := []KromgoConfig{
+		{Metrics: []Metric{{Name: "no-range", Type: TypeRange}}},                                // type range without range block
+		{Metrics: []Metric{{Name: "no-last", Type: TypeRange, Range: &RangeQuery{Step: "1h"}}}}, // missing last
+		{Metrics: []Metric{{Name: "bad-reduce", Type: TypeRange, Range: &RangeQuery{Last: "7d", Reduce: "median"}}}},
+		{Metrics: []Metric{{Name: "bad-dur", Type: TypeRange, Range: &RangeQuery{Last: "soon"}}}},
+		{Metrics: []Metric{{Name: "range-on-instant", Range: &RangeQuery{Last: "7d"}}}}, // range block without type: range
+		{Metrics: []Metric{{Name: "bad-type", Type: "scalar"}}},
+	}
+	for _, cfg := range bad {
+		if err := cfg.validate(); err == nil {
+			t.Errorf("expected validation error for %q", cfg.Metrics[0].Name)
+		}
 	}
 }

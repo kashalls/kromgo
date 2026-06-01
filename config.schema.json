@@ -23,8 +23,8 @@
         "cacheSeconds": {
           "type": "integer"
         },
-        "range": {
-          "$ref": "#/$defs/RangeConfig"
+        "timeseries": {
+          "$ref": "#/$defs/TimeseriesConfig"
         }
       },
       "additionalProperties": false,
@@ -63,6 +63,12 @@
         "query": {
           "type": "string"
         },
+        "type": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/RangeQuery"
+        },
         "label": {
           "type": "string"
         },
@@ -84,8 +90,8 @@
         "hidden": {
           "type": "boolean"
         },
-        "range": {
-          "$ref": "#/$defs/MetricRangeConfig"
+        "timeseries": {
+          "$ref": "#/$defs/MetricTimeseriesConfig"
         },
         "cacheSeconds": {
           "type": "integer"
@@ -114,7 +120,7 @@
       "type": "object",
       "required": ["min", "max"]
     },
-    "MetricRangeConfig": {
+    "MetricTimeseriesConfig": {
       "properties": {
         "enabled": {
           "type": "boolean"
@@ -126,7 +132,26 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "RangeConfig": {
+    "RangeQuery": {
+      "properties": {
+        "last": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "reduce": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["last"]
+    },
+    "TimeseriesConfig": {
       "properties": {
         "enabled": {
           "type": "boolean"

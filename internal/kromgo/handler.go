@@ -3,6 +3,7 @@
 package kromgo
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/home-operations/kromgo/internal/config"
 	"github.com/home-operations/kromgo/internal/prometheus"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 )
 
@@ -99,9 +101,10 @@ func (h *Handler) serveMetric(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleInstant serves the json, raw, and badge formats, which all run an instant query.
+// handleInstant serves the json, raw, and badge formats. The value comes from an
+// instant query, or a reduced range query when the metric's type is "range".
 func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric *resolvedMetric, format string, log *slog.Logger) {
-	value, err := h.prom.Query(r.Context(), metric.Query, time.Now())
+	value, err := h.queryValue(r.Context(), metric)
 	if err != nil {
 		log.Error("error executing metric query", "error", err)
 		writeError(w, metric.Name, "Query Error", http.StatusInternalServerError)
@@ -183,6 +186,26 @@ func (h *Handler) buildResponse(metric *resolvedMetric, vector model.Vector, log
 	}
 
 	return color, metric.Prefix + response + metric.Suffix, true
+}
+
+// queryValue computes the metric's instant value: an instant query for the default
+// type, or a range query reduced to one value per series for type: range.
+func (h *Handler) queryValue(ctx context.Context, metric *resolvedMetric) (model.Value, error) {
+	rq := metric.rangeQuery
+	if rq == nil {
+		return h.prom.Query(ctx, metric.Query, time.Now())
+	}
+
+	end := time.Now().Add(-rq.offset)
+	value, err := h.prom.QueryRange(ctx, metric.Query, v1.Range{Start: end.Add(-rq.last), End: end, Step: rq.step})
+	if err != nil {
+		return nil, err
+	}
+	matrix, ok := value.(model.Matrix)
+	if !ok {
+		return nil, fmt.Errorf("range query returned %s, want matrix", value.Type())
+	}
+	return reduceMatrix(matrix, rq.reduce), nil
 }
 
 // metricTitle returns the display title for a metric (its Title, falling back to Name).

@@ -25,7 +25,7 @@ metrics:
     query: node_cpu
     suffix: "%"
 defaults:
-  range:
+  timeseries:
     enabled: true
     maxDuration: 7d
 `)
@@ -34,7 +34,7 @@ defaults:
 	assert.Equal(t, "http://prom:9090", cfg.Prometheus)
 	require.Len(t, cfg.Metrics, 1)
 	assert.Equal(t, "cpu", cfg.Metrics[0].Name)
-	assert.True(t, cfg.Defaults.Range.Enabled)
+	assert.True(t, cfg.Defaults.Timeseries.Enabled)
 }
 
 func TestLoad_MissingFile(t *testing.T) {
@@ -48,7 +48,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 }
 
 func TestLoad_InvalidDuration(t *testing.T) {
-	_, err := Load(writeConfig(t, "defaults:\n  range:\n    maxDuration: bogus\n"))
+	_, err := Load(writeConfig(t, "defaults:\n  timeseries:\n    maxDuration: bogus\n"))
 	assert.Error(t, err)
 }
 
