@@ -236,6 +236,55 @@ func TestServeMetric_EmptyVector_NoData(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "metric returned no data")
 }
 
+func TestCacheControl_PerMetric(t *testing.T) {
+	cfg := config.KromgoConfig{
+		CacheSeconds: 60, // global default
+		Metrics: []config.Metric{
+			{Name: "fast", Query: "q"},
+			{Name: "slow", Query: "q", CacheSeconds: new(3600)}, // overrides global
+		},
+	}
+	srv := mockProm(t, "1", nil)
+	h := newHandlerForTest(t, cfg, srv.URL)
+
+	t.Run("global default", func(t *testing.T) {
+		w := doGet(t, h, "/fast")
+		assert.Equal(t, "public, max-age=60", w.Header().Get("Cache-Control"))
+		assert.Contains(t, w.Body.String(), `"cacheSeconds":60`)
+	})
+
+	t.Run("per-metric override", func(t *testing.T) {
+		w := doGet(t, h, "/slow")
+		assert.Equal(t, "public, max-age=3600", w.Header().Get("Cache-Control"))
+		assert.Contains(t, w.Body.String(), `"cacheSeconds":3600`)
+	})
+}
+
+func TestCacheControl_DisabledByDefault(t *testing.T) {
+	srv := mockProm(t, "17.5", nil)
+	h := newHandlerForTest(t, baseConfig(), srv.URL) // no CacheSeconds
+
+	w := doGet(t, h, "/cpu")
+
+	assert.Empty(t, w.Header().Get("Cache-Control"))
+	assert.NotContains(t, w.Body.String(), "cacheSeconds")
+}
+
+func TestCacheControl_ErrorsNotCached(t *testing.T) {
+	cfg := config.KromgoConfig{
+		CacheSeconds: 60,
+		Metrics:      []config.Metric{{Name: "cpu", Query: "q"}},
+	}
+	srv := mockProm(t, "1", nil)
+	h := newHandlerForTest(t, cfg, srv.URL)
+
+	// History is disabled → 403 error; the cache header must be no-store, not max-age.
+	w := doGet(t, h, "/cpu?format=history")
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+}
+
 func TestIndexRoute(t *testing.T) {
 	cfg := baseConfig()
 	cfg.HideAll = new(false)

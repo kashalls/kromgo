@@ -26,6 +26,7 @@ Works out of the box with [shields.io Endpoint Badges](https://shields.io/badges
 - [API reference](#api-reference)
 - [Ports](#ports)
 - [Rate limiting](#rate-limiting)
+- [Caching](#caching)
 - [Image verification](#image-verification)
 - [Community](#community)
 
@@ -116,6 +117,7 @@ Each entry under `metrics:` defines one queryable endpoint at `/{name}`.
 | `colors`        | no       | List of color ranges for the response — see [Colors](#colors)                                   |
 | `hidden`        | no       | Hide from the index page (`GET /`) — see [Index page](#index-page)                              |
 | `history`       | no       | Per-metric history/chart override — see [History and charts](#history-and-charts)               |
+| `cacheSeconds`  | no       | Per-metric `Cache-Control` max-age override — see [Caching](#caching)                           |
 
 ### Colors
 
@@ -356,6 +358,68 @@ http_filters:
           filter_enforced:
               default_value: { numerator: 100, denominator: HUNDRED }
 ```
+
+**Traefik v3** — a `rateLimit` middleware attached to the router (dynamic file config; the
+Kubernetes `Middleware` CRD takes the same `rateLimit` spec):
+
+```yaml
+http:
+    middlewares:
+        kromgo-ratelimit:
+            rateLimit:
+                average: 10
+                burst: 20
+                period: 1s
+    routers:
+        kromgo:
+            rule: Host(`kromgo.example.com`)
+            service: kromgo
+            middlewares:
+                - kromgo-ratelimit
+```
+
+## Caching
+
+Caching has two halves, and kromgo owns the half only it can know: **how long a value stays fresh**.
+Set `cacheSeconds` (globally and/or per metric) and kromgo emits `Cache-Control: public, max-age=N`
+on successful responses and includes `cacheSeconds` in the shields.io endpoint JSON. Errors are always
+sent `no-store`. Caching is off by default (`cacheSeconds: 0`).
+
+```yaml
+cacheSeconds: 300 # global default for every metric
+
+metrics:
+    - name: node_cpu_usage # changes every scrape — short TTL
+      query: "..."
+      cacheSeconds: 30
+    - name: cluster_age # changes once a day — long TTL
+      query: "..."
+      cacheSeconds: 3600
+```
+
+The **other half — actually storing responses — is the edge's job**, and any cache that honors
+`Cache-Control` (a CDN, Varnish, nginx `proxy_cache`) will then cache each metric for exactly the TTL
+kromgo advertised, with no per-metric tuning at the proxy. shields.io already respects `cacheSeconds`,
+so public badges are cached without any proxy at all.
+
+If you want the reverse proxy itself to cache, enable its HTTP cache and let it honor the origin
+headers — for example, nginx:
+
+```nginx
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=kromgo:10m max_size=100m;
+
+server {
+    location / {
+        proxy_cache kromgo;            # respects kromgo's Cache-Control
+        add_header X-Cache-Status $upstream_cache_status;
+        proxy_pass http://kromgo:8080;
+    }
+}
+```
+
+Caddy (via the [cache-handler](https://github.com/caddyserver/cache-handler) plugin), Traefik, and
+Envoy can cache too, but generally need a plugin or an external cache/CDN; the simplest setup is to
+front kromgo with a CDN and let `cacheSeconds` drive it.
 
 ## Image verification
 

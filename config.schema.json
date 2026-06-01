@@ -53,6 +53,9 @@
         },
         "history": {
           "$ref": "#/$defs/HistoryConfig"
+        },
+        "cacheSeconds": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,
@@ -93,6 +96,9 @@
         },
         "history": {
           "$ref": "#/$defs/MetricHistoryConfig"
+        },
+        "cacheSeconds": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

@@ -4,6 +4,7 @@ package kromgo
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -68,6 +69,11 @@ func (h *Handler) serveMetric(w http.ResponseWriter, r *http.Request) {
 		log.Error("metric not found")
 		writeError(w, name, "Not Found", http.StatusNotFound)
 		return
+	}
+
+	// Set the cache policy up front; writeError overrides it with no-store on failures.
+	if cs := h.cacheSeconds(metric); cs > 0 {
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", cs))
 	}
 
 	switch format {
@@ -151,7 +157,8 @@ func (h *Handler) handleInstant(w http.ResponseWriter, r *http.Request, metric c
 		SchemaVersion: 1,
 		Label:         title,
 		Message:       message,
-		Color:         colorConfig.Color, // omitted when empty
+		Color:         colorConfig.Color,      // omitted when empty
+		CacheSeconds:  h.cacheSeconds(metric), // shields.io honors this; omitted when 0
 	}
 	if err := writeJSON(w, resp); err != nil {
 		log.Error("error converting data to json response", "error", err)
@@ -165,6 +172,15 @@ func metricTitle(metric config.Metric) string {
 		return metric.Title
 	}
 	return metric.Name
+}
+
+// cacheSeconds returns the effective Cache-Control max-age for a metric: its own
+// CacheSeconds if set, otherwise the global default. 0 means no caching.
+func (h *Handler) cacheSeconds(m config.Metric) int {
+	if m.CacheSeconds != nil {
+		return *m.CacheSeconds
+	}
+	return h.cfg.CacheSeconds
 }
 
 func writeJSON(w http.ResponseWriter, v any) error {

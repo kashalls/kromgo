@@ -24,6 +24,9 @@ type KromgoConfig struct {
 	HideAll *bool `yaml:"hideAll,omitempty" json:"hideAll,omitempty"`
 	// History controls access to format=history and format=chart requests.
 	History HistoryConfig `yaml:"history,omitempty" json:"history,omitempty"`
+	// CacheSeconds is the default Cache-Control max-age (in seconds) for responses.
+	// 0 (the default) disables caching. Override per metric with Metric.CacheSeconds.
+	CacheSeconds int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }
 
 // HistoryConfig holds the global settings for time-series (history/chart) requests.
@@ -59,6 +62,8 @@ type Metric struct {
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// History overrides the global history settings for this metric. If nil, the global settings apply.
 	History *MetricHistoryConfig `yaml:"history,omitempty" json:"history,omitempty"`
+	// CacheSeconds overrides the global CacheSeconds for this metric. If nil, the global value applies.
+	CacheSeconds *int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }
 
 // MetricHistoryConfig overrides the global HistoryConfig for a single metric.
