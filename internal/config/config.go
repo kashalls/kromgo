@@ -18,18 +18,28 @@ const DefaultPath = "/config/config.yaml"
 // graphs render a time series (SVG sparkline / history JSON).
 type KromgoConfig struct {
 	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
+	Gallery    Gallery  `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 	Defaults   Defaults `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Badges     []Badge  `yaml:"badges,omitempty" json:"badges,omitempty"`
 	Graphs     []Graph  `yaml:"graphs,omitempty" json:"graphs,omitempty"`
 }
 
+// Gallery configures the index gallery page served at "/".
+type Gallery struct {
+	// Enabled toggles the gallery page. Defaults to true; false serves a minimal
+	// landing page instead.
+	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+}
+
+// GallerySettings is an endpoint's gallery block. The same shape is used per
+// badge/graph and as the per-type default under defaults.badge / defaults.graph.
+type GallerySettings struct {
+	// Hidden hides this endpoint from the gallery. Defaults to false (shown).
+	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+}
+
 // Defaults holds values applied to every endpoint, each overridable per endpoint.
 type Defaults struct {
-	// Gallery toggles the index gallery page at "/". Defaults to true; false serves
-	// a minimal landing page instead.
-	Gallery *bool `yaml:"gallery,omitempty" json:"gallery,omitempty"`
-	// Hidden is the default index-page visibility. Defaults to true (all hidden).
-	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// CacheSeconds is the default Cache-Control max-age (in seconds). 0 disables caching.
 	CacheSeconds int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 	// Badge holds the default badge rendering settings.
@@ -46,6 +56,8 @@ type BadgeDefaults struct {
 	Size int `yaml:"size,omitempty" json:"size,omitempty"`
 	// Style is the default badge style: flat (default), flat-square, or plastic.
 	Style string `yaml:"style,omitempty" json:"style,omitempty"`
+	// Gallery is the default gallery visibility for badges.
+	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 }
 
 // GraphDefaults holds the default graph rendering settings.
@@ -62,6 +74,8 @@ type GraphDefaults struct {
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 	// Font selects the text font by name (roboto, notosans, notosans-bold, go-regular, go-bold, …).
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
+	// Gallery is the default gallery visibility for graphs.
+	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 }
 
 // Badge defines an instant-value endpoint at /badges/{id}.
@@ -85,8 +99,8 @@ type Badge struct {
 	Style string `yaml:"style,omitempty" json:"style,omitempty"`
 	// Icon renders a Material Design Icon on the SVG badge, e.g. "mdi:server-outline".
 	Icon string `yaml:"icon,omitempty" json:"icon,omitempty"`
-	// Hidden overrides defaults.hidden for this badge.
-	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+	// Gallery holds this badge's gallery settings (e.g. hidden), overriding defaults.badge.gallery.
+	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 	// CacheSeconds overrides defaults.cacheSeconds for this badge.
 	CacheSeconds *int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }
@@ -111,8 +125,8 @@ type Graph struct {
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 	// Font overrides defaults.graph.font for this graph.
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
-	// Hidden overrides defaults.hidden for this graph.
-	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+	// Gallery holds this graph's gallery settings (e.g. hidden), overriding defaults.graph.gallery.
+	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 	// CacheSeconds overrides defaults.cacheSeconds for this graph.
 	CacheSeconds *int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }

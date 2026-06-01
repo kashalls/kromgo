@@ -20,8 +20,9 @@ import (
 )
 
 const configYAML = `
+gallery:
+  enabled: true
 defaults:
-  hidden: false
   graph:
     maxDuration: 24h
 badges:

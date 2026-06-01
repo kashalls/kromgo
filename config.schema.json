@@ -32,8 +32,8 @@
         "icon": {
           "type": "string"
         },
-        "hidden": {
-          "type": "boolean"
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
         },
         "cacheSeconds": {
           "type": "integer"
@@ -53,6 +53,9 @@
         },
         "style": {
           "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
         }
       },
       "additionalProperties": false,
@@ -60,12 +63,6 @@
     },
     "Defaults": {
       "properties": {
-        "gallery": {
-          "type": "boolean"
-        },
-        "hidden": {
-          "type": "boolean"
-        },
         "cacheSeconds": {
           "type": "integer"
         },
@@ -74,6 +71,24 @@
         },
         "graph": {
           "$ref": "#/$defs/GraphDefaults"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Gallery": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GallerySettings": {
+      "properties": {
+        "hidden": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -108,8 +123,8 @@
         "font": {
           "type": "string"
         },
-        "hidden": {
-          "type": "boolean"
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
         },
         "cacheSeconds": {
           "type": "integer"
@@ -138,6 +153,9 @@
         },
         "font": {
           "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/GallerySettings"
         }
       },
       "additionalProperties": false,
@@ -147,6 +165,9 @@
       "properties": {
         "prometheus": {
           "type": "string"
+        },
+        "gallery": {
+          "$ref": "#/$defs/Gallery"
         },
         "defaults": {
           "$ref": "#/$defs/Defaults"

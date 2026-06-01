@@ -64,7 +64,7 @@ var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
 </section>
 {{- end}}
 {{- else}}
-<p class="empty">No endpoints are visible. Set <code>defaults.hidden: false</code> (or per-endpoint <code>hidden: false</code>) to list them here.</p>
+<p class="empty">No endpoints to show. Define entries under <code>badges:</code> / <code>graphs:</code> &mdash; each appears here unless its <code>gallery.hidden</code> is true.</p>
 {{- end}}
 </div>
 <script src="/assets/marked.js"></script>
@@ -104,7 +104,7 @@ type galleryItem struct {
 }
 
 // index renders the gallery of visible badges and graphs (the default), or a
-// minimal landing page when defaults.gallery is false.
+// minimal landing page when gallery.enabled is false.
 func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 	header.Set("Content-Security-Policy", indexCSP) // override the strict default
@@ -113,17 +113,21 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 	// served from a shared cache.
 	header.Set("Cache-Control", "no-store")
 
-	if !firstBool(true, h.cfg.Defaults.Gallery) {
+	if !firstBool(true, h.cfg.Gallery.Enabled) {
 		_ = landingTmpl.Execute(w, nil)
 		return
 	}
 
 	base := baseURL(r)
 	view := galleryView{
-		Badges: galleryItems(base, "badges", h.cfg.Badges, h.cfg.Defaults.Hidden,
-			func(b config.Badge) (string, string, *bool) { return b.ID, displayTitle(b.Title, b.ID), b.Hidden }),
-		Graphs: galleryItems(base, "graphs", h.cfg.Graphs, h.cfg.Defaults.Hidden,
-			func(g config.Graph) (string, string, *bool) { return g.ID, displayTitle(g.Title, g.ID), g.Hidden }),
+		Badges: galleryItems(base, "badges", h.cfg.Badges, h.cfg.Defaults.Badge.Gallery.Hidden,
+			func(b config.Badge) (string, string, *bool) {
+				return b.ID, displayTitle(b.Title, b.ID), b.Gallery.Hidden
+			}),
+		Graphs: galleryItems(base, "graphs", h.cfg.Graphs, h.cfg.Defaults.Graph.Gallery.Hidden,
+			func(g config.Graph) (string, string, *bool) {
+				return g.ID, displayTitle(g.Title, g.ID), g.Gallery.Hidden
+			}),
 	}
 	_ = galleryTmpl.Execute(w, view)
 }
@@ -190,8 +194,8 @@ func baseURL(r *http.Request) string {
 	return scheme + "://" + r.Host
 }
 
-// hidden reports whether an endpoint should be hidden from the index, given its own
-// override and the default. Defaults to hidden when neither is set.
+// hidden reports whether an endpoint should be hidden from the gallery, given its
+// own gallery.hidden override and the per-type default. Shown when neither is set.
 func hidden(item, def *bool) bool {
 	if item != nil {
 		return *item
@@ -199,5 +203,5 @@ func hidden(item, def *bool) bool {
 	if def != nil {
 		return *def
 	}
-	return true // default: hide all when not specified
+	return false // default: shown when not specified
 }

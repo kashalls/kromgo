@@ -20,8 +20,6 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-func boolPtr(b bool) *bool { return &b }
-
 const (
 	threshold = `result <= 35 ? "green" : result <= 75 ? "orange" : "red"`
 	gdim      = "last=1h&width=480&height=200"
@@ -77,10 +75,7 @@ func TestGallery(t *testing.T) {
 		byID[b.ID] = b
 	}
 
-	cfg := config.KromgoConfig{
-		Defaults: config.Defaults{Hidden: boolPtr(false)},
-		Badges:   badges,
-	}
+	cfg := config.KromgoConfig{Badges: badges} // endpoints are shown by default
 	for _, ex := range graphExamples {
 		cfg.Graphs = append(cfg.Graphs, config.Graph{ID: ex.id, Title: ex.title, Query: ex.query})
 	}

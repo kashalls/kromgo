@@ -92,13 +92,13 @@ same-named field. All keys are optional.
 
 ```yaml
 defaults:
-    gallery: true # serve the HTML gallery at "/" (default); false serves a minimal landing page
-    hidden: true # gallery visibility — true (default) hides every endpoint unless it opts in
     cacheSeconds: 0 # Cache-Control max-age in seconds; 0 disables caching
     badge:
         font: go-regular # go-regular (default), go-bold, go-medium, go-mono
         size: 11 # badge font size in points
         style: flat # flat (default), flat-square, or plastic
+        gallery:
+            hidden: false # list badges in the gallery (default); true hides them
     graph:
         maxDuration: 1h # cap on a graph's requested window ("0" = unlimited)
         width: 600 # image width in px
@@ -106,25 +106,29 @@ defaults:
         legend: true # show the series legend
         theme: light # color theme — see Themes below
         font: roboto # text font — see Themes below
+        gallery:
+            hidden: false # list graphs in the gallery (default); true hides them
 ```
+
+The gallery page itself is toggled separately at the top level — see [Gallery](#gallery).
 
 ### Badges
 
 Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
 
-| Field          | Required | Description                                                                       |
-| -------------- | -------- | --------------------------------------------------------------------------------- |
-| `id`           | yes      | URL path segment — `cpu` → `GET /badges/cpu`                                      |
-| `query`        | yes      | PromQL expression returning a single scalar or vector value                       |
-| `title`        | no       | Display label on the badge (defaults to `id`)                                     |
-| `type`         | no       | `instant` (default) or `range` — see [Range badges](#range-badges)                |
-| `range`        | no\*     | Range-query window when `type: range`                                             |
-| `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color) |
-| `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)            |
-| `style`        | no       | `flat` (default), `flat-square`, or `plastic`                                     |
-| `icon`         | no       | A Material Design Icon on the SVG badge, e.g. `mdi:server-outline` — see below    |
-| `hidden`       | no       | Override `defaults.hidden` for this badge                                         |
-| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this badge                                   |
+| Field          | Required | Description                                                                          |
+| -------------- | -------- | ------------------------------------------------------------------------------------ |
+| `id`           | yes      | URL path segment — `cpu` → `GET /badges/cpu`                                         |
+| `query`        | yes      | PromQL expression returning a single scalar or vector value                          |
+| `title`        | no       | Display label on the badge (defaults to `id`)                                        |
+| `type`         | no       | `instant` (default) or `range` — see [Range badges](#range-badges)                   |
+| `range`        | no\*     | Range-query window when `type: range`                                                |
+| `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)    |
+| `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)               |
+| `style`        | no       | `flat` (default), `flat-square`, or `plastic`                                        |
+| `icon`         | no       | A Material Design Icon on the SVG badge, e.g. `mdi:server-outline` — see below       |
+| `gallery`      | no       | Per-badge gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
+| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this badge                                      |
 
 #### Icons
 
@@ -250,19 +254,19 @@ opt-in to expose range data for that query — there is no separate enable flag.
 [go-analyze/charts](https://github.com/go-analyze/charts) as **SVG** (default) or **PNG**
 (`?format=png`).
 
-| Field          | Required | Description                                                                      |
-| -------------- | -------- | -------------------------------------------------------------------------------- |
-| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                                     |
-| `query`        | yes      | PromQL expression run as a range query                                           |
-| `title`        | no       | Display label (defaults to `id`)                                                 |
-| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)             |
-| `width`        | no       | Image width in px (overrides `defaults.graph.width`)                             |
-| `height`       | no       | Image height in px (overrides `defaults.graph.height`)                           |
-| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)                       |
-| `theme`        | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts) |
-| `font`         | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)    |
-| `hidden`       | no       | Override `defaults.hidden` for this graph                                        |
-| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                                  |
+| Field          | Required | Description                                                                          |
+| -------------- | -------- | ------------------------------------------------------------------------------------ |
+| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                                         |
+| `query`        | yes      | PromQL expression run as a range query                                               |
+| `title`        | no       | Display label (defaults to `id`)                                                     |
+| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)                 |
+| `width`        | no       | Image width in px (overrides `defaults.graph.width`)                                 |
+| `height`       | no       | Image height in px (overrides `defaults.graph.height`)                               |
+| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)                           |
+| `theme`        | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts)     |
+| `font`         | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)        |
+| `gallery`      | no       | Per-graph gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
+| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                                      |
 
 ```yaml
 graphs:
@@ -317,12 +321,32 @@ The page is self-contained: its JavaScript and CSS are embedded in the binary an
 Content-Security-Policy. See [Building from source](#building-from-source) for how the assets are
 vendored.
 
-**Which endpoints appear.** By default all endpoints are hidden. Set `defaults.hidden: false` to list
-everything, then opt individual endpoints out with `hidden: true`; or keep the default and opt
-specific ones in with `hidden: false`. When nothing is visible the gallery shows a short hint instead.
+**Enable / disable.** The gallery is on by default. Turn it off with a top-level `gallery.enabled:
+false`, which serves a minimal landing page at `/` instead (the badge and graph endpoints are
+unaffected):
 
-**Turning it off.** Set `defaults.gallery: false` to serve a minimal landing page at `/` instead of
-the gallery (the badge and graph endpoints are unaffected).
+```yaml
+gallery:
+    enabled: false
+```
+
+**Which endpoints appear.** Every endpoint is listed by default. Hide one with a per-endpoint
+`gallery.hidden: true`, or flip the default per type under `defaults.badge.gallery` /
+`defaults.graph.gallery`:
+
+```yaml
+defaults:
+    badge:
+        gallery:
+            hidden: true # hide badges from the gallery by default…
+badges:
+    - id: cpu
+      query: "..."
+      gallery:
+          hidden: false # …but list this one
+```
+
+When nothing is visible the gallery shows a short hint instead.
 
 ## API reference
 
@@ -330,7 +354,7 @@ the gallery (the badge and graph endpoints are unaffected).
 | ------------------ | ----------------------- | ------------------------------------------------------------------ |
 | `GET /badges/{id}` | SVG badge (`?style=…`)  | `?format=shields` → shields.io JSON · `?format=json` → kromgo JSON |
 | `GET /graphs/{id}` | SVG chart (`?theme=…`)  | `?format=png` → PNG image · `?format=json` → time-series data      |
-| `GET /`            | HTML gallery            | landing page when `defaults.gallery: false`                        |
+| `GET /`            | HTML gallery            | landing page when `gallery.enabled: false`                         |
 | `GET /assets/…`    | Embedded gallery JS/CSS |                                                                    |
 
 **`/badges/{id}`** (default SVG):

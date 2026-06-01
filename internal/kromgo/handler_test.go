@@ -364,8 +364,7 @@ func TestServeGraph_NotFound(t *testing.T) {
 }
 
 func TestIndexRoute(t *testing.T) {
-	cfg := baseConfig()
-	cfg.Defaults.Hidden = new(false)
+	cfg := baseConfig() // endpoints are shown in the gallery by default
 	srv := mockProm(t, "0", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
 

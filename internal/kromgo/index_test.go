@@ -19,7 +19,7 @@ func TestHidden(t *testing.T) {
 		def  *bool
 		want bool
 	}{
-		{"no item, no default → hidden", nil, nil, true},
+		{"no item, no default → shown", nil, nil, false},
 		{"default false, no item → visible", nil, new(false), false},
 		{"default true, no item → hidden", nil, new(true), true},
 		{"item true over default false → hidden", new(true), new(false), true},
@@ -93,8 +93,7 @@ func getIndex(h *Handler) *httptest.ResponseRecorder {
 
 func TestIndexHandler_GalleryHeadersAndAssets(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Badges:   []config.Badge{{ID: "cpu", Title: "CPU"}},
-		Defaults: config.Defaults{Hidden: new(false)},
+		Badges: []config.Badge{{ID: "cpu", Title: "CPU"}},
 	})
 	w := getIndex(h)
 	body := w.Body.String()
@@ -118,9 +117,8 @@ func TestIndexHandler_GalleryHeadersAndAssets(t *testing.T) {
 
 func TestIndexHandler_BadgesAndGraphs_SnippetsPresent(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Badges:   []config.Badge{{ID: "cpu", Title: "CPU"}},
-		Graphs:   []config.Graph{{ID: "cpu"}}, // no title → falls back to id
-		Defaults: config.Defaults{Hidden: new(false)},
+		Badges: []config.Badge{{ID: "cpu", Title: "CPU"}},
+		Graphs: []config.Graph{{ID: "cpu"}}, // no title → falls back to id
 	})
 	body := getIndex(h).Body.String()
 
@@ -129,27 +127,30 @@ func TestIndexHandler_BadgesAndGraphs_SnippetsPresent(t *testing.T) {
 	assert.Contains(t, body, "<h2>Badges</h2>")
 	assert.Contains(t, body, "<h2>Graphs</h2>")
 	assert.Contains(t, body, `class="copy"`)
-	assert.NotContains(t, body, "No endpoints are visible")
+	assert.NotContains(t, body, "No endpoints to show")
 }
 
 func TestIndexHandler_AllHidden_ShowsEmptyState(t *testing.T) {
+	// Hide all badges via the per-type default.
 	h := newTestHandler(config.KromgoConfig{
-		Badges: []config.Badge{{ID: "cpu"}, {ID: "mem"}},
-		// Defaults.Hidden nil → defaults to true (hidden)
+		Badges:   []config.Badge{{ID: "cpu"}, {ID: "mem"}},
+		Defaults: config.Defaults{Badge: config.BadgeDefaults{Gallery: config.GallerySettings{Hidden: new(true)}}},
 	})
 	body := getIndex(h).Body.String()
 
-	assert.Contains(t, body, "No endpoints are visible")
+	assert.Contains(t, body, "No endpoints to show")
 	assert.NotContains(t, body, "/badges/cpu)")
 	assert.NotContains(t, body, "<h2>Badges</h2>")
 }
 
 func TestIndexHandler_MixedVisibility(t *testing.T) {
+	// Badges hidden by default; cpu opts back in with gallery.hidden: false.
 	h := newTestHandler(config.KromgoConfig{
 		Badges: []config.Badge{
-			{ID: "cpu", Hidden: new(false)},
-			{ID: "mem"}, // hidden by global default
+			{ID: "cpu", Gallery: config.GallerySettings{Hidden: new(false)}},
+			{ID: "mem"}, // hidden by the badge default
 		},
+		Defaults: config.Defaults{Badge: config.BadgeDefaults{Gallery: config.GallerySettings{Hidden: new(true)}}},
 	})
 	body := getIndex(h).Body.String()
 
@@ -157,13 +158,13 @@ func TestIndexHandler_MixedVisibility(t *testing.T) {
 	assert.NotContains(t, body, `/badges/mem`)
 }
 
-func TestIndexHandler_GlobalFalse_PerEndpointOverrideHidden(t *testing.T) {
+func TestIndexHandler_PerEndpointHidden(t *testing.T) {
+	// Default is shown; a per-endpoint gallery.hidden: true hides just that one.
 	h := newTestHandler(config.KromgoConfig{
 		Badges: []config.Badge{
 			{ID: "cpu"},
-			{ID: "secret", Hidden: new(true)},
+			{ID: "secret", Gallery: config.GallerySettings{Hidden: new(true)}},
 		},
-		Defaults: config.Defaults{Hidden: new(false)},
 	})
 	body := getIndex(h).Body.String()
 
@@ -172,15 +173,15 @@ func TestIndexHandler_GlobalFalse_PerEndpointOverrideHidden(t *testing.T) {
 }
 
 func TestIndexHandler_NoEndpoints_ShowsEmptyState(t *testing.T) {
-	h := newTestHandler(config.KromgoConfig{Defaults: config.Defaults{Hidden: new(false)}})
+	h := newTestHandler(config.KromgoConfig{})
 	body := getIndex(h).Body.String()
-	assert.Contains(t, body, "No endpoints are visible")
+	assert.Contains(t, body, "No endpoints to show")
 }
 
 func TestIndexHandler_GalleryDisabled_ShowsLanding(t *testing.T) {
 	h := newTestHandler(config.KromgoConfig{
-		Badges:   []config.Badge{{ID: "cpu", Title: "CPU"}},
-		Defaults: config.Defaults{Gallery: new(false), Hidden: new(false)},
+		Badges:  []config.Badge{{ID: "cpu", Title: "CPU"}},
+		Gallery: config.Gallery{Enabled: new(false)},
 	})
 	w := getIndex(h)
 	body := w.Body.String()

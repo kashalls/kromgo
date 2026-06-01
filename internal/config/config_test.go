@@ -20,14 +20,19 @@ func writeConfig(t *testing.T, body string) string {
 func TestLoad_Valid(t *testing.T) {
 	path := writeConfig(t, `
 prometheus: http://prom:9090
+gallery:
+  enabled: true
 defaults:
-  hidden: false
   graph:
     maxDuration: 7d
+    gallery:
+      hidden: true
 badges:
   - id: cpu
     query: node_cpu
     value: string(result) + "%"
+    gallery:
+      hidden: false
 graphs:
   - id: cpu
     query: node_cpu
@@ -36,8 +41,14 @@ graphs:
 	cfg, err := Load(path)
 	require.NoError(t, err)
 	assert.Equal(t, "http://prom:9090", cfg.Prometheus)
+	require.NotNil(t, cfg.Gallery.Enabled)
+	assert.True(t, *cfg.Gallery.Enabled)
 	require.Len(t, cfg.Badges, 1)
 	assert.Equal(t, "cpu", cfg.Badges[0].ID)
+	require.NotNil(t, cfg.Badges[0].Gallery.Hidden)
+	assert.False(t, *cfg.Badges[0].Gallery.Hidden, "per-badge gallery.hidden")
+	require.NotNil(t, cfg.Defaults.Graph.Gallery.Hidden)
+	assert.True(t, *cfg.Defaults.Graph.Gallery.Hidden, "per-type default gallery.hidden")
 	require.Len(t, cfg.Graphs, 1)
 	assert.Equal(t, 400, cfg.Graphs[0].Width)
 	assert.Equal(t, "7d", cfg.Defaults.Graph.MaxDuration)
