@@ -6,6 +6,14 @@ import (
 	"net/http"
 )
 
+// Response MIME types.
+const (
+	mimeJSON = "application/json"
+	mimeSVG  = "image/svg+xml"
+	mimePNG  = "image/png"
+	mimeHTML = "text/html; charset=utf-8"
+)
+
 // EndpointResponse is the shields.io-compatible JSON envelope returned for both
 // successful metric responses and errors.
 type EndpointResponse struct {
@@ -22,13 +30,13 @@ func writeJSON(w http.ResponseWriter, v any) error {
 	if err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", mimeJSON)
 	_, _ = w.Write(body)
 	return nil
 }
 
 func writeSVG(w http.ResponseWriter, svg []byte) {
-	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Content-Type", mimeSVG)
 	_, _ = w.Write(svg)
 }
 
@@ -53,7 +61,7 @@ func writeError(w http.ResponseWriter, metric, reason string, code int) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", mimeJSON)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
 	_, _ = w.Write(body)

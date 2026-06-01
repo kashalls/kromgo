@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/github/license/home-operations/kromgo)](LICENSE)
 [![Discord](https://img.shields.io/discord/673534664354430999?label=discord&logo=discord&logoColor=white&color=blue)](https://discord.gg/home-operations)
 
-Safely expose individual Prometheus metric values to the public web. Define named endpoints backed by PromQL queries and serve them as SVG badges, sparkline graphs, or JSON — without exposing your Prometheus instance directly.
+Safely expose individual Prometheus metric values to the public web. Define named endpoints backed by PromQL queries and serve them as SVG badges, themed SVG/PNG graphs, or JSON — without exposing your Prometheus instance directly.
 
 Badges render as shields.io-style SVG, so you can embed `/badges/{id}` straight into an `<img>` tag — no shields.io round-trip required (though it's still supported via `?format=shields`).
 

@@ -59,9 +59,9 @@ func (p chartParams) withOverrides(r *http.Request) chartParams {
 // contentType returns the MIME type for the params' output format.
 func (p chartParams) contentType() string {
 	if p.format == formatPNG {
-		return "image/png"
+		return mimePNG
 	}
-	return "image/svg+xml"
+	return mimeSVG
 }
 
 // seriesLabel returns a display label for a series by joining its non-__name__ label values.

@@ -36,7 +36,7 @@ func (h *Handler) index(w http.ResponseWriter, _ *http.Request) {
 			links = append(links, indexLink{Href: "/graphs/" + g.ID, Label: displayTitle(g.Title, g.ID)})
 		}
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", mimeHTML)
 	_ = indexTmpl.Execute(w, links)
 }
 

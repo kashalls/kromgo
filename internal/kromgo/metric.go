@@ -51,7 +51,7 @@ type rangeQuery struct {
 func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedBadge, error) {
 	rb := &resolvedBadge{
 		Badge:        b,
-		cacheSeconds: def.CacheSeconds,
+		cacheSeconds: intOr(b.CacheSeconds, def.CacheSeconds),
 		style:        cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
 	}
 
@@ -63,9 +63,6 @@ func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedB
 		if rb.colorProg, err = compileStringExpr(env, b.ID, "color", b.Color); err != nil {
 			return nil, err
 		}
-	}
-	if b.CacheSeconds != nil {
-		rb.cacheSeconds = *b.CacheSeconds
 	}
 	if b.Type == config.TypeRange {
 		if rb.rangeQuery, err = resolveRangeQuery(b); err != nil {
@@ -84,7 +81,7 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 
 	rg := &resolvedGraph{
 		Graph:        g,
-		cacheSeconds: def.CacheSeconds,
+		cacheSeconds: intOr(g.CacheSeconds, def.CacheSeconds),
 		maxDuration:  defaultGraphMaxDuration,
 		defaults: chartParams{
 			width:  cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
@@ -93,9 +90,6 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 			theme:  theme,
 			format: formatSVG,
 		},
-	}
-	if g.CacheSeconds != nil {
-		rg.cacheSeconds = *g.CacheSeconds
 	}
 	if maxStr := cmp.Or(g.MaxDuration, def.Graph.MaxDuration); maxStr != "" {
 		d, err := config.ParseDuration(maxStr)
@@ -147,6 +141,14 @@ func firstBool(fallback bool, vs ...*bool) bool {
 		if v != nil {
 			return *v
 		}
+	}
+	return fallback
+}
+
+// intOr returns *override when set, else fallback.
+func intOr(override *int, fallback int) int {
+	if override != nil {
+		return *override
 	}
 	return fallback
 }
