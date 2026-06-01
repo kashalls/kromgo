@@ -71,6 +71,13 @@ func TestE2E(t *testing.T) {
 		assert.Contains(t, body, `<a href="/graphs/cpu">cpu</a>`)
 	})
 
+	t.Run("security headers", func(t *testing.T) {
+		resp := h.get("/badges/cpu")
+		_ = bodyString(t, resp)
+		assert.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+		assert.Contains(t, resp.Header.Get("Content-Security-Policy"), "default-src 'none'")
+	})
+
 	t.Run("not found", func(t *testing.T) {
 		resp := h.get("/badges/nope")
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)

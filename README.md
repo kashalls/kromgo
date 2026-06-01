@@ -455,6 +455,29 @@ Caddy (via the [cache-handler](https://github.com/caddyserver/cache-handler) plu
 Envoy can cache too, but generally need a plugin or an external cache/CDN; the simplest setup is to
 front kromgo with a CDN and let `cacheSeconds` drive it.
 
+## Security
+
+kromgo is built to face the public web. Its posture:
+
+- **Prometheus is never exposed.** Only the endpoints you define are reachable; query parameters are
+  parsed as durations/timestamps/enums and never interpolated into PromQL.
+- **SVG output is safe.** Badge text and graph labels (which can derive from attacker-influenceable
+  metric label values) are HTML-escaped, and every response carries
+  `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'` and
+  `X-Content-Type-Options: nosniff`, so an SVG can't execute script even when opened directly.
+- **Bounded work.** Each Prometheus query is bounded by `QUERY_TIMEOUT` (default 30s); graph windows
+  are capped by `maxDuration` and image dimensions are clamped. A 10s `ReadHeaderTimeout` guards
+  against Slowloris; tune `SERVER_READ_TIMEOUT`/`SERVER_WRITE_TIMEOUT` to your proxy.
+- **Hardened image.** Distroless, non-root, static binary; images are cosign-signed (below).
+
+Operational guidance:
+
+- **Expose only the main port (`8080`).** The health port (`8888`) serves `/metrics` and probes —
+  keep it on the internal network.
+- **Terminate TLS and rate limit at your reverse proxy** (see [Rate limiting](#rate-limiting)).
+- Treat the config as trusted (it's operator-controlled); a custom `badge.font` path is read from
+  disk, and CEL expressions run sandboxed (no env/file/network access).
+
 ## Image verification
 
 Container images are signed with [Cosign](https://docs.sigstore.dev/cosign/overview/) keyless

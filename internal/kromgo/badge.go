@@ -2,6 +2,7 @@ package kromgo
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"regexp"
@@ -54,6 +55,11 @@ func newBadgePool(cfg config.BadgeDefaults) (*badgePool, error) {
 func (b *badgePool) write(w http.ResponseWriter, style, title, message, color string) {
 	gen := b.pool.Get().(*badge.Generator)
 	defer b.pool.Put(gen)
+
+	// Escape: go-badge writes the title/message into SVG <text> without escaping,
+	// so a CEL value or metric label could otherwise inject markup/script.
+	title = html.EscapeString(title)
+	message = html.EscapeString(message)
 
 	hex := colorNameToHex(color)
 	var svg []byte

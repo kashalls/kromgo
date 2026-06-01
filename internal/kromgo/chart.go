@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"html"
 	"math"
 	"net/http"
 	"slices"
@@ -102,7 +103,9 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 		}
 		values[i] = row
 		if label := seriesLabel(stream); label != "" {
-			labels[i] = label
+			// Escape: the charting library writes legend labels into SVG <text>
+			// without escaping, so a metric label value could inject markup/script.
+			labels[i] = html.EscapeString(label)
 			haveLabels = true
 		}
 		if xAxis == nil {
