@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -25,16 +24,17 @@ func ParseDuration(s string) (time.Duration, error) {
 	}
 
 	var total time.Duration
-	remaining := s
 	for _, m := range durationUnitRe.FindAllStringSubmatch(s, -1) {
 		n, err := strconv.ParseFloat(m[1], 64)
 		if err != nil {
 			return 0, fmt.Errorf("invalid duration %q", s)
 		}
 		total += time.Duration(float64(durationMultipliers[m[2]]) * n)
-		remaining = strings.Replace(remaining, m[0], "", 1)
 	}
 
+	// Strip the custom-unit components in one pass; whatever remains is handed to
+	// the stdlib parser (e.g. "7d12h" -> "12h").
+	remaining := durationUnitRe.ReplaceAllString(s, "")
 	if remaining != "" {
 		d, err := time.ParseDuration(remaining)
 		if err != nil {

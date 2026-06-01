@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/home-operations/kromgo/internal/config"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func makeRequest(params map[string]string) *http.Request {
@@ -17,249 +19,113 @@ func makeRequest(params map[string]string) *http.Request {
 	return &http.Request{URL: &url.URL{RawQuery: q.Encode()}}
 }
 
-func TestParseHistoryParams_Defaults(t *testing.T) {
+func TestParseHistoryParams_Valid(t *testing.T) {
+	// Cases with absolute start/end. wantStart/wantEnd of 0 and wantStep of 0 mean
+	// "don't assert this field".
+	cases := []struct {
+		name      string
+		params    map[string]string
+		wantStart int64
+		wantEnd   int64
+		wantStep  time.Duration
+	}{
+		{"rfc3339", map[string]string{"start": "2024-01-01T00:00:00Z", "end": "2024-01-01T06:00:00Z"}, 1704067200, 1704088800, 0},
+		{"unix timestamp", map[string]string{"start": "1704067200", "end": "1704088800"}, 1704067200, 1704088800, 0},
+		{"explicit step", map[string]string{"start": "1704067200", "end": "1704088800", "step": "5m"}, 0, 0, 5 * time.Minute},
+		{"step clamped to minute", map[string]string{"start": "1704067200", "end": "1704088800", "step": "10s"}, 0, 0, time.Minute},
+		{"auto step on larger window", map[string]string{"start": "1704067200", "end": "1704427200"}, 0, 0, time.Hour}, // 100h/100
+		{"step in days", map[string]string{"start": "1704067200", "end": "1704672000", "step": "1d"}, 0, 0, 24 * time.Hour},
+		{"last overrides start/end", map[string]string{"last": "1d", "start": "1704067200", "end": "1704088800"}, 0, 0, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			start, end, step, err := parseHistoryParams(makeRequest(tc.params))
+			require.NoError(t, err)
+			if tc.wantStart != 0 {
+				assert.Equal(t, tc.wantStart, start.Unix())
+			}
+			if tc.wantEnd != 0 {
+				assert.Equal(t, tc.wantEnd, end.Unix())
+			}
+			if tc.wantStep != 0 {
+				assert.Equal(t, tc.wantStep, step)
+			}
+		})
+	}
+}
+
+func TestParseHistoryParams_DefaultWindow(t *testing.T) {
 	before := time.Now()
-	r := makeRequest(nil)
-	start, end, step, err := parseHistoryParams(r)
-	after := time.Now()
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if end.Before(before) || end.After(after) {
-		t.Errorf("end not near now: %v", end)
-	}
-	if end.Sub(start) < 59*time.Minute || end.Sub(start) > 61*time.Minute {
-		t.Errorf("default start not ~1h before end: diff=%v", end.Sub(start))
-	}
-	if step != time.Minute {
-		t.Errorf("expected step=1m (clamped), got %v", step)
-	}
-}
-
-func TestParseHistoryParams_RFC3339(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"start": "2024-01-01T00:00:00Z",
-		"end":   "2024-01-01T06:00:00Z",
-	})
-	start, end, _, err := parseHistoryParams(r)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if start.Unix() != 1704067200 {
-		t.Errorf("wrong start: %v", start)
-	}
-	if end.Unix() != 1704088800 {
-		t.Errorf("wrong end: %v", end)
-	}
-}
-
-func TestParseHistoryParams_UnixTimestamp(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"start": "1704067200",
-		"end":   "1704088800",
-	})
-	start, end, _, err := parseHistoryParams(r)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if start.Unix() != 1704067200 {
-		t.Errorf("wrong start: %v", start)
-	}
-	if end.Unix() != 1704088800 {
-		t.Errorf("wrong end: %v", end)
-	}
-}
-
-func TestParseHistoryParams_ExplicitStep(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"start": "1704067200",
-		"end":   "1704088800",
-		"step":  "5m",
-	})
-	_, _, step, err := parseHistoryParams(r)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if step != 5*time.Minute {
-		t.Errorf("expected 5m, got %v", step)
-	}
-}
-
-func TestParseHistoryParams_StepClampedToMinute(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"start": "1704067200",
-		"end":   "1704088800",
-		"step":  "10s",
-	})
-	_, _, step, err := parseHistoryParams(r)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if step != time.Minute {
-		t.Errorf("expected step clamped to 1m, got %v", step)
-	}
-}
-
-func TestParseHistoryParams_AutoStepLargerWindow(t *testing.T) {
-	// 100h window: auto step = 100h/100 = 1h
-	r := makeRequest(map[string]string{
-		"start": "1704067200",
-		"end":   "1704427200", // +100h
-	})
-	_, _, step, err := parseHistoryParams(r)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if step != time.Hour {
-		t.Errorf("expected auto step=1h, got %v", step)
-	}
+	start, end, step, err := parseHistoryParams(makeRequest(nil))
+	require.NoError(t, err)
+	assert.WithinDuration(t, before, end, time.Second, "end defaults to ~now")
+	assert.WithinDuration(t, before.Add(-time.Hour), start, time.Second, "start defaults to ~1h before end")
+	assert.Equal(t, time.Minute, step, "autoStep(1h) clamps to 1m")
 }
 
 func TestParseHistoryParams_Last(t *testing.T) {
 	before := time.Now()
-	r := makeRequest(map[string]string{"last": "7d"})
-	start, end, _, err := parseHistoryParams(r)
-	after := time.Now()
+	start, end, _, err := parseHistoryParams(makeRequest(map[string]string{"last": "7d"}))
+	require.NoError(t, err)
+	assert.WithinDuration(t, before, end, time.Second)
+	assert.WithinDuration(t, before.Add(-7*24*time.Hour), start, time.Second)
+}
 
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestParseHistoryParams_Errors(t *testing.T) {
+	cases := []struct {
+		name     string
+		params   map[string]string
+		sentinel error // nil means any error is acceptable
+	}{
+		{"invalid last", map[string]string{"last": "invalid"}, nil},
+		{"negative last", map[string]string{"last": "-1h"}, errNonPositiveDuration},
+		{"zero last", map[string]string{"last": "0"}, errNonPositiveDuration},
+		{"start after end", map[string]string{"start": "1704088800", "end": "1704067200"}, errStartAfterEnd},
+		{"invalid start", map[string]string{"start": "not-a-time"}, nil},
+		{"invalid end", map[string]string{"end": "not-a-time"}, nil},
+		{"invalid step", map[string]string{"start": "1704067200", "end": "1704088800", "step": "invalid"}, nil},
 	}
-	if end.Before(before) || end.After(after) {
-		t.Errorf("end not near now: %v", end)
-	}
-	if diff := end.Sub(start); diff < 7*24*time.Hour-time.Second || diff > 7*24*time.Hour+time.Second {
-		t.Errorf("expected ~7d window, got %v", diff)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, err := parseHistoryParams(makeRequest(tc.params))
+			require.Error(t, err)
+			if tc.sentinel != nil {
+				assert.ErrorIs(t, err, tc.sentinel)
+			}
+		})
 	}
 }
 
-func TestParseHistoryParams_LastOverridesStartEnd(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"last":  "1d",
-		"start": "1704067200",
-		"end":   "1704088800",
-	})
-	if _, _, _, err := parseHistoryParams(r); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestParseTimeParam(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       string
+		wantUnix int64
+		wantErr  bool
+	}{
+		{"rfc3339", "2024-01-01T00:00:00Z", 1704067200, false},
+		{"unix", "1704067200", 1704067200, false},
+		{"invalid", "garbage", 0, true},
 	}
-	// last takes precedence — no start-after-end error despite conflicting params
-}
-
-func TestParseHistoryParams_LastInvalid(t *testing.T) {
-	r := makeRequest(map[string]string{"last": "invalid"})
-	if _, _, _, err := parseHistoryParams(r); err == nil {
-		t.Fatal("expected error for invalid last param")
-	}
-}
-
-func TestParseHistoryParams_LastNegative(t *testing.T) {
-	r := makeRequest(map[string]string{"last": "-1h"})
-	_, _, _, err := parseHistoryParams(r)
-	if err == nil {
-		t.Fatal("expected error for negative last param")
-	}
-	if err != errNonPositiveDuration {
-		t.Errorf("expected errNonPositiveDuration, got %v", err)
-	}
-}
-
-func TestParseHistoryParams_LastZero(t *testing.T) {
-	r := makeRequest(map[string]string{"last": "0"})
-	_, _, _, err := parseHistoryParams(r)
-	if err == nil {
-		t.Fatal("expected error for zero last param")
-	}
-	if err != errNonPositiveDuration {
-		t.Errorf("expected errNonPositiveDuration, got %v", err)
-	}
-}
-
-func TestParseHistoryParams_StartAfterEnd(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"start": "1704088800",
-		"end":   "1704067200",
-	})
-	if _, _, _, err := parseHistoryParams(r); err == nil {
-		t.Fatal("expected error for start > end")
-	}
-}
-
-func TestParseHistoryParams_InvalidStart(t *testing.T) {
-	r := makeRequest(map[string]string{"start": "not-a-time"})
-	if _, _, _, err := parseHistoryParams(r); err == nil {
-		t.Fatal("expected error for invalid start")
-	}
-}
-
-func TestParseHistoryParams_InvalidEnd(t *testing.T) {
-	r := makeRequest(map[string]string{"end": "not-a-time"})
-	if _, _, _, err := parseHistoryParams(r); err == nil {
-		t.Fatal("expected error for invalid end")
-	}
-}
-
-func TestParseHistoryParams_InvalidStep(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"start": "1704067200",
-		"end":   "1704088800",
-		"step":  "invalid",
-	})
-	if _, _, _, err := parseHistoryParams(r); err == nil {
-		t.Fatal("expected error for invalid step")
-	}
-}
-
-func TestParseHistoryParams_StepDays(t *testing.T) {
-	r := makeRequest(map[string]string{
-		"start": "1704067200",
-		"end":   "1704672000", // +7d
-		"step":  "1d",
-	})
-	_, _, step, err := parseHistoryParams(r)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if step != 24*time.Hour {
-		t.Errorf("expected 24h step, got %v", step)
-	}
-}
-
-func TestParseTimeParam_RFC3339(t *testing.T) {
-	ts, err := parseTimeParam("2024-01-01T00:00:00Z")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ts.Unix() != 1704067200 {
-		t.Errorf("wrong timestamp: %v", ts.Unix())
-	}
-}
-
-func TestParseTimeParam_Unix(t *testing.T) {
-	ts, err := parseTimeParam("1704067200")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ts.Unix() != 1704067200 {
-		t.Errorf("wrong timestamp: %v", ts.Unix())
-	}
-}
-
-func TestParseTimeParam_Invalid(t *testing.T) {
-	if _, err := parseTimeParam("garbage"); err == nil {
-		t.Fatal("expected error for invalid time param")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts, err := parseTimeParam(tc.in)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantUnix, ts.Unix())
+		})
 	}
 }
 
 func mustResolve(t *testing.T, m config.Metric, cfg config.KromgoConfig) *resolvedMetric {
 	t.Helper()
 	env, err := newCELEnv()
-	if err != nil {
-		t.Fatalf("newCELEnv: %v", err)
-	}
+	require.NoError(t, err)
 	rm, err := resolveMetric(m, cfg, env)
-	if err != nil {
-		t.Fatalf("resolveMetric: %v", err)
-	}
+	require.NoError(t, err)
 	return rm
 }
 
@@ -268,78 +134,58 @@ func tsDefaults(rc config.TimeseriesConfig) config.KromgoConfig {
 	return config.KromgoConfig{Defaults: config.Defaults{Timeseries: rc}}
 }
 
-func TestResolveMetric_TimeseriesEnabled_DefaultOff(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{Enabled: false}))
-	if rm.historyEnabled {
-		t.Error("expected range disabled by default")
+func TestResolveMetric_HistoryEnabled(t *testing.T) {
+	cases := []struct {
+		name     string
+		metric   config.Metric
+		defaults config.TimeseriesConfig
+		want     bool
+	}{
+		{"default off", config.Metric{Name: "test"}, config.TimeseriesConfig{Enabled: false}, false},
+		{"default on", config.Metric{Name: "test"}, config.TimeseriesConfig{Enabled: true}, true},
+		{"per-metric override on", config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(true)}}, config.TimeseriesConfig{Enabled: false}, true},
+		{"per-metric override off", config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(false)}}, config.TimeseriesConfig{Enabled: true}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rm := mustResolve(t, tc.metric, tsDefaults(tc.defaults))
+			assert.Equal(t, tc.want, rm.historyEnabled)
+		})
 	}
 }
 
-func TestResolveMetric_TimeseriesEnabled_DefaultOn(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{Enabled: true}))
-	if !rm.historyEnabled {
-		t.Error("expected range enabled via defaults")
+func TestResolveMetric_HistoryMax(t *testing.T) {
+	cases := []struct {
+		name   string
+		metric config.Metric
+		cfg    config.KromgoConfig
+		want   time.Duration
+	}{
+		{"built-in default", config.Metric{Name: "test"}, config.KromgoConfig{}, time.Hour},
+		{"default configured", config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}), 24 * time.Hour},
+		{"per-metric overrides default", config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{MaxDuration: "720h"}}, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}), 720 * time.Hour},
+		{"unlimited", config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "0"}), 0},
 	}
-}
-
-func TestResolveMetric_TimeseriesEnabled_PerMetricOverrideOn(t *testing.T) {
-	m := config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(true)}}
-	rm := mustResolve(t, m, tsDefaults(config.TimeseriesConfig{Enabled: false}))
-	if !rm.historyEnabled {
-		t.Error("expected per-metric override to enable range")
-	}
-}
-
-func TestResolveMetric_TimeseriesEnabled_PerMetricOverrideOff(t *testing.T) {
-	m := config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{Enabled: new(false)}}
-	rm := mustResolve(t, m, tsDefaults(config.TimeseriesConfig{Enabled: true}))
-	if rm.historyEnabled {
-		t.Error("expected per-metric override to disable range")
-	}
-}
-
-func TestResolveMetric_TimeseriesMax_Default(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, config.KromgoConfig{})
-	if rm.historyMax != time.Hour {
-		t.Errorf("expected default max duration 1h, got %v", rm.historyMax)
-	}
-}
-
-func TestResolveMetric_TimeseriesMax_DefaultConfigured(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}))
-	if rm.historyMax != 24*time.Hour {
-		t.Errorf("expected 24h, got %v", rm.historyMax)
-	}
-}
-
-func TestResolveMetric_TimeseriesMax_PerMetricOverridesDefault(t *testing.T) {
-	m := config.Metric{Name: "test", Timeseries: &config.MetricTimeseriesConfig{MaxDuration: "720h"}}
-	rm := mustResolve(t, m, tsDefaults(config.TimeseriesConfig{MaxDuration: "24h"}))
-	if rm.historyMax != 720*time.Hour {
-		t.Errorf("expected 720h, got %v", rm.historyMax)
-	}
-}
-
-func TestResolveMetric_TimeseriesMax_Unlimited(t *testing.T) {
-	rm := mustResolve(t, config.Metric{Name: "test"}, tsDefaults(config.TimeseriesConfig{MaxDuration: "0"}))
-	if rm.historyMax != 0 {
-		t.Errorf("expected 0 (unlimited), got %v", rm.historyMax)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rm := mustResolve(t, tc.metric, tc.cfg)
+			assert.Equal(t, tc.want, rm.historyMax)
+		})
 	}
 }
 
 func TestResolveMetric_InvalidExprFailsFast(t *testing.T) {
 	env, err := newCELEnv()
-	if err != nil {
-		t.Fatalf("newCELEnv: %v", err)
-	}
+	require.NoError(t, err)
 	cases := map[string]config.Metric{
 		"syntax error":  {Name: "a", Value: "result +"},
 		"not a string":  {Name: "b", Value: "result"},       // value must be string
 		"unknown ident": {Name: "c", Color: "nope(result)"}, // bad color expr
 	}
 	for name, m := range cases {
-		if _, err := resolveMetric(m, config.KromgoConfig{}, env); err == nil {
-			t.Errorf("%s: expected resolveMetric to reject the expression", name)
-		}
+		t.Run(name, func(t *testing.T) {
+			_, err := resolveMetric(m, config.KromgoConfig{}, env)
+			assert.Error(t, err)
+		})
 	}
 }

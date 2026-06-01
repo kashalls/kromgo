@@ -3,7 +3,6 @@ package kromgo
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/home-operations/kromgo/internal/config"
@@ -12,39 +11,26 @@ import (
 
 // --- isHidden ---
 
-func TestIsHidden_NoGlobal_NoPerMetric_DefaultsTrue(t *testing.T) {
-	m := config.Metric{Name: "foo"}
-	assert.True(t, isHidden(m, nil))
-}
-
-func TestIsHidden_GlobalFalse_NoPerMetric_Visible(t *testing.T) {
-	m := config.Metric{Name: "foo"}
-	assert.False(t, isHidden(m, new(false)))
-}
-
-func TestIsHidden_GlobalTrue_NoPerMetric_Hidden(t *testing.T) {
-	m := config.Metric{Name: "foo"}
-	assert.True(t, isHidden(m, new(true)))
-}
-
-func TestIsHidden_GlobalFalse_PerMetricTrue_Hidden(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: new(true)}
-	assert.True(t, isHidden(m, new(false)))
-}
-
-func TestIsHidden_GlobalTrue_PerMetricFalse_Visible(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: new(false)}
-	assert.False(t, isHidden(m, new(true)))
-}
-
-func TestIsHidden_NoGlobal_PerMetricFalse_Visible(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: new(false)}
-	assert.False(t, isHidden(m, nil))
-}
-
-func TestIsHidden_NoGlobal_PerMetricTrue_Hidden(t *testing.T) {
-	m := config.Metric{Name: "foo", Hidden: new(true)}
-	assert.True(t, isHidden(m, nil))
+func TestIsHidden(t *testing.T) {
+	cases := []struct {
+		name          string
+		metric        config.Metric
+		defaultHidden *bool
+		want          bool
+	}{
+		{"no global, no per-metric defaults to hidden", config.Metric{Name: "foo"}, nil, true},
+		{"global false, no per-metric is visible", config.Metric{Name: "foo"}, new(false), false},
+		{"global true, no per-metric is hidden", config.Metric{Name: "foo"}, new(true), true},
+		{"per-metric true overrides global false", config.Metric{Name: "foo", Hidden: new(true)}, new(false), true},
+		{"per-metric false overrides global true", config.Metric{Name: "foo", Hidden: new(false)}, new(true), false},
+		{"per-metric false, no global", config.Metric{Name: "foo", Hidden: new(false)}, nil, false},
+		{"per-metric true, no global", config.Metric{Name: "foo", Hidden: new(true)}, nil, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, isHidden(tc.metric, tc.defaultHidden))
+		})
+	}
 }
 
 // --- index ---
@@ -133,5 +119,5 @@ func TestIndexHandler_NoMetrics_ShowsIntentionallyBlank(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "page intentionally blank")
-	assert.False(t, strings.Contains(w.Body.String(), "<a href"))
+	assert.NotContains(t, w.Body.String(), "<a href")
 }

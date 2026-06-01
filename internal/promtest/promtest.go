@@ -12,6 +12,15 @@ import (
 	"time"
 )
 
+// Get issues a GET request against h and returns the recorded response.
+func Get(t testing.TB, h http.Handler, target string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	return w
+}
+
 // Sample is one instant-query result: a value and its labels.
 type Sample struct {
 	Value  string
