@@ -163,10 +163,27 @@ func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path str
 	if badge {
 		cls += " badge"
 	}
+	markdown := fmt.Sprintf("![%s](%s%s)", idFromPath(path), exampleHost, path)
+
 	fmt.Fprintf(b, `<figure class="%s">
 <div class="flex items-center gap-3"><div>%s</div><figcaption class="text-xs font-mono text-slate-400">%s</figcaption></div>
-<pre class="text-[11px] leading-snug bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre>
-</figure>`, cls, media, caption, html.EscapeString(cfgYAML))
+<div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Markdown</div>
+<pre class="text-[11px] leading-snug bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre></div>
+<div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Config</div>
+<pre class="text-[11px] leading-snug bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre></div>
+</figure>`, cls, media, caption, html.EscapeString(markdown), html.EscapeString(cfgYAML))
+}
+
+// exampleHost is a placeholder origin for the copy-paste Markdown snippets.
+const exampleHost = "https://kromgo.example.com"
+
+// idFromPath extracts the endpoint id from a request path for Markdown alt text.
+func idFromPath(path string) string {
+	p := strings.TrimPrefix(strings.TrimPrefix(path, "/badges/"), "/graphs/")
+	if i := strings.IndexByte(p, '?'); i >= 0 {
+		p = p[:i]
+	}
+	return p
 }
 
 // moduleRoot walks up from the test's working directory to the directory holding go.mod.
