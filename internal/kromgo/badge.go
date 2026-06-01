@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"html"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/essentialkaos/go-badge"
 	"github.com/home-operations/kromgo/internal/config"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 const defaultBadgeFontSize = 11
@@ -27,13 +25,9 @@ func newBadgePool(cfg config.BadgeDefaults) (*badgePool, error) {
 		size = defaultBadgeFontSize
 	}
 
-	fontData := goregular.TTF
-	if cfg.Font != "" {
-		data, err := os.ReadFile(cfg.Font)
-		if err != nil {
-			return nil, fmt.Errorf("reading badge font: %w", err)
-		}
-		fontData = data
+	fontData, err := resolveBadgeFont(cfg.Font)
+	if err != nil {
+		return nil, fmt.Errorf("badge font: %w", err)
 	}
 
 	// Validate the font up front so a bad font fails at startup, not per request.

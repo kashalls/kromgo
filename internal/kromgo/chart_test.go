@@ -109,7 +109,7 @@ func TestResolveGraphFont(t *testing.T) {
 			}
 		})
 	}
-	// An unknown name is treated as a (missing) file path and errors.
+	// An unknown font name errors (no disk fallback).
 	_, err := resolveGraphFont("not-a-font")
 	assert.Error(t, err)
 }

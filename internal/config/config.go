@@ -10,7 +10,7 @@ import (
 )
 
 // DefaultPath is the config file location used when none is provided.
-const DefaultPath = "/kromgo/config.yaml"
+const DefaultPath = "/config/config.yaml"
 
 // KromgoConfig is the top-level YAML configuration. Endpoints are split by output
 // type: badges render an instant value (SVG / shields.io JSON / kromgo JSON) and
@@ -36,7 +36,7 @@ type Defaults struct {
 
 // BadgeDefaults holds the default SVG badge rendering settings.
 type BadgeDefaults struct {
-	// Font is an optional path to a TrueType font. Empty uses an embedded default font.
+	// Font selects the badge font by name (go-regular, go-bold, go-medium, go-mono); empty = go-regular.
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
 	// Size is the font size in points (defaults to 11).
 	Size int `yaml:"size,omitempty" json:"size,omitempty"`
@@ -56,7 +56,7 @@ type GraphDefaults struct {
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
 	// Theme selects the color theme (e.g. "dark", "grafana", "catppuccin-mocha", "dracula").
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
-	// Font selects the text font: a built-in name (roboto, notosans, go-regular, …) or a .ttf path.
+	// Font selects the text font by name (roboto, notosans, notosans-bold, go-regular, go-bold, …).
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
 }
 

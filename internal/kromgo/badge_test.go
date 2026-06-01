@@ -37,7 +37,13 @@ func TestNewBadgePool_DefaultFont(t *testing.T) {
 	assert.NotEmpty(t, gen.GenerateFlat("label", "msg", badge.COLOR_GREEN))
 }
 
-func TestNewBadgePool_MissingFontFile(t *testing.T) {
-	_, err := newBadgePool(config.BadgeDefaults{Font: "/no/such/font.ttf"})
+func TestNewBadgePool_UnknownFont(t *testing.T) {
+	_, err := newBadgePool(config.BadgeDefaults{Font: "not-a-font"})
 	assert.Error(t, err)
+}
+
+func TestNewBadgePool_NamedFont(t *testing.T) {
+	pool, err := newBadgePool(config.BadgeDefaults{Font: "go-bold"})
+	require.NoError(t, err)
+	require.NotNil(t, pool)
 }

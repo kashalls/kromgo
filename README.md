@@ -25,7 +25,7 @@ Each maps a URL path to a PromQL query. Only the endpoints you define are reacha
 ```bash
 docker run -d \
   -e PROMETHEUS_URL=http://prometheus:9090 \
-  -v /path/to/config.yaml:/kromgo/config.yaml \
+  -v /path/to/config.yaml:/config/config.yaml \
   -p 8080:8080 \
   ghcr.io/home-operations/kromgo:latest
 ```
@@ -45,14 +45,14 @@ services:
         environment:
             PROMETHEUS_URL: http://prometheus:9090
         volumes:
-            - ./config.yaml:/kromgo/config.yaml:ro
+            - ./config.yaml:/config/config.yaml:ro
         ports:
             - "8080:8080"
 ```
 
 ## Configuration
 
-kromgo reads its endpoint definitions from `/kromgo/config.yaml` inside the container. Mount your
+kromgo reads its endpoint definitions from `/config/config.yaml` inside the container. Mount your
 config file there (or pass `-config /path/to/config.yaml`).
 
 **Minimal example:**
@@ -93,7 +93,7 @@ defaults:
     hidden: true # index visibility — true (default) hides every endpoint unless it opts in
     cacheSeconds: 0 # Cache-Control max-age in seconds; 0 disables caching
     badge:
-        font: Verdana.ttf # optional TrueType font path; defaults to an embedded font
+        font: go-regular # go-regular (default), go-bold, go-medium, go-mono
         size: 11 # badge font size in points
         style: flat # flat (default), flat-square, or plastic
     graph:
@@ -272,10 +272,10 @@ kromgo's bundled palettes (an unknown value falls back to the default):
   (via the official [catppuccin/go](https://github.com/catppuccin/go) palette), `dracula`, `monokai`,
   `night-owl`.
 
-`font` accepts a built-in name — `roboto` (default), `notosans`, `notosans-bold`, or the embedded Go
-family `go-regular` / `go-bold` / `go-medium` / `go-mono` — or a path to a `.ttf` mounted into the
-container. Fonts are compiled into the binary (no system fonts required); an invalid name or
-unreadable path fails fast at startup.
+`font` accepts a built-in name: `roboto` (default), `notosans`, `notosans-bold`, or the embedded Go
+family `go-regular` / `go-bold` / `go-medium` / `go-mono`. (Badges use the Go family; `defaults.badge.font`
+defaults to `go-regular`.) Fonts are compiled into the binary — there's no reading from disk, so add a
+new face by PRing it into the registry. An unknown name fails fast at startup.
 
 ## Index page
 
@@ -476,15 +476,17 @@ kromgo is built to face the public web. Its posture:
 - **Bounded work.** Each Prometheus query is bounded by `QUERY_TIMEOUT` (default 30s); graph windows
   are capped by `maxDuration` and image dimensions are clamped. A 10s `ReadHeaderTimeout` guards
   against Slowloris; tune `SERVER_READ_TIMEOUT`/`SERVER_WRITE_TIMEOUT` to your proxy.
-- **Hardened image.** Distroless, non-root, static binary; images are cosign-signed (below).
+- **Minimal image.** A `scratch` image with just the static binary and a CA bundle (kromgo dials
+  Prometheus over HTTPS) — no shell, package manager, or writable filesystem. It pins no user; set one
+  via your Kubernetes `securityContext` or `docker run --user`. Images are cosign-signed (below).
 
 Operational guidance:
 
 - **Expose only the main port (`8080`).** The health port (`8888`) serves `/metrics` and probes —
   keep it on the internal network.
 - **Terminate TLS and rate limit at your reverse proxy** (see [Rate limiting](#rate-limiting)).
-- Treat the config as trusted (it's operator-controlled); a custom `badge.font` path is read from
-  disk, and CEL expressions run sandboxed (no env/file/network access).
+- Treat the config as trusted (it's operator-controlled). Fonts are compiled-in (never read from
+  disk), and CEL expressions run sandboxed (no env/file/network access).
 
 ## Image verification
 

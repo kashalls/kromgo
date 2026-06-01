@@ -2,7 +2,6 @@ package kromgo
 
 import (
 	"fmt"
-	"os"
 
 	charts "github.com/go-analyze/charts"
 	"github.com/golang/freetype/truetype"
@@ -12,9 +11,17 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
-// Graph fonts: the go-analyze/charts built-ins (always available) plus the Go font
-// family embedded from golang.org/x/image (compiled into the binary — no base-image
-// files). A graph's font may also be a path to a .ttf on disk.
+// Fonts are compiled into the binary, never read from disk — the image is scratch
+// and we control the set. Add a face by importing it here and PRing it into the
+// registry. embeddedFonts are the Go family from golang.org/x/image; graphs can
+// also use the chart library's bundled fonts (builtinGraphFonts).
+
+var embeddedFonts = map[string][]byte{
+	"go-regular": goregular.TTF,
+	"go-bold":    gobold.TTF,
+	"go-medium":  gomedium.TTF,
+	"go-mono":    gomono.TTF,
+}
 
 // builtinGraphFonts are the chart library's bundled fonts, selectable by name.
 var builtinGraphFonts = map[string]bool{
@@ -23,17 +30,21 @@ var builtinGraphFonts = map[string]bool{
 	charts.FontFamilyNotoSansBold: true,
 }
 
-// embeddedGraphFonts are extra faces embedded from x/image, keyed by their ?font name.
-var embeddedGraphFonts = map[string][]byte{
-	"go-regular": goregular.TTF,
-	"go-bold":    gobold.TTF,
-	"go-medium":  gomedium.TTF,
-	"go-mono":    gomono.TTF,
+// resolveBadgeFont returns the TTF bytes for a badge font name (empty = the default
+// Go regular face). Badges render through go-badge, which needs the raw bytes.
+func resolveBadgeFont(name string) ([]byte, error) {
+	if name == "" {
+		return goregular.TTF, nil
+	}
+	if data := embeddedFonts[name]; data != nil {
+		return data, nil
+	}
+	return nil, fmt.Errorf("unknown font %q", name)
 }
 
-// resolveGraphFont resolves a font name to a parsed font: a built-in or embedded
-// registry name, or a path to a .ttf on disk. Empty returns nil (the library default,
-// Roboto). It is called once per graph at startup.
+// resolveGraphFont returns the parsed font for a graph font name: a chart-library
+// built-in (roboto/notosans/…) or an embedded Go face. Empty returns nil (the
+// library default, Roboto).
 func resolveGraphFont(name string) (*truetype.Font, error) {
 	switch {
 	case name == "":
@@ -43,13 +54,9 @@ func resolveGraphFont(name string) (*truetype.Font, error) {
 			return f, nil
 		}
 		return nil, fmt.Errorf("font %q unavailable", name)
-	case embeddedGraphFonts[name] != nil:
-		return truetype.Parse(embeddedGraphFonts[name])
+	case embeddedFonts[name] != nil:
+		return truetype.Parse(embeddedFonts[name])
 	default:
-		data, err := os.ReadFile(name)
-		if err != nil {
-			return nil, fmt.Errorf("reading font %q (not a known font name either): %w", name, err)
-		}
-		return truetype.Parse(data)
+		return nil, fmt.Errorf("unknown font %q", name)
 	}
 }
