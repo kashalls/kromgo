@@ -47,6 +47,12 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLoad_RejectsUnknownKey(t *testing.T) {
+	// A stale/typo'd key (here the removed top-level hideAll) must error, not be ignored.
+	_, err := Load(writeConfig(t, "metrics: []\nhideAll: true\n"))
+	assert.Error(t, err)
+}
+
 func TestLoad_InvalidDuration(t *testing.T) {
 	_, err := Load(writeConfig(t, "defaults:\n  timeseries:\n    maxDuration: bogus\n"))
 	assert.Error(t, err)

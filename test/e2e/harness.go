@@ -22,7 +22,7 @@ import (
 const configYAML = `
 defaults:
   hidden: false
-  range:
+  timeseries:
     enabled: true
     maxDuration: 24h
 metrics:

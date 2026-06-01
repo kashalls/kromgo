@@ -123,8 +123,10 @@ func Load(path string) (KromgoConfig, error) {
 		return KromgoConfig{}, fmt.Errorf("reading config file: %w", err)
 	}
 
+	// Strict decoding: an unknown/typo'd or stale key (e.g. the old hideAll/history)
+	// is an error, not a silent no-op.
 	var cfg KromgoConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	if err := yaml.Load(data, &cfg, yaml.WithKnownFields()); err != nil {
 		return KromgoConfig{}, fmt.Errorf("parsing config yaml: %w", err)
 	}
 
