@@ -134,27 +134,23 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	msgSeg := msgW + 2*xPad
 	total := labelSeg + msgSeg
 
-	rx := 3
-	gradient := true
-	if style == config.StyleFlatSquare {
-		rx, gradient = 0, false
-	}
+	rx, gradStops := styleAppearance(style)
 	baseline := (h+size)/2 - 1
 
 	var s strings.Builder
 	fmt.Fprintf(&s, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img">`, total, h, total, h)
-	if gradient {
-		s.WriteString(`<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>`)
+	if gradStops != "" {
+		fmt.Fprintf(&s, `<linearGradient id="g" x2="0" y2="100%%">%s</linearGradient>`, gradStops)
 	}
 	fmt.Fprintf(&s, `<clipPath id="r"><rect width="%d" height="%d" rx="%d" fill="#fff"/></clipPath>`, total, h, rx)
+	// Everything is drawn inside the clip group so the rounded corners trim every
+	// element — and any stray glyph ink can never escape the badge bounds.
 	s.WriteString(`<g clip-path="url(#r)">`)
 	fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="#555"/>`, labelSeg, h)
 	fmt.Fprintf(&s, `<rect x="%d" width="%d" height="%d" fill="%s"/>`, labelSeg, msgSeg, h, colorNameToHex(color))
-	if gradient {
+	if gradStops != "" {
 		fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="url(#g)"/>`, total, h)
 	}
-	s.WriteString(`</g>`)
-
 	if hasIcon {
 		// iconPath is static, trusted registry data (not user input).
 		scale := float64(iconSize) / 24.0
@@ -163,8 +159,8 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	}
 
 	// Text as vector paths from the font: exact widths, no system-font/textLength
-	// dependency. Build both segments' paths, then a grey shadow group + a white
-	// group. Untrusted text becomes path geometry, so it can't inject markup.
+	// dependency. Build both segments' paths, then a grey shadow + a white copy.
+	// Untrusted text becomes path geometry, so it can't inject markup.
 	var paths strings.Builder
 	bl := float64(baseline)
 	if hasLabel {
@@ -175,8 +171,22 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 		fmt.Fprintf(&s, `<path transform="translate(0 1)" fill="#010101" fill-opacity=".3" d="%s"/>`, d)
 		fmt.Fprintf(&s, `<path fill="#fff" d="%s"/>`, d)
 	}
-	s.WriteString(`</svg>`)
+	s.WriteString(`</g></svg>`)
 	return []byte(s.String())
+}
+
+// styleAppearance returns the corner radius and linear-gradient stops for a badge
+// style. flat-square has square corners and no gloss; plastic gets a pronounced
+// glossy gradient; flat (default) gets a subtle darkening overlay.
+func styleAppearance(style string) (rx int, gradStops string) {
+	switch style {
+	case config.StyleFlatSquare:
+		return 0, ""
+	case config.StylePlastic:
+		return 4, `<stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".1" stop-color="#aaa" stop-opacity=".1"/><stop offset=".9" stop-color="#000" stop-opacity=".3"/><stop offset="1" stop-color="#000" stop-opacity=".5"/>`
+	default: // flat
+		return 3, `<stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/>`
+	}
 }
 
 var hexColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
