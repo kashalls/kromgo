@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/home-operations/kromgo/compare/0.11.0...0.11.1) (2026-06-01)
+
+
+### Code Refactoring
+
+* reorganize kromgo package and clean up tests ([#192](https://github.com/home-operations/kromgo/issues/192)) ([1e16d0a](https://github.com/home-operations/kromgo/commit/1e16d0a2fdae4ef271e7070fe1cbbdba55bab56d))
+
 ## [0.11.0](https://github.com/home-operations/kromgo/compare/v0.10.0...0.11.0) (2026-06-01)
 
 
