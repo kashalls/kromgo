@@ -44,18 +44,18 @@ type BadgeDefaults struct {
 	Style string `yaml:"style,omitempty" json:"style,omitempty"`
 }
 
-// GraphDefaults holds the default sparkline rendering settings.
+// GraphDefaults holds the default graph rendering settings.
 type GraphDefaults struct {
 	// MaxDuration caps the requested time window (e.g. "24h", "7d"). Defaults to "1h"; "0" is unlimited.
 	MaxDuration string `yaml:"maxDuration,omitempty" json:"maxDuration,omitempty"`
-	// Width is the SVG width in pixels (defaults to 300).
+	// Width is the image width in pixels (defaults to 600).
 	Width int `yaml:"width,omitempty" json:"width,omitempty"`
-	// Height is the SVG height in pixels (defaults to 80).
+	// Height is the image height in pixels (defaults to 200).
 	Height int `yaml:"height,omitempty" json:"height,omitempty"`
-	// Stroke is the line width (defaults to 2).
-	Stroke float64 `yaml:"stroke,omitempty" json:"stroke,omitempty"`
 	// Legend toggles the series legend (defaults to true).
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
+	// Theme selects the color theme (e.g. "dark", "grafana", "catppuccin-mocha", "dracula").
+	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 }
 
 // Badge defines an instant-value endpoint at /badges/{id}.
@@ -97,12 +97,10 @@ type Graph struct {
 	Width int `yaml:"width,omitempty" json:"width,omitempty"`
 	// Height overrides defaults.graph.height for this graph.
 	Height int `yaml:"height,omitempty" json:"height,omitempty"`
-	// Stroke overrides defaults.graph.stroke for this graph.
-	Stroke float64 `yaml:"stroke,omitempty" json:"stroke,omitempty"`
-	// Color sets the line color (shields.io name or hex); empty cycles a palette.
-	Color string `yaml:"color,omitempty" json:"color,omitempty"`
 	// Legend overrides defaults.graph.legend for this graph.
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
+	// Theme overrides defaults.graph.theme for this graph.
+	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 	// Hidden overrides defaults.hidden for this graph.
 	Hidden *bool `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	// CacheSeconds overrides defaults.cacheSeconds for this graph.

@@ -35,8 +35,10 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	format := r.URL.Query().Get("format")
-	if format != formatJSON {
-		format = formatSVG // empty or unknown renders the sparkline image
+	switch format {
+	case formatJSON, formatPNG: // recognized
+	default:
+		format = formatSVG // empty or unknown renders the SVG image
 	}
 
 	metricLabel := "unknown"
@@ -65,7 +67,16 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 		writeJSONOr(w, log, id, historyResponse(graph, start, end, step, matrix))
 		return
 	}
-	writeSVG(w, []byte(renderSparkline(matrix, graph.defaults.withOverrides(r))))
+
+	params := graph.defaults.withOverrides(r)
+	img, err := renderChart(matrix, params)
+	if err != nil {
+		log.Error("error rendering chart", "error", err)
+		writeError(w, id, "Render Error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", params.contentType())
+	_, _ = w.Write(img)
 }
 
 // historyResponse builds the JSON time-series payload from a query matrix.

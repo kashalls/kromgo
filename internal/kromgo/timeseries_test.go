@@ -131,6 +131,12 @@ func TestResolveGraph_MaxDuration(t *testing.T) {
 	}
 }
 
+func TestResolveGraph_InvalidTheme(t *testing.T) {
+	_, err := resolveGraph(config.Graph{ID: "t", Query: "q", Theme: "nope"}, config.Defaults{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "theme")
+}
+
 func TestResolveGraph_DefaultParams(t *testing.T) {
 	rg, err := resolveGraph(config.Graph{ID: "t"}, config.Defaults{})
 	require.NoError(t, err)

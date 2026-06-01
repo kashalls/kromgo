@@ -93,14 +93,11 @@
         "height": {
           "type": "integer"
         },
-        "stroke": {
-          "type": "number"
-        },
-        "color": {
-          "type": "string"
-        },
         "legend": {
           "type": "boolean"
+        },
+        "theme": {
+          "type": "string"
         },
         "hidden": {
           "type": "boolean"
@@ -124,11 +121,11 @@
         "height": {
           "type": "integer"
         },
-        "stroke": {
-          "type": "number"
-        },
         "legend": {
           "type": "boolean"
+        },
+        "theme": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

@@ -16,7 +16,7 @@ Badges render as shields.io-style SVG, so you can embed `/badges/{id}` straight 
 kromgo sits between the public web and your Prometheus. You define two kinds of endpoint:
 
 - **Badges** (`/badges/{id}`) render an instant value as an SVG badge, shields.io JSON, or kromgo JSON.
-- **Graphs** (`/graphs/{id}`) render a time series as an SVG sparkline or JSON.
+- **Graphs** (`/graphs/{id}`) render a time series as a themed SVG/PNG chart or JSON.
 
 Each maps a URL path to a PromQL query. Only the endpoints you define are reachable — Prometheus itself is never exposed.
 
@@ -98,10 +98,10 @@ defaults:
         style: flat # flat (default), flat-square, or plastic
     graph:
         maxDuration: 1h # cap on a graph's requested window ("0" = unlimited)
-        width: 300 # sparkline width in px
-        height: 80 # sparkline height in px
-        stroke: 2 # line width
+        width: 600 # image width in px
+        height: 200 # image height in px
         legend: true # show the series legend
+        theme: light # color theme — see Themes below
 ```
 
 ### Badges
@@ -218,32 +218,33 @@ Two gotchas around `result` (a `double`):
 ### Graphs
 
 Each entry under `graphs:` defines a time-series endpoint at `/graphs/{id}`. Defining a graph is the
-opt-in to expose range data for that query — there is no separate enable flag.
+opt-in to expose range data for that query — there is no separate enable flag. Charts are rendered by
+[go-analyze/charts](https://github.com/go-analyze/charts) as **SVG** (default) or **PNG**
+(`?format=png`).
 
-| Field          | Required | Description                                                          |
-| -------------- | -------- | -------------------------------------------------------------------- |
-| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                         |
-| `query`        | yes      | PromQL expression run as a range query                               |
-| `title`        | no       | Display label (defaults to `id`)                                     |
-| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`) |
-| `width`        | no       | SVG width in px (overrides `defaults.graph.width`)                   |
-| `height`       | no       | SVG height in px (overrides `defaults.graph.height`)                 |
-| `stroke`       | no       | Line width (overrides `defaults.graph.stroke`)                       |
-| `color`        | no       | Line color (shields.io name or hex); empty cycles a palette          |
-| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)           |
-| `hidden`       | no       | Override `defaults.hidden` for this graph                            |
-| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                      |
+| Field          | Required | Description                                                            |
+| -------------- | -------- | ---------------------------------------------------------------------- |
+| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                           |
+| `query`        | yes      | PromQL expression run as a range query                                 |
+| `title`        | no       | Display label (defaults to `id`)                                       |
+| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)   |
+| `width`        | no       | Image width in px (overrides `defaults.graph.width`)                   |
+| `height`       | no       | Image height in px (overrides `defaults.graph.height`)                 |
+| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)             |
+| `theme`        | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes) |
+| `hidden`       | no       | Override `defaults.hidden` for this graph                              |
+| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                        |
 
 ```yaml
 graphs:
     - id: node_cpu_usage
       query: "cluster:node_cpu:ratio_rate5m * 100"
       maxDuration: "30d"
-      width: 400
+      width: 800
+      theme: catppuccin-mocha
 ```
 
-The time window is chosen by these query parameters (config fields set the rendering defaults; these
-fields cannot be overridden by the request):
+The time window is chosen by these query parameters:
 
 | Parameter | Default    | Description                                                              |
 | --------- | ---------- | ------------------------------------------------------------------------ |
@@ -252,8 +253,21 @@ fields cannot be overridden by the request):
 | `end`     | now        | Window end — Unix timestamp or RFC3339                                   |
 | `step`    | window/100 | Resolution between points (min `1m`); supports `s/m/h/d/y` units         |
 
-`width`, `height`, `stroke`, `color`, and `legend` may also be overridden per request via query
-parameters.
+The rendering fields (`width`, `height`, `legend`, `theme`) and the output `format` (`svg`/`png`) may
+also be overridden per request via query parameters, e.g.
+`/graphs/node_cpu_usage?theme=dracula&format=png&width=800&last=24h`.
+
+#### Themes
+
+`theme` accepts a [go-analyze/charts](https://github.com/go-analyze/charts) built-in or one of
+kromgo's bundled palettes (an unknown value falls back to the default):
+
+- **Built-in:** `light` (default), `dark`, `vivid-light`, `vivid-dark`, `grafana`, `ant`,
+  `nature-light`, `nature-dark`, `retro`, `ocean`, `slate`, `gray`, `winter`, `spring`, `summer`,
+  `fall`.
+- **Bundled:** `catppuccin-latte`, `catppuccin-frappe`, `catppuccin-macchiato`, `catppuccin-mocha`
+  (via the official [catppuccin/go](https://github.com/catppuccin/go) palette), `dracula`, `monokai`,
+  `night-owl`.
 
 ## Index page
 
@@ -269,7 +283,7 @@ visible, the page displays _page intentionally blank_.
 | Route              | Default response        | Variants                                                           |
 | ------------------ | ----------------------- | ------------------------------------------------------------------ |
 | `GET /badges/{id}` | SVG badge (`?style=…`)  | `?format=shields` → shields.io JSON · `?format=json` → kromgo JSON |
-| `GET /graphs/{id}` | SVG sparkline           | `?format=json` → time-series data                                  |
+| `GET /graphs/{id}` | SVG chart (`?theme=…`)  | `?format=png` → PNG image · `?format=json` → time-series data      |
 | `GET /`            | HTML index of endpoints |                                                                    |
 
 **`/badges/{id}`** (default SVG):

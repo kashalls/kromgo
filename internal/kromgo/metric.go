@@ -13,9 +13,8 @@ const (
 	defaultGraphMaxDuration = time.Hour
 	minRangeStep            = time.Minute
 	defaultValueExpr        = "string(result)"
-	defaultGraphWidth       = 300
-	defaultGraphHeight      = 80
-	defaultGraphStroke      = 2.0
+	defaultGraphWidth       = 600
+	defaultGraphHeight      = 200
 )
 
 // resolvedBadge is a config.Badge with its per-request values resolved once at
@@ -78,16 +77,21 @@ func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedB
 
 // resolveGraph precomputes a graph's cache TTL, window cap, and default parameters.
 func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
+	theme := cmp.Or(g.Theme, def.Graph.Theme)
+	if theme != "" && !validTheme(theme) {
+		return nil, fmt.Errorf("graph %q: unknown theme %q", g.ID, theme)
+	}
+
 	rg := &resolvedGraph{
 		Graph:        g,
 		cacheSeconds: def.CacheSeconds,
 		maxDuration:  defaultGraphMaxDuration,
 		defaults: chartParams{
-			width:       cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
-			height:      cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
-			strokeWidth: cmp.Or(g.Stroke, def.Graph.Stroke, defaultGraphStroke),
-			color:       g.Color,
-			legend:      firstBool(true, g.Legend, def.Graph.Legend),
+			width:  cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
+			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
+			legend: firstBool(true, g.Legend, def.Graph.Legend),
+			theme:  theme,
+			format: formatSVG,
 		},
 	}
 	if g.CacheSeconds != nil {

@@ -300,6 +300,27 @@ func TestServeGraph_SVGDefault(t *testing.T) {
 	assert.True(t, strings.HasPrefix(w.Body.String(), "<svg"))
 }
 
+func TestServeGraph_PNG(t *testing.T) {
+	srv := mockProm(t, "0", []float64{10, 20, 15, 30})
+	h := newHandlerForTest(t, baseConfig(), srv.URL)
+
+	w := promtest.Get(t, h.Mux(), "/graphs/cpu?format=png&last=1h")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "image/png", w.Header().Get("Content-Type"))
+	assert.Equal(t, []byte{0x89, 'P', 'N', 'G'}, w.Body.Bytes()[:4])
+}
+
+func TestServeGraph_Theme(t *testing.T) {
+	srv := mockProm(t, "0", []float64{10, 20, 15, 30})
+	h := newHandlerForTest(t, baseConfig(), srv.URL)
+
+	w := promtest.Get(t, h.Mux(), "/graphs/cpu?theme=dracula&last=1h")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "rgb(40,42,54)") // dracula background
+}
+
 func TestServeGraph_WindowTooLarge(t *testing.T) {
 	srv := mockProm(t, "0", []float64{1, 2})
 	h := newHandlerForTest(t, baseConfig(), srv.URL) // graph MaxDuration 24h
