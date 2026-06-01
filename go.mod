@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	github.com/caarlos0/env/v11 v11.4.1
+	github.com/dustin/go-humanize v1.0.1
 	github.com/essentialkaos/go-badge v1.4.2
 	github.com/google/cel-go v0.28.1
 	github.com/invopop/jsonschema v0.14.0

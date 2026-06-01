@@ -3,129 +3,28 @@ package kromgo
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
+
+	"github.com/dustin/go-humanize"
 )
 
 // The functions below are registered with the CEL environment (see expr.go) and
-// callable from a metric's value/color expression, e.g. humanBytes(result).
+// callable from a metric's value/color expression, e.g. humanBytes(result). They
+// take the (double) sample value. Byte and thousands formatting is delegated to
+// github.com/dustin/go-humanize; duration/age are kept compact and badge-friendly.
 
-// toFloat converts a string, int, or float64 to float64.
-func toFloat(v any) (float64, error) {
-	switch val := v.(type) {
-	case float64:
-		return val, nil
-	case int:
-		return float64(val), nil
-	case string:
-		return strconv.ParseFloat(strings.TrimSpace(val), 64)
-	default:
-		return 0, fmt.Errorf("cannot convert %T to float64", v)
-	}
-}
+// humanBytes formats a byte count with IEC binary units, e.g. 1572864 -> "1.5 MiB".
+func humanBytes(f float64) string { return humanize.IBytes(uint64(f)) }
 
-// simplifyDays converts a day count into a compact human-readable string.
-// For example, 1159 days becomes "3y64d".
-func simplifyDays(v any) string {
-	f, err := toFloat(v)
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	days := int(math.Round(f))
-	years := days / 365
-	remaining := days % 365
-	if years > 0 {
-		return fmt.Sprintf("%dy%dd", years, remaining)
-	}
-	return fmt.Sprintf("%dd", remaining)
-}
+// humanSIBytes formats a byte count with SI decimal units, e.g. 1500000 -> "1.5 MB".
+func humanSIBytes(f float64) string { return humanize.Bytes(uint64(f)) }
 
-// humanBytes converts a byte count into a human-readable size string using
-// IEC binary units (powers of 1024). For example, 1572864 becomes "1.5MiB".
-// For SI decimal units (powers of 1000, kB/MB/GB...) use humanSIBytes.
-func humanBytes(v any) string {
-	f, err := toFloat(v)
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	return scaleBytes(f, 1024, []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB"})
-}
+// humanizeThousands adds comma thousands separators, e.g. 157121 -> "157,121".
+func humanizeThousands(f float64) string { return humanize.Commaf(f) }
 
-// humanSIBytes converts a byte count into a human-readable size string using
-// SI decimal units (powers of 1000). For example, 1500000 becomes "1.5MB".
-// For IEC binary units (powers of 1024, KiB/MiB/GiB...) use humanBytes.
-func humanSIBytes(v any) string {
-	f, err := toFloat(v)
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	return scaleBytes(f, 1000, []string{"B", "kB", "MB", "GB", "TB", "PB"})
-}
-
-func scaleBytes(f float64, base float64, units []string) string {
-	i := 0
-	for f >= base && i < len(units)-1 {
-		f /= base
-		i++
-	}
-	if i == 0 {
-		return fmt.Sprintf("%d%s", int(math.Round(f)), units[0])
-	}
-	return fmt.Sprintf("%.1f%s", f, units[i])
-}
-
-// humanizeThousands formats a number with comma thousands separators.
-// For example, 157121 becomes "157,121".
-func humanizeThousands(v any) string {
-	f, err := toFloat(v)
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-
-	// Take the sign from the float so values in (-1, 0) keep their minus sign
-	// (the integer part of e.g. -0.5 is 0, which would otherwise look positive).
-	negative := f < 0
-	abs := math.Abs(f)
-
-	// Format as integer if no fractional part, otherwise keep decimals.
-	var intPart int64
-	var fracStr string
-	if abs == math.Trunc(abs) {
-		intPart = int64(math.Round(abs))
-	} else {
-		s := strconv.FormatFloat(abs, 'f', -1, 64)
-		parts := strings.SplitN(s, ".", 2)
-		intPart, _ = strconv.ParseInt(parts[0], 10, 64)
-		if len(parts) == 2 {
-			fracStr = "." + parts[1]
-		}
-	}
-
-	s := strconv.FormatInt(intPart, 10)
-	var result []byte
-	for i, c := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			result = append(result, ',')
-		}
-		result = append(result, byte(c))
-	}
-
-	out := string(result) + fracStr
-	if negative {
-		out = "-" + out
-	}
-	return out
-}
-
-// humanDuration converts a duration in seconds into a compact human-readable string.
-// For example, 9000 seconds becomes "2h30m".
-func humanDuration(v any) string {
-	f, err := toFloat(v)
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
+// humanDuration formats a number of seconds as a compact duration, e.g. 9000 -> "2h30m".
+func humanDuration(f float64) string {
 	total := int(math.Round(f))
-
 	days := total / 86400
 	total %= 86400
 	hours := total / 3600
@@ -147,4 +46,30 @@ func humanDuration(v any) string {
 		parts = append(parts, fmt.Sprintf("%ds", seconds))
 	}
 	return strings.Join(parts, "")
+}
+
+// humanizeAge formats a number of days as a coarse age — years, months, days, no
+// hours/minutes/seconds — e.g. 467 -> "1y3m12d". Months use 30 days and years 365
+// (approximate, which is fine for an "age" badge). Zero components are omitted.
+func humanizeAge(f float64) string {
+	days := int(math.Round(f))
+	if days < 0 {
+		days = 0
+	}
+	years := days / 365
+	days %= 365
+	months := days / 30
+	days %= 30
+
+	var b strings.Builder
+	if years > 0 {
+		fmt.Fprintf(&b, "%dy", years)
+	}
+	if months > 0 {
+		fmt.Fprintf(&b, "%dm", months)
+	}
+	if days > 0 || b.Len() == 0 {
+		fmt.Fprintf(&b, "%dd", days)
+	}
+	return b.String()
 }

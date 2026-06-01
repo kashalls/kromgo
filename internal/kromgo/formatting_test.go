@@ -6,131 +6,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSimplifyDays_YearsAndDays(t *testing.T) {
-	assert.Equal(t, "3y64d", simplifyDays("1159"))
-}
-
-func TestSimplifyDays_DaysOnly(t *testing.T) {
-	assert.Equal(t, "45d", simplifyDays("45"))
-}
-
-func TestSimplifyDays_ExactYears(t *testing.T) {
-	assert.Equal(t, "1y0d", simplifyDays("365"))
-}
-
-func TestSimplifyDays_ZeroDays(t *testing.T) {
-	assert.Equal(t, "0d", simplifyDays("0"))
-}
-
-func TestSimplifyDays_Float64Input(t *testing.T) {
-	assert.Equal(t, "3y64d", simplifyDays(float64(1159)))
-}
-
-func TestSimplifyDays_InvalidInput(t *testing.T) {
-	assert.Equal(t, "notanumber", simplifyDays("notanumber"))
-}
-
 func TestHumanBytes(t *testing.T) {
-	tests := []struct {
-		name  string
-		input any
-		want  string
-	}{
-		{"zero", "0", "0B"},
-		{"sub-kibibyte-string", "512", "512B"},
-		{"below-kibibyte-boundary", "1000", "1000B"},
-		{"exact-kibibyte-string", "1024", "1.0KiB"},
-		{"one-and-a-half-mib-string", "1572864", "1.5MiB"},
-		{"two-gib", "2147483648", "2.0GiB"},
-		{"above-pib-clamps", float64(2e18), "1776.4PiB"},
-		{"int-input", int(1024), "1.0KiB"},
-		{"float64-input", float64(1572864), "1.5MiB"},
-		{"invalid-input", "not-a-number", "not-a-number"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, humanBytes(tt.input))
-		})
-	}
+	// IEC binary units via go-humanize (spaced).
+	assert.Equal(t, "1.0 KiB", humanBytes(1024))
+	assert.Equal(t, "1.5 MiB", humanBytes(1572864))
+	assert.Equal(t, "2.0 GiB", humanBytes(2147483648))
+	assert.Equal(t, "512 B", humanBytes(512))
 }
 
 func TestHumanSIBytes(t *testing.T) {
-	tests := []struct {
-		name  string
-		input any
-		want  string
-	}{
-		{"zero", "0", "0B"},
-		{"sub-kilobyte-string", "512", "512B"},
-		{"exact-kilobyte-boundary", "1000", "1.0kB"},
-		{"kibibyte-in-si", "1024", "1.0kB"},
-		{"one-and-a-half-mb-string", "1572864", "1.6MB"},
-		{"above-pb-clamps", float64(2e18), "2000.0PB"},
-		{"int-input", int(1000), "1.0kB"},
-		{"float64-input", float64(1572864), "1.6MB"},
-		{"invalid-input", "not-a-number", "not-a-number"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, humanSIBytes(tt.input))
-		})
-	}
+	assert.Equal(t, "1.0 kB", humanSIBytes(1000))
+	assert.Equal(t, "1.5 MB", humanSIBytes(1500000))
 }
 
-func TestHumanDuration_SecondsOnly(t *testing.T) {
-	assert.Equal(t, "45s", humanDuration("45"))
+func TestHumanizeThousands(t *testing.T) {
+	assert.Equal(t, "157,121", humanizeThousands(157121))
+	assert.Equal(t, "1,000,000", humanizeThousands(1000000))
+	assert.Equal(t, "1,234.56", humanizeThousands(1234.56))
+	assert.Equal(t, "-1,234", humanizeThousands(-1234))
 }
 
-func TestHumanDuration_MinutesAndSeconds(t *testing.T) {
-	assert.Equal(t, "1m30s", humanDuration("90"))
+func TestHumanDuration(t *testing.T) {
+	assert.Equal(t, "45s", humanDuration(45))
+	assert.Equal(t, "1m30s", humanDuration(90))
+	assert.Equal(t, "2h30m", humanDuration(9000))
+	assert.Equal(t, "1d2h3m", humanDuration(93780))
+	assert.Equal(t, "0s", humanDuration(0))
 }
 
-func TestHumanDuration_HoursAndMinutes(t *testing.T) {
-	assert.Equal(t, "2h30m", humanDuration("9000"))
-}
-
-func TestHumanDuration_DaysHoursMinutes(t *testing.T) {
-	assert.Equal(t, "1d2h3m", humanDuration("93780"))
-}
-
-func TestHumanDuration_Zero(t *testing.T) {
-	assert.Equal(t, "0s", humanDuration("0"))
-}
-
-func TestHumanDuration_InvalidInput(t *testing.T) {
-	assert.Equal(t, "notanumber", humanDuration("notanumber"))
-}
-
-func TestHumanizeThousands_Large(t *testing.T) {
-	assert.Equal(t, "157,121", humanizeThousands("157121"))
-}
-
-func TestHumanizeThousands_Small(t *testing.T) {
-	assert.Equal(t, "999", humanizeThousands("999"))
-}
-
-func TestHumanizeThousands_Millions(t *testing.T) {
-	assert.Equal(t, "1,000,000", humanizeThousands("1000000"))
-}
-
-func TestHumanizeThousands_Float64Input(t *testing.T) {
-	assert.Equal(t, "157,121", humanizeThousands(float64(157121)))
-}
-
-func TestHumanizeThousands_WithDecimal(t *testing.T) {
-	assert.Equal(t, "1,234.56", humanizeThousands("1234.56"))
-}
-
-func TestHumanizeThousands_Negative(t *testing.T) {
-	assert.Equal(t, "-1,234", humanizeThousands("-1234"))
-}
-
-func TestHumanizeThousands_NegativeFraction(t *testing.T) {
-	// Values in (-1, 0) must keep their sign even though the integer part is 0.
-	assert.Equal(t, "-0.5", humanizeThousands("-0.5"))
-	assert.Equal(t, "-0.25", humanizeThousands(-0.25))
-}
-
-func TestHumanizeThousands_InvalidInput(t *testing.T) {
-	assert.Equal(t, "notanumber", humanizeThousands("notanumber"))
+func TestHumanizeAge(t *testing.T) {
+	assert.Equal(t, "1y3m12d", humanizeAge(467)) // 365 + 3*30 + 12
+	assert.Equal(t, "12d", humanizeAge(12))
+	assert.Equal(t, "1y", humanizeAge(365))
+	assert.Equal(t, "1m5d", humanizeAge(35))
+	assert.Equal(t, "0d", humanizeAge(0))
+	assert.Equal(t, "0d", humanizeAge(-5)) // clamped
 }

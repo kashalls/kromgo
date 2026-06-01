@@ -24,7 +24,7 @@ func newCELEnv() (*cel.Env, error) {
 // humanizerFuncs registers kromgo's formatting helpers as CEL functions that take
 // the numeric result and return a string, e.g. humanBytes(result).
 func humanizerFuncs() []cel.EnvOption {
-	fn := func(name string, impl func(any) string) cel.EnvOption {
+	fn := func(name string, impl func(float64) string) cel.EnvOption {
 		return cel.Function(name, cel.Overload(name+"_double",
 			[]*cel.Type{cel.DoubleType}, cel.StringType,
 			cel.UnaryBinding(func(v ref.Val) ref.Val {
@@ -32,11 +32,11 @@ func humanizerFuncs() []cel.EnvOption {
 			})))
 	}
 	return []cel.EnvOption{
-		fn("simplifyDays", simplifyDays),
 		fn("humanBytes", humanBytes),
 		fn("humanSIBytes", humanSIBytes),
-		fn("humanDuration", humanDuration),
 		fn("humanizeThousands", humanizeThousands),
+		fn("humanDuration", humanDuration),
+		fn("humanizeAge", humanizeAge),
 	}
 }
 

@@ -194,15 +194,16 @@ metrics:
 ```
 
 Besides CEL's built-ins (arithmetic, comparisons, ternary `?:`, `in`, the `strings` extension —
-`startsWith`, `matches`, `upperAscii`, …) these humanizer functions are available:
+`startsWith`, `matches`, `upperAscii`, …) these humanizer functions are available (byte and comma
+formatting come from [go-humanize](https://github.com/dustin/go-humanize)):
 
 | Function                    | Example                       | Result    |
 | --------------------------- | ----------------------------- | --------- |
-| `simplifyDays(result)`      | `simplifyDays(1159.0)`        | `3y64d`   |
-| `humanBytes(result)`        | `humanBytes(1572864.0)`       | `1.5MiB`  |
-| `humanSIBytes(result)`      | `humanSIBytes(1500000.0)`     | `1.5MB`   |
-| `humanDuration(result)`     | `humanDuration(9000.0)`       | `2h30m`   |
+| `humanBytes(result)`        | `humanBytes(1572864.0)`       | `1.5 MiB` |
+| `humanSIBytes(result)`      | `humanSIBytes(1500000.0)`     | `1.5 MB`  |
 | `humanizeThousands(result)` | `humanizeThousands(157121.0)` | `157,121` |
+| `humanDuration(result)`     | `humanDuration(9000.0)`       | `2h30m`   |
+| `humanizeAge(result)`       | `humanizeAge(467.0)`          | `1y3m12d` |
 
 Two gotchas: CEL is strictly typed, so compare `result` against **decimal** literals (`result <
 35.0`, not `35`); and indexing a missing label errors — use `"k" in labels ? labels["k"] : "n/a"`
