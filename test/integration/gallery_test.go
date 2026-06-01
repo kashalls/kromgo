@@ -76,37 +76,55 @@ func TestGallery(t *testing.T) {
 	b.WriteString(galleryHead)
 
 	group(&b, "Badges — value formatters & icons", func() {
+		desc := map[string]string{
+			"cpu":     "Percentage with threshold color",
+			"cpu_hot": "Threshold color — red when high",
+			"mem":     "humanizeBytes + icon",
+			"pods":    "humanizeNumber + icon",
+			"uptime":  "humanizeDuration + icon",
+			"age":     "humanizeDays + icon",
+			"ver":     "Value from a label + icon",
+			"ok":      "Icon only (no title)",
+		}
 		for _, id := range []string{"cpu", "cpu_hot", "mem", "pods", "uptime", "age", "ver", "ok"} {
-			cell(t, h, &b, id, "/badges/"+id, true, yamlFor("badges", byID[id]))
+			cell(t, h, &b, desc[id], "/badges/"+id, true, yamlFor("badges", byID[id]))
 		}
 	})
 	group(&b, "Badge styles", func() {
 		for _, style := range []string{"flat", "flat-square", "plastic"} {
 			bd := byID["mem"]
 			bd.Style = style
-			cell(t, h, &b, style, "/badges/mem?style="+style, true, yamlFor("badges", bd))
+			cell(t, h, &b, "Style: "+style, "/badges/mem?style="+style, true, yamlFor("badges", bd))
 		}
 	})
 	group(&b, "Graph themes (PNG)", func() {
 		for _, th := range []string{"light", "dark", "grafana", "ocean", "slate", "gray",
 			"catppuccin-latte", "catppuccin-mocha", "dracula", "monokai", "night-owl"} {
 			g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Theme: th}
-			cell(t, h, &b, th, "/graphs/g?"+gdim+"&format=png&theme="+th, false, yamlFor("graphs", g))
+			cell(t, h, &b, "Theme: "+th, "/graphs/g?"+gdim+"&format=png&theme="+th, false, yamlFor("graphs", g))
 		}
 	})
 	group(&b, "SVG vs PNG", func() {
 		g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Theme: "grafana"}
-		cell(t, h, &b, "grafana · SVG", "/graphs/g?"+gdim+"&theme=grafana", false, yamlFor("graphs", g))
-		cell(t, h, &b, "grafana · PNG (?format=png)", "/graphs/g?"+gdim+"&format=png&theme=grafana", false, yamlFor("graphs", g))
+		cell(t, h, &b, "SVG output (default)", "/graphs/g?"+gdim+"&theme=grafana", false, yamlFor("graphs", g))
+		cell(t, h, &b, "PNG output (?format=png)", "/graphs/g?"+gdim+"&format=png&theme=grafana", false, yamlFor("graphs", g))
 	})
 	group(&b, "Graph fonts (PNG, dark)", func() {
 		for _, f := range graphFonts {
 			g := config.Graph{ID: "cpu", Title: "CPU", Query: wave, Font: f, Theme: "dark"}
-			cell(t, h, &b, f, "/graphs/font_"+f+"?"+gdim+"&format=png", false, yamlFor("graphs", g))
+			cell(t, h, &b, "Font: "+f, "/graphs/font_"+f+"?"+gdim+"&format=png", false, yamlFor("graphs", g))
 		}
 	})
 
-	b.WriteString(`</main><script>hljs.highlightAll();</script></body></html>`)
+	b.WriteString(`</main><script>
+function copyCode(btn){
+  var text = btn.parentElement.querySelector('code').textContent;
+  var done = function(){ var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function(){ btn.textContent = o; }, 1200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done).catch(fallback); } else { fallback(); }
+  function fallback(){ var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } finally { document.body.removeChild(ta); } }
+}
+hljs.highlightAll();
+</script></body></html>`)
 
 	out := os.Getenv("GALLERY_OUT")
 	if out == "" {
@@ -170,12 +188,25 @@ func cell(t *testing.T, h *kromgo.Handler, b *strings.Builder, caption, path str
 	markdown := fmt.Sprintf("![%s](%s%s)", idFromPath(path), exampleHost, path)
 
 	fmt.Fprintf(b, `<figure class="%s">
-<div class="flex items-center gap-3 min-h-[44px]"><div>%s</div><figcaption class="text-xs font-mono text-slate-500">%s</figcaption></div>
-<div><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Markdown</div>
-<pre class="text-[11px] leading-snug bg-slate-800/60 border border-slate-700 text-slate-300 rounded-lg p-3 overflow-x-auto"><code>%s</code></pre></div>
-<div class="mt-auto"><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Config</div>
-<pre class="text-[11px] leading-snug bg-slate-800/60 border border-slate-700 rounded-lg p-3 overflow-x-auto"><code class="language-yaml">%s</code></pre></div>
-</figure>`, cls, media, caption, html.EscapeString(markdown), html.EscapeString(cfgYAML))
+<figcaption class="text-sm font-semibold text-slate-200">%s</figcaption>
+<div class="flex items-center justify-center py-2">%s</div>`, cls, html.EscapeString(caption), media)
+	codeBlock(b, "Markdown", "", markdown, "")
+	codeBlock(b, "Config", "yaml", cfgYAML, "mt-auto")
+	b.WriteString(`</figure>`)
+}
+
+// codeBlock writes a labelled, copy-able code block. extraClass is applied to the
+// wrapper (e.g. "mt-auto" to pin the config block to the card's bottom).
+func codeBlock(b *strings.Builder, label, lang, content, extraClass string) {
+	langAttr := ""
+	if lang != "" {
+		langAttr = ` class="language-` + lang + `"`
+	}
+	fmt.Fprintf(b, `<div class="%s"><div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">%s</div>
+<div class="relative group">
+<pre class="text-[11px] leading-snug bg-slate-800/60 border border-slate-700 rounded-lg p-3 overflow-x-auto"><code%s>%s</code></pre>
+<button type="button" onclick="copyCode(this)" class="absolute top-2 right-2 rounded-md bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-[10px] font-medium px-2 py-0.5 opacity-0 group-hover:opacity-100 transition">Copy</button>
+</div></div>`, extraClass, label, langAttr, html.EscapeString(content))
 }
 
 // exampleHost is a placeholder origin for the copy-paste Markdown snippets.
