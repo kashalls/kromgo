@@ -17,6 +17,9 @@ func newCELEnv() (*cel.Env, error) {
 	return cel.NewEnv(append([]cel.EnvOption{
 		cel.Variable("result", cel.DoubleType),
 		cel.Variable("labels", cel.MapType(cel.StringType, cel.StringType)),
+		// result is a double; allow comparing it against plain int literals
+		// (result < 35, not result < 35.0) — the usual color-threshold case.
+		cel.CrossTypeNumericComparisons(true),
 		ext.Strings(),
 	}, humanizerFuncs()...)...)
 }

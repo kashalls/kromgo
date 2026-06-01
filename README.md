@@ -179,7 +179,7 @@ metrics:
     - name: cpu
       query: "round(avg(...) * 100, 0.1)"
       value: string(result) + "%"
-      color: 'result < 35.0 ? "green" : result < 75.0 ? "orange" : "red"'
+      color: 'result < 35 ? "green" : result < 75 ? "orange" : "red"'
 
     # value taken from a label
     - name: version
@@ -216,7 +216,7 @@ metrics:
     - name: memory_used
       query: sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
       value: humanizeBytes(result)
-      color: 'result < 60129542144.0 ? "green" : "red"'
+      color: 'result < 60129542144 ? "green" : "red"'
 
     # network egress on an SI-unit link → "1.5 MB"
     - name: egress
@@ -242,12 +242,17 @@ metrics:
     - name: node_age
       query: time() - kube_node_created
       value: humanizeDuration(result)
-      color: 'result < 31536000.0 ? "blue" : "orange"'
+      color: 'result < 31536000 ? "blue" : "orange"'
 ```
 
-Two gotchas: CEL is strictly typed, so compare `result` against **decimal** literals (`result <
-35.0`, not `35`); and indexing a missing label errors — use `"k" in labels ? labels["k"] : "n/a"`
-when a label may be absent.
+Two gotchas around `result` (a `double`):
+
+- **Numeric literals.** Ordered comparisons accept plain integers — `result < 35` works (kromgo
+  enables CEL's cross-type numeric comparisons). Equality and arithmetic do **not**: write a decimal
+  literal there, e.g. `result == 0.0` (not `== 0`) and `result * 100.0` (not `* 100`). A mismatch is
+  a compile error caught at startup, not a runtime surprise.
+- **Missing labels.** Indexing a label that isn't present errors — use
+  `"k" in labels ? labels["k"] : "n/a"` when a label may be absent.
 
 ### History and charts
 

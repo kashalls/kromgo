@@ -27,6 +27,9 @@ func TestCEL_Expressions(t *testing.T) {
 		{"suffix", `string(result) + "%"`, 17.5, nil, "17.5%"},
 		{"ternary color", `result <= 50.0 ? "green" : "red"`, 17.5, nil, "green"},
 		{"ternary high", `result <= 50.0 ? "green" : "red"`, 80, nil, "red"},
+		// CrossTypeNumericComparisons: ordered comparisons accept int literals.
+		{"int threshold", `result < 35 ? "green" : "red"`, 17.5, nil, "green"},
+		{"int threshold high", `result < 35 ? "green" : "red"`, 80, nil, "red"},
 		{"label", `labels["version"]`, 0, map[string]string{"version": "v1.2.3"}, "v1.2.3"},
 		{"humanizeBytes", `humanizeBytes(result)`, 1572864, nil, "1.5 MiB"},
 		{"humanizeDuration short", `humanizeDuration(result)`, 9000, nil, "2h30m"},
