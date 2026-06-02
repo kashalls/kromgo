@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/home-operations/kromgo/compare/0.13.0...0.13.1) (2026-06-02)
+
+
+### Features
+
+* **badge:** adapt text color to background + add aria-label/title ([#205](https://github.com/home-operations/kromgo/issues/205)) ([e47ba5a](https://github.com/home-operations/kromgo/commit/e47ba5aaa8dcbacbaff7c0eb8c9259f2be55dc44))
+
 ## [0.13.0](https://github.com/home-operations/kromgo/compare/0.12.2...0.13.0) (2026-06-02)
 
 
