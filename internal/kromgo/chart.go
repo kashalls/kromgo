@@ -136,8 +136,8 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 		opt.Legend.Show = &hide
 	}
 
-	// Font is set on the painter (the non-deprecated default-font hook); nil leaves
-	// the chart library's default.
+	// Font is set on the painter (the non-deprecated default-font hook). resolveGraphFont
+	// always returns a face (DejaVu Sans by default), so p.font is never nil here.
 	painter := charts.NewPainter(charts.PainterOptions{
 		OutputFormat: p.format, // "svg" or "png"
 		Width:        p.width,

@@ -1,6 +1,7 @@
 // Command genassets builds the assets that internal/kromgo embeds with //go:embed,
 // from the npm packages vendored in node_modules (marked, github-markdown-css,
-// @mdi/svg, simple-icons). Versions are pinned in package.json / package-lock.json
+// @mdi/svg, simple-icons, and the DejaVu Sans + Comic Neue TrueType faces). Versions are
+// pinned in package.json / package-lock.json
 // and kept current by Renovate; this program is a pure local transform — it does no
 // network I/O. Run `npm ci` (or `mise run assets`) first to populate node_modules.
 //
@@ -55,6 +56,10 @@ func run() error {
 		{"github-markdown.css", genMarkdownCSS},
 		{"mdi.txt.gz", genMDI},
 		{"si.txt.gz", genSimpleIcons},
+		{"dejavu-sans.ttf", genFont("dejavu-fonts-ttf/ttf/DejaVuSans.ttf")},
+		{"dejavu-sans-bold.ttf", genFont("dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf")},
+		{"comic-neue.ttf", genFont("@expo-google-fonts/comic-neue/400Regular/ComicNeue_400Regular.ttf")},
+		{"comic-neue-bold.ttf", genFont("@expo-google-fonts/comic-neue/700Bold/ComicNeue_700Bold.ttf")},
 	}
 	for _, s := range steps {
 		data, err := s.gen()
@@ -80,6 +85,15 @@ func genMarked() ([]byte, error) {
 
 func genMarkdownCSS() ([]byte, error) {
 	return os.ReadFile(filepath.Join(nodeModules, "github-markdown-css", "github-markdown.css"))
+}
+
+// genFont copies a TrueType font verbatim from node_modules. The vendored font packages
+// (dejavu-fonts-ttf, @expo-google-fonts/*) ship the static .ttf files the badge (sfnt) and
+// graph (freetype) renderers parse; @fontsource ships only woff2, which neither can read.
+func genFont(rel string) func() ([]byte, error) {
+	return func() ([]byte, error) {
+		return os.ReadFile(filepath.Join(nodeModules, filepath.FromSlash(rel)))
+	}
 }
 
 // genMDI builds the Material Design Icons table from @mdi/svg.

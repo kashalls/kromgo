@@ -11,13 +11,17 @@ zizmor = "1.25.2"
 # no-op until package-lock.json (or the generator) changes — e.g. a Renovate bump —
 # so the depends below stay cheap.
 [tasks.assets]
-description = "Vendor npm deps and build embedded assets (marked.js, github-markdown.css, full MDI and Simple Icons sets)"
+description = "Vendor npm deps and build embedded assets (marked.js, github-markdown.css, MDI + Simple Icons sets, DejaVu Sans + Comic Neue fonts)"
 sources = ["package.json", "package-lock.json", "cmd/genassets/main.go"]
 outputs = [
   "internal/kromgo/assets/marked.js",
   "internal/kromgo/assets/github-markdown.css",
   "internal/kromgo/assets/mdi.txt.gz",
   "internal/kromgo/assets/si.txt.gz",
+  "internal/kromgo/assets/dejavu-sans.ttf",
+  "internal/kromgo/assets/dejavu-sans-bold.ttf",
+  "internal/kromgo/assets/comic-neue.ttf",
+  "internal/kromgo/assets/comic-neue-bold.ttf",
 ]
 run = "npm ci && go run ./cmd/genassets"
 
