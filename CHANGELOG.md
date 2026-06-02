@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.14.0](https://github.com/home-operations/kromgo/compare/0.13.1...0.14.0) (2026-06-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **badge:** unique ids, error badges, labelColor, hand-rolled formatters ([#207](https://github.com/home-operations/kromgo/issues/207))
+
+### Features
+
+* **badge:** unique ids, error badges, labelColor, hand-rolled formatters ([#207](https://github.com/home-operations/kromgo/issues/207)) ([6b69e8c](https://github.com/home-operations/kromgo/commit/6b69e8ccc1bd0f5aa24c51e6800d179d0cc51b4c))
+
 ## [0.13.1](https://github.com/home-operations/kromgo/compare/0.13.0...0.13.1) (2026-06-02)
 
 
