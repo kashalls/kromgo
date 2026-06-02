@@ -195,6 +195,10 @@ request. Each expression receives two variables:
 - **`color`** must return a string — a [shields.io color name](https://shields.io) (`green`,
   `orange`, `red`, `blue`, `grey`, …) or a hex value like `"#e05d44"`. Omit for no color.
 
+Text color adapts to the background for legibility — dark text on light colors, white on dark — the
+same way shields.io does, so a light custom `color` stays readable. Every badge also carries
+`role="img"`, an `aria-label`, and a `<title>` (`"label: message"`) for screen readers and tooltips.
+
 ```yaml
 badges:
     # numeric value with a unit + threshold coloring

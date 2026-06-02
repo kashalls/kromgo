@@ -2,7 +2,9 @@ package kromgo
 
 import (
 	"fmt"
+	"html"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/home-operations/kromgo/internal/config"
@@ -137,8 +139,17 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	rx, gradStops := styleAppearance(style)
 	baseline := (h+size)/2 - 1
 
+	msgHex := colorNameToHex(color)
+	// alt is the badge's accessible name. It's the one place untrusted label/message
+	// text becomes markup rather than path geometry, so it must be XML-escaped.
+	alt := html.EscapeString(accessibleText(label, message))
+
 	var s strings.Builder
-	fmt.Fprintf(&s, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img">`, total, h, total, h)
+	// role="img" + aria-label make the badge a single labelled image for assistive
+	// tech (the glyph-path text is otherwise invisible to it); <title> adds a native
+	// hover tooltip.
+	fmt.Fprintf(&s, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img" aria-label="%s">`, total, h, total, h, alt)
+	fmt.Fprintf(&s, `<title>%s</title>`, alt)
 	if gradStops != "" {
 		fmt.Fprintf(&s, `<linearGradient id="g" x2="0" y2="100%%">%s</linearGradient>`, gradStops)
 	}
@@ -146,33 +157,42 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	// Everything is drawn inside the clip group so the rounded corners trim every
 	// element — and any stray glyph ink can never escape the badge bounds.
 	s.WriteString(`<g clip-path="url(#r)">`)
-	fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="#555"/>`, labelSeg, h)
-	fmt.Fprintf(&s, `<rect x="%d" width="%d" height="%d" fill="%s"/>`, labelSeg, msgSeg, h, colorNameToHex(color))
+	fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="%s"/>`, labelSeg, h, labelBg)
+	fmt.Fprintf(&s, `<rect x="%d" width="%d" height="%d" fill="%s"/>`, labelSeg, msgSeg, h, msgHex)
 	if gradStops != "" {
 		fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="url(#g)"/>`, total, h)
 	}
 	if hasIcon {
-		// iconPath is static, trusted registry data (not user input).
+		// iconPath is static, trusted registry data (not user input). The icon sits on
+		// the dark label segment, so white stays legible.
 		scale := float64(iconSize) / 24.0
 		fmt.Fprintf(&s, `<g transform="translate(%d %d) scale(%.4f)"><path fill="#fff" d="%s"/></g>`,
 			iconX, (h-iconSize)/2, scale, iconPath)
 	}
 
 	// Text as vector paths from the font: exact widths, no system-font/textLength
-	// dependency. Build both segments' paths, then a grey shadow + a white copy.
-	// Untrusted text becomes path geometry, so it can't inject markup.
-	var paths strings.Builder
+	// dependency, and untrusted text becomes geometry that can't inject markup. Each
+	// segment's text + drop shadow take a color legible on that segment's background.
 	bl := float64(baseline)
 	if hasLabel {
-		paths.WriteString(b.glyphPath(label, float64(labelLeft), bl))
+		b.writeText(&s, label, float64(labelLeft), bl, labelBg)
 	}
-	paths.WriteString(b.glyphPath(message, float64(labelSeg+xPad), bl))
-	if d := paths.String(); d != "" {
-		fmt.Fprintf(&s, `<path transform="translate(0 1)" fill="#010101" fill-opacity=".3" d="%s"/>`, d)
-		fmt.Fprintf(&s, `<path fill="#fff" d="%s"/>`, d)
-	}
+	b.writeText(&s, message, float64(labelSeg+xPad), bl, msgHex)
 	s.WriteString(`</g></svg>`)
 	return []byte(s.String())
+}
+
+// writeText draws s as glyph paths at (originX, baseline) on a background of bgHex:
+// a 1px drop shadow beneath a fill, both colored for legibility on that background.
+// Nothing is written for empty text.
+func (b *badgeRenderer) writeText(s *strings.Builder, text string, originX, baseline float64, bgHex string) {
+	d := b.glyphPath(text, originX, baseline)
+	if d == "" {
+		return
+	}
+	textColor, shadowColor := colorsForBackground(bgHex)
+	fmt.Fprintf(s, `<path transform="translate(0 1)" fill="%s" fill-opacity=".3" d="%s"/>`, shadowColor, d)
+	fmt.Fprintf(s, `<path fill="%s" d="%s"/>`, textColor, d)
 }
 
 // styleAppearance returns the corner radius and linear-gradient stops for a badge
@@ -195,6 +215,7 @@ const (
 	colorBlue  = "#007ec6"
 	colorGreen = "#97ca00"
 	colorGrey  = "#9f9f9f"
+	labelBg    = "#555" // label-side (left) background; always dark, so its text is white
 )
 
 // badgeColors maps shields.io color names to hex. "" is the default (blue).
@@ -231,6 +252,55 @@ func colorNameToHex(color string) string {
 		return hex
 	}
 	return colorGreen
+}
+
+// accessibleText is the badge's screen-reader / tooltip label: "label: message", or
+// just whichever side is present.
+func accessibleText(label, message string) string {
+	if label != "" && message != "" {
+		return label + ": " + message
+	}
+	return label + message
+}
+
+// brightnessThreshold is shields.io's split (on a 0..1 perceived-brightness scale)
+// between backgrounds dark enough for white text and light ones that need dark text.
+const brightnessThreshold = 0.69
+
+// colorsForBackground picks a legible text color and drop-shadow color for text on a
+// background of the given hex, mirroring shields.io: dark backgrounds get white text
+// with a near-black shadow; light ones get dark text with a light shadow. An
+// unparseable color is treated as dark (white text).
+func colorsForBackground(hex string) (text, shadow string) {
+	if r, g, b, ok := parseHexRGB(hex); ok {
+		// W3C perceived brightness, scaled to 0..1.
+		brightness := (float64(r)*299 + float64(g)*587 + float64(b)*114) / (255 * 1000)
+		if brightness > brightnessThreshold {
+			return "#333", "#ccc"
+		}
+	}
+	return "#fff", "#010101"
+}
+
+// parseHexRGB extracts 8-bit r, g, b from a #rgb, #rgba, #rrggbb, or #rrggbbaa string
+// (any alpha is ignored). ok is false for any other form.
+func parseHexRGB(hex string) (r, g, b uint8, ok bool) {
+	h := strings.TrimPrefix(hex, "#")
+	switch len(h) {
+	case 3, 4: // #rgb / #rgba — each nibble is doubled (f -> ff)
+		v, err := strconv.ParseUint(h[:3], 16, 16)
+		if err != nil {
+			return 0, 0, 0, false
+		}
+		return uint8((v>>8)&0xf) * 0x11, uint8((v>>4)&0xf) * 0x11, uint8(v&0xf) * 0x11, true
+	case 6, 8: // #rrggbb / #rrggbbaa
+		v, err := strconv.ParseUint(h[:6], 16, 32)
+		if err != nil {
+			return 0, 0, 0, false
+		}
+		return uint8(v >> 16), uint8(v >> 8), uint8(v), true
+	}
+	return 0, 0, 0, false
 }
 
 // iconSets maps an icon-set prefix to its lazily-decoded name→path table.
