@@ -114,16 +114,12 @@ func TestChartParams_WithOverrides(t *testing.T) {
 
 func TestResolveGraphFont(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"", "roboto", "notosans", "go-regular", "go-bold", "go-medium", "go-mono"} {
+	for _, name := range []string{"", "dejavu-sans", "dejavu-sans-bold"} {
 		t.Run("ok/"+name, func(t *testing.T) {
 			t.Parallel()
 			f, err := resolveGraphFont(name)
 			require.NoError(t, err)
-			if name == "" {
-				assert.Nil(t, f, "empty name uses the library default")
-			} else {
-				assert.NotNil(t, f)
-			}
+			assert.NotNil(t, f, "empty name defaults to DejaVu Sans")
 		})
 	}
 	// An unknown font name errors (no disk fallback).
@@ -136,7 +132,7 @@ func TestResolveGraphFont(t *testing.T) {
 
 func TestRenderChart_CustomFont(t *testing.T) {
 	t.Parallel()
-	font, err := resolveGraphFont("go-bold")
+	font, err := resolveGraphFont("dejavu-sans-bold")
 	require.NoError(t, err)
 	svg, err := renderChart(makeMatrix([][]float64{{1, 2, 3}}),
 		chartParams{width: 400, height: 150, font: font, format: formatSVG})

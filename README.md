@@ -94,7 +94,7 @@ same-named field. All keys are optional.
 defaults:
     cacheSeconds: 0 # Cache-Control max-age in seconds; 0 disables caching
     badge:
-        font: go-regular # go-regular (default), go-bold, go-medium, go-mono
+        font: dejavu-sans # dejavu-sans (default, shields.io-style), dejavu-sans-bold, comic-neue, comic-neue-bold
         size: 11 # badge font size in points
         style: flat # flat (default), flat-square, or plastic
         gallery:
@@ -105,7 +105,7 @@ defaults:
         height: 200 # image height in px
         legend: true # show the series legend
         theme: light # color theme — see Themes below
-        font: roboto # text font — see Themes below
+        font: dejavu-sans # text font — see Themes below
         gallery:
             hidden: false # list graphs in the gallery (default); true hides them
 ```
@@ -312,10 +312,17 @@ kromgo's bundled palettes (an unknown value falls back to the default):
   (via the official [catppuccin/go](https://github.com/catppuccin/go) palette), `dracula`, `monokai`,
   `night-owl`.
 
-`font` accepts a built-in name: `roboto` (default), `notosans`, `notosans-bold`, or the embedded Go
-family `go-regular` / `go-bold` / `go-medium` / `go-mono`. (Badges use the Go family; `defaults.badge.font`
-defaults to `go-regular`.) Fonts are compiled into the binary — there's no reading from disk, so add a
-new face by PRing it into the registry. An unknown name fails fast at startup.
+`font` accepts one of:
+
+- **`dejavu-sans`** (the default) / **`dejavu-sans-bold`** — the free, metric-compatible stand-in for the
+  Verdana that [shields.io](https://shields.io) renders with. Vendored via npm (`dejavu-fonts-ttf`).
+- **`comic-neue`** / **`comic-neue-bold`** — a free Comic Sans alternative (Google Fonts, via
+  `@expo-google-fonts/comic-neue`), for when a badge wants some personality.
+
+Both faces are compiled in by `cmd/genassets` (kept current by Renovate). Badges and graphs default to
+`dejavu-sans` (shields.io-style — 11 px text, 20 px tall); set `font:` to opt into the others. Fonts are
+compiled into the binary — there's no reading from disk, so add a face by vendoring it (npm) and PRing it
+into the registry. An unknown name fails fast at startup.
 
 ## Gallery
 

@@ -49,7 +49,7 @@ func TestNewBadgeRenderer_UnknownFont(t *testing.T) {
 
 func TestNewBadgeRenderer_NamedFont(t *testing.T) {
 	t.Parallel()
-	r, err := newBadgeRenderer(config.BadgeDefaults{Font: "go-bold"})
+	r, err := newBadgeRenderer(config.BadgeDefaults{Font: "dejavu-sans-bold"})
 	require.NoError(t, err)
 	require.NotNil(t, r)
 }

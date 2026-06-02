@@ -2,10 +2,12 @@
   "name": "kromgo-assets",
   "version": "0.0.0",
   "private": true,
-  "description": "Build-time assets embedded into the kromgo binary by cmd/genassets. Not published; managed here so Renovate keeps marked, github-markdown-css, and the Material Design Icons and Simple Icons sets up to date.",
+  "description": "Build-time assets embedded into the kromgo binary by cmd/genassets. Not published; managed here so Renovate keeps marked, github-markdown-css, the Material Design Icons and Simple Icons sets, and the DejaVu Sans and Comic Neue fonts up to date.",
   "license": "Apache-2.0",
   "dependencies": {
+    "@expo-google-fonts/comic-neue": "0.4.1",
     "@mdi/svg": "7.4.47",
+    "dejavu-fonts-ttf": "2.37.3",
     "github-markdown-css": "5.9.0",
     "marked": "18.0.4",
     "simple-icons": "16.22.0"

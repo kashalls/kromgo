@@ -50,7 +50,8 @@ type Defaults struct {
 
 // BadgeDefaults holds the default SVG badge rendering settings.
 type BadgeDefaults struct {
-	// Font selects the badge font by name (go-regular, go-bold, go-medium, go-mono); empty = go-regular.
+	// Font selects the badge font: dejavu-sans (default, shields.io-style), dejavu-sans-bold,
+	// comic-neue, or comic-neue-bold.
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
 	// Size is the font size in points (defaults to 11).
 	Size int `yaml:"size,omitempty" json:"size,omitempty"`
@@ -72,7 +73,7 @@ type GraphDefaults struct {
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
 	// Theme selects the color theme (e.g. "dark", "grafana", "catppuccin-mocha", "dracula").
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
-	// Font selects the text font by name (roboto, notosans, notosans-bold, go-regular, go-bold, …).
+	// Font selects the text font: dejavu-sans (default), dejavu-sans-bold, comic-neue, or comic-neue-bold.
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
 	// Gallery is the default gallery visibility for graphs.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`

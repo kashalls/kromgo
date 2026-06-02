@@ -26,7 +26,7 @@ const (
 	gdim      = "last=1h&width=480&height=200"
 )
 
-var graphFonts = []string{"roboto", "notosans", "notosans-bold", "go-regular", "go-bold", "go-medium", "go-mono"}
+var graphFonts = []string{"dejavu-sans", "dejavu-sans-bold"}
 
 // graphExamples are distinct synthetic series so each graph in the gallery has its
 // own shape and title instead of repeating one sawtooth. Every query is a
