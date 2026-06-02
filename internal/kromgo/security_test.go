@@ -23,6 +23,9 @@ func TestSecurity_BadgeEscapesSVG(t *testing.T) {
 	body := string(r.render(config.StyleFlat, "", "label", xssPayload, "green"))
 	assert.NotContains(t, body, "<script>")
 	assert.NotContains(t, body, "</text>")
+	// The payload also feeds the aria-label/<title>, where it must be XML-escaped
+	// rather than dropped — proving the escaping, not mere absence, protects us.
+	assert.Contains(t, body, "&lt;script&gt;", "payload survives, escaped, in the accessible label")
 }
 
 // Graph legend labels come from metric label values and must be escaped too.

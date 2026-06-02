@@ -1,6 +1,9 @@
 package kromgo
 
 import (
+	"bytes"
+	"encoding/xml"
+	"io"
 	"strings"
 	"testing"
 
@@ -65,6 +68,57 @@ func TestBadgeRender_Icon(t *testing.T) {
 
 	assert.Contains(t, svg, path, "icon path should be embedded")
 	assert.Contains(t, svg, `fill="#fff"`)
+}
+
+func TestBadgeRender_Accessibility(t *testing.T) {
+	t.Parallel()
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+
+	svg := string(r.render(config.StyleFlat, "", "build", "passing", "green"))
+	assert.Contains(t, svg, `role="img"`)
+	assert.Contains(t, svg, `aria-label="build: passing"`, "screen readers get a combined label")
+	assert.Contains(t, svg, `<title>build: passing</title>`, "native hover tooltip")
+
+	// A message-only badge labels with just the message.
+	msgOnly := string(r.render(config.StyleFlat, "", "", "online", "green"))
+	assert.Contains(t, msgOnly, `aria-label="online"`)
+}
+
+func TestBadgeRender_TextContrast(t *testing.T) {
+	t.Parallel()
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+
+	// Dark background (default blue) → white text, near-black shadow.
+	dark := string(r.render(config.StyleFlat, "", "label", "msg", "blue"))
+	assert.Contains(t, dark, `<path fill="#fff"`, "white text on a dark badge")
+	assert.NotContains(t, dark, `<path fill="#333"`)
+
+	// Light custom background → dark text + light shadow (matches shields.io).
+	light := string(r.render(config.StyleFlat, "", "label", "msg", "#eeeeee"))
+	assert.Contains(t, light, `<path fill="#333"`, "dark text on a light badge")
+	assert.Contains(t, light, `fill="#ccc" fill-opacity=".3"`, "light shadow on a light badge")
+	// The label segment stays dark (#555), so its text is still white.
+	assert.Contains(t, light, `<path fill="#fff"`, "label text stays white on the dark label segment")
+}
+
+func TestBadgeRender_WellFormedXML(t *testing.T) {
+	t.Parallel()
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+
+	// A label full of XML metacharacters must not break the document: it flows into the
+	// escaped aria-label/<title>, so the whole SVG has to stay well-formed.
+	svg := r.render(config.StyleFlat, "", `a "quote" & <tag>`, "ok", "#eee")
+	dec := xml.NewDecoder(bytes.NewReader(svg))
+	for {
+		_, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err, "rendered SVG must be well-formed XML")
+	}
 }
 
 func TestResolveIcon(t *testing.T) {
