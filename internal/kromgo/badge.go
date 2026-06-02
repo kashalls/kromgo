@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"cmp"
 	"fmt"
 	"html"
 	"regexp"
@@ -102,9 +103,22 @@ func (b *badgeRenderer) glyphPath(s string, originX, baseline float64) string {
 	return d.String()
 }
 
-// render produces an SVG badge. iconPath is 24x24 SVG path data (or ""), label is
-// the left text (may be ""), message the right text, color a name or hex.
-func (b *badgeRenderer) render(style, iconPath, label, message, color string) []byte {
+// badgeSpec is the fully-resolved input to render: the style, an optional left icon
+// (24x24 SVG path data), the left label and right message text, their background
+// colors (name or hex; labelColor "" = the default grey), and the badge id, which
+// namespaces the SVG's element ids so inlined badges don't collide.
+type badgeSpec struct {
+	style      string
+	iconPath   string
+	label      string
+	message    string
+	color      string
+	labelColor string
+	id         string
+}
+
+// render produces an SVG badge from a fully-resolved spec.
+func (b *badgeRenderer) render(spec badgeSpec) []byte {
 	const (
 		xPad    = 6 // horizontal padding around each text segment
 		iconX   = 5 // icon left margin
@@ -113,8 +127,8 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	size := int(b.size)
 	h := size + 9
 	iconSize := h - 6
-	hasIcon := iconPath != ""
-	hasLabel := label != ""
+	hasIcon := spec.iconPath != ""
+	hasLabel := spec.label != ""
 
 	labelLeft := xPad
 	if hasIcon {
@@ -123,7 +137,7 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 
 	labelW := 0
 	if hasLabel {
-		labelW = b.measure(label)
+		labelW = b.measure(spec.label)
 	}
 	var labelSeg int
 	switch {
@@ -132,17 +146,23 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	case hasIcon:
 		labelSeg = iconX + iconSize + xPad // icon-only label side
 	}
-	msgW := b.measure(message)
+	msgW := b.measure(spec.message)
 	msgSeg := msgW + 2*xPad
 	total := labelSeg + msgSeg
 
-	rx, gradStops := styleAppearance(style)
+	rx, gradStops := styleAppearance(spec.style)
 	baseline := (h+size)/2 - 1
 
-	msgHex := colorNameToHex(color)
+	msgHex := colorNameToHex(spec.color)
+	labelHex := cmp.Or(spec.labelColor, labelBg)
 	// alt is the badge's accessible name. It's the one place untrusted label/message
 	// text becomes markup rather than path geometry, so it must be XML-escaped.
-	alt := html.EscapeString(accessibleText(label, message))
+	alt := html.EscapeString(accessibleText(spec.label, spec.message))
+	// Namespace the gradient/clip ids by badge id: SVG id resolution is document-global,
+	// so two kromgo SVGs inlined in one HTML page would otherwise have the second's
+	// url(#…) refs resolve to the first's gradient/clip.
+	gradID := "g-" + xmlIDSafe(spec.id)
+	clipID := "r-" + xmlIDSafe(spec.id)
 
 	var s strings.Builder
 	// role="img" + aria-label make the badge a single labelled image for assistive
@@ -151,23 +171,24 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	fmt.Fprintf(&s, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img" aria-label="%s">`, total, h, total, h, alt)
 	fmt.Fprintf(&s, `<title>%s</title>`, alt)
 	if gradStops != "" {
-		fmt.Fprintf(&s, `<linearGradient id="g" x2="0" y2="100%%">%s</linearGradient>`, gradStops)
+		fmt.Fprintf(&s, `<linearGradient id="%s" x2="0" y2="100%%">%s</linearGradient>`, gradID, gradStops)
 	}
-	fmt.Fprintf(&s, `<clipPath id="r"><rect width="%d" height="%d" rx="%d" fill="#fff"/></clipPath>`, total, h, rx)
+	fmt.Fprintf(&s, `<clipPath id="%s"><rect width="%d" height="%d" rx="%d" fill="#fff"/></clipPath>`, clipID, total, h, rx)
 	// Everything is drawn inside the clip group so the rounded corners trim every
 	// element — and any stray glyph ink can never escape the badge bounds.
-	s.WriteString(`<g clip-path="url(#r)">`)
-	fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="%s"/>`, labelSeg, h, labelBg)
+	fmt.Fprintf(&s, `<g clip-path="url(#%s)">`, clipID)
+	fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="%s"/>`, labelSeg, h, labelHex)
 	fmt.Fprintf(&s, `<rect x="%d" width="%d" height="%d" fill="%s"/>`, labelSeg, msgSeg, h, msgHex)
 	if gradStops != "" {
-		fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="url(#g)"/>`, total, h)
+		fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="url(#%s)"/>`, total, h, gradID)
 	}
 	if hasIcon {
-		// iconPath is static, trusted registry data (not user input). The icon sits on
-		// the dark label segment, so white stays legible.
+		// iconPath is static, trusted registry data (not user input). It sits on the
+		// label segment, so it takes a fill legible on that background.
+		iconColor, _ := colorsForBackground(labelHex)
 		scale := float64(iconSize) / 24.0
-		fmt.Fprintf(&s, `<g transform="translate(%d %d) scale(%.4f)"><path fill="#fff" d="%s"/></g>`,
-			iconX, (h-iconSize)/2, scale, iconPath)
+		fmt.Fprintf(&s, `<g transform="translate(%d %d) scale(%.4f)"><path fill="%s" d="%s"/></g>`,
+			iconX, (h-iconSize)/2, scale, iconColor, spec.iconPath)
 	}
 
 	// Text as vector paths from the font: exact widths, no system-font/textLength
@@ -175,11 +196,36 @@ func (b *badgeRenderer) render(style, iconPath, label, message, color string) []
 	// segment's text + drop shadow take a color legible on that segment's background.
 	bl := float64(baseline)
 	if hasLabel {
-		b.writeText(&s, label, float64(labelLeft), bl, labelBg)
+		b.writeText(&s, spec.label, float64(labelLeft), bl, labelHex)
 	}
-	b.writeText(&s, message, float64(labelSeg+xPad), bl, msgHex)
+	b.writeText(&s, spec.message, float64(labelSeg+xPad), bl, msgHex)
 	s.WriteString(`</g></svg>`)
 	return []byte(s.String())
+}
+
+// renderError draws a self-describing error badge — the id as label and a short
+// reason as message — colored red for client errors (4xx) and grey for server or
+// upstream errors (5xx), so an <img> shows the failure instead of a broken image.
+func (b *badgeRenderer) renderError(id, reason string, code int) []byte {
+	color := "lightgrey"
+	if code < 500 {
+		color = "red"
+	}
+	return b.render(badgeSpec{style: config.StyleFlat, label: id, message: reason, color: color, id: id})
+}
+
+// xmlIDSafe maps any character outside [A-Za-z0-9_-] to '-' so a badge id can safely
+// namespace SVG element ids. Badge ids are already URL-safe; this guards '.' (which is
+// valid in an id) and any error-badge label passed through as an id.
+func xmlIDSafe(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
+			return r
+		default:
+			return '-'
+		}
+	}, s)
 }
 
 // writeText draws s as glyph paths at (originX, baseline) on a background of bgHex:

@@ -20,10 +20,13 @@
         "range": {
           "$ref": "#/$defs/RangeQuery"
         },
-        "value": {
+        "valueExpr": {
           "type": "string"
         },
-        "color": {
+        "colorExpr": {
+          "type": "string"
+        },
+        "labelColor": {
           "type": "string"
         },
         "style": {
@@ -49,6 +52,9 @@
           "type": "integer"
         },
         "style": {
+          "type": "string"
+        },
+        "labelColor": {
           "type": "string"
         },
         "gallery": {

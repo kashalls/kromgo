@@ -89,8 +89,19 @@ func TestE2E(t *testing.T) {
 		assert.Contains(t, resp.Header.Get("Content-Security-Policy"), "default-src 'none'")
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run("not found svg", func(t *testing.T) {
+		// Default (svg) format renders a graceful error badge with HTTP 200, so an
+		// <img> shows the error instead of a broken image.
 		resp := h.get("/badges/nope")
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Contains(t, resp.Header.Get("Content-Type"), "image/svg+xml")
+		assert.Contains(t, bodyString(t, resp), "nope: Not Found") // aria-label/<title>
+	})
+
+	t.Run("not found json", func(t *testing.T) {
+		// Non-svg formats keep the JSON error and its status code.
+		resp := h.get("/badges/nope?format=json")
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+		assert.Contains(t, bodyString(t, resp), `"isError":true`)
 	})
 }

@@ -30,17 +30,23 @@ type HistoryResponse struct {
 	Series []HistorySeries `json:"series"`
 }
 
+// graphFormat resolves a graph request's output format, defaulting to SVG for an
+// empty or unrecognized value.
+func graphFormat(r *http.Request) string {
+	switch f := r.URL.Query().Get("format"); f {
+	case formatJSON, formatPNG:
+		return f
+	default:
+		return formatSVG
+	}
+}
+
 // serveGraph renders a time series as an SVG sparkline (default) or as JSON
 // (?format=json).
 func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	format := r.URL.Query().Get("format")
-	switch format {
-	case formatJSON, formatPNG: // recognized
-	default:
-		format = formatSVG // empty or unknown renders the SVG image
-	}
+	format := graphFormat(r)
 
 	metricLabel := "unknown"
 	defer func() { requestsTotal.WithLabelValues("graph", metricLabel, format).Inc() }()
@@ -49,7 +55,7 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 	graph, ok := h.graphs[id]
 	if !ok {
 		log.Error("graph not found")
-		writeError(w, id, "Not Found", http.StatusNotFound)
+		h.errorResponse(w, format, id, "Not Found", http.StatusNotFound)
 		return
 	}
 	metricLabel = id
@@ -73,7 +79,7 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 	img, err := renderChart(matrix, params)
 	if err != nil {
 		log.Error("error rendering chart", "error", err)
-		writeError(w, id, "Render Error", http.StatusInternalServerError)
+		h.errorResponse(w, format, id, "Render Error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", params.contentType())

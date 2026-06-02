@@ -31,7 +31,7 @@ defaults:
 badges:
   - id: cpu
     query: node_cpu
-    value: string(result) + "%"
+    valueExpr: string(result) + "%"
     gallery:
       hidden: false
 graphs:

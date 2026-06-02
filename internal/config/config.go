@@ -69,6 +69,8 @@ type BadgeDefaults struct {
 	Size int `yaml:"size,omitempty" json:"size,omitempty"`
 	// Style is the default badge style: flat (default), flat-square, or plastic.
 	Style string `yaml:"style,omitempty" json:"style,omitempty"`
+	// LabelColor is the default left-segment (label) color — a name or hex. Empty = grey (#555).
+	LabelColor string `yaml:"labelColor,omitempty" json:"labelColor,omitempty"`
 	// Gallery is the default gallery visibility for badges.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 }
@@ -103,11 +105,15 @@ type Badge struct {
 	Type string `yaml:"type,omitempty" json:"type,omitempty"`
 	// Range configures the windowed range query when Type is "range".
 	Range *RangeQuery `yaml:"range,omitempty" json:"range,omitempty"`
-	// Value is a CEL expression producing the displayed string. It receives `result`
+	// ValueExpr is a CEL expression producing the displayed string. It receives `result`
 	// (the sample value, double) and `labels` (map). Defaults to string(result).
-	Value string `yaml:"value,omitempty" json:"value,omitempty"`
-	// Color is a CEL expression producing the color name or hex. Empty means no color.
-	Color string `yaml:"color,omitempty" json:"color,omitempty"`
+	ValueExpr string `yaml:"valueExpr,omitempty" json:"valueExpr,omitempty"`
+	// ColorExpr is a CEL expression producing the color name or hex. Empty means no color.
+	ColorExpr string `yaml:"colorExpr,omitempty" json:"colorExpr,omitempty"`
+	// LabelColor sets the left-segment (label) background color: a color name or hex.
+	// Unlike color it is a fixed value, not a CEL expression. Empty falls back to
+	// defaults.badge.labelColor, then grey (#555).
+	LabelColor string `yaml:"labelColor,omitempty" json:"labelColor,omitempty"`
 	// Style overrides defaults.badge.style for this badge.
 	Style string `yaml:"style,omitempty" json:"style,omitempty"`
 	// Icon renders an icon on the SVG badge, written as "<set>:<name>": a Material Design

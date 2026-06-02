@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,31 +17,40 @@ func TestHumanizers(t *testing.T) {
 		in   float64
 		want string
 	}{
-		// humanizeBytes: IEC binary units via go-humanize (spaced).
-		{"bytes KiB", humanizeBytes, 1024, "1.0 KiB"},
-		{"bytes MiB", humanizeBytes, 1572864, "1.5 MiB"},
-		{"bytes GiB", humanizeBytes, 2147483648, "2.0 GiB"},
-		{"bytes B", humanizeBytes, 512, "512 B"},
-		// humanizeSIBytes: SI decimal units.
-		{"sibytes kB", humanizeSIBytes, 1000, "1.0 kB"},
-		{"sibytes MB", humanizeSIBytes, 1500000, "1.5 MB"},
-		// humanizeNumber: thousands separators.
-		{"number int", humanizeNumber, 157121, "157,121"},
-		{"number million", humanizeNumber, 1000000, "1,000,000"},
-		{"number float", humanizeNumber, 1234.56, "1,234.56"},
-		{"number negative", humanizeNumber, -1234, "-1,234"},
+		// humanizeBytes: SI decimal units, no space, scaled values to one decimal.
+		{"bytes B", humanizeBytes, 512, "512B"},
+		{"bytes kB", humanizeBytes, 1000, "1kB"},
+		{"bytes MB", humanizeBytes, 1500000, "1.5MB"},
+		{"bytes MB rounds", humanizeBytes, 1572864, "1.6MB"},
+		{"bytes GB", humanizeBytes, 2147483648, "2.1GB"},
+		{"bytes whole MB", humanizeBytes, 1000000, "1MB"},
+		{"bytes carry to next unit", humanizeBytes, 999999, "1MB"}, // 999.999kB rounds up → carry
+		{"bytes carry boundary", humanizeBytes, 999950, "1MB"},
+		{"bytes no false carry", humanizeBytes, 999949, "999.9kB"},
+		// Non-finite inputs degrade to a clean string, not a unit-suffixed/comma-mangled one.
+		{"bytes NaN", humanizeBytes, math.NaN(), "NaN"},
+		{"bytes +Inf", humanizeBytes, math.Inf(1), "+Inf"},
+		{"commas +Inf", humanizeCommas, math.Inf(1), "+Inf"},
+		{"commas NaN", humanizeCommas, math.NaN(), "NaN"},
+		{"float NaN", humanizeFloat, math.NaN(), "NaN"},
+		// humanizeCommas: thousands separators.
+		{"commas int", humanizeCommas, 157121, "157,121"},
+		{"commas million", humanizeCommas, 1000000, "1,000,000"},
+		{"commas float", humanizeCommas, 1234.56, "1,234.56"},
+		{"commas negative", humanizeCommas, -1234, "-1,234"},
+		{"commas small", humanizeCommas, 42, "42"},
 		// humanizeFloat: minimal float formatting.
 		{"float int-valued", humanizeFloat, 200, "200"},
 		{"float one decimal", humanizeFloat, 2.50, "2.5"},
 		{"float whole", humanizeFloat, 2.0, "2"},
 		{"float many decimals", humanizeFloat, 1234.567, "1234.567"},
-		// humanizeDays: whole days, truncated and clamped at zero.
-		{"days 69", humanizeDays, 69 * day, "69d"},
-		{"days 544", humanizeDays, 544 * day, "544d"},
-		{"days 6769", humanizeDays, 6769 * day, "6769d"},
-		{"days truncates", humanizeDays, 1.5 * day, "1d"},
-		{"days under a day", humanizeDays, 3600, "0d"},
-		{"days clamped", humanizeDays, -5, "0d"},
+		// humanizeDurationDays: whole days, truncated and clamped at zero.
+		{"days 69", humanizeDurationDays, 69 * day, "69d"},
+		{"days 544", humanizeDurationDays, 544 * day, "544d"},
+		{"days 6769", humanizeDurationDays, 6769 * day, "6769d"},
+		{"days truncates", humanizeDurationDays, 1.5 * day, "1d"},
+		{"days under a day", humanizeDurationDays, 3600, "0d"},
+		{"days clamped", humanizeDurationDays, -5, "0d"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

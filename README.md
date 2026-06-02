@@ -63,7 +63,7 @@ config file there (or pass `-config /path/to/config.yaml`).
 badges:
     - id: node_cpu_usage
       query: "round(cluster:node_cpu:ratio_rate5m * 100, 0.1)"
-      value: string(result) + "%"
+      valueExpr: string(result) + "%"
 ```
 
 A JSON Schema for editor validation is published at [config.schema.json](./config.schema.json);
@@ -115,18 +115,19 @@ The gallery page itself is toggled separately at the top level — see [Gallery]
 
 Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
 
-| Field     | Required | Description                                                                          |
-| --------- | -------- | ------------------------------------------------------------------------------------ |
-| `id`      | yes      | URL path segment — `cpu` → `GET /badges/cpu`                                         |
-| `query`   | yes      | PromQL expression returning a single scalar or vector value                          |
-| `title`   | no       | Display label on the badge (defaults to `id`)                                        |
-| `type`    | no       | `instant` (default) or `range` — see [Range badges](#range-badges)                   |
-| `range`   | no\*     | Range-query window when `type: range`                                                |
-| `value`   | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)    |
-| `color`   | no       | CEL expression for the color — see [Value and color](#value-and-color)               |
-| `style`   | no       | `flat` (default), `flat-square`, or `plastic`                                        |
-| `icon`    | no       | An icon on the SVG badge, e.g. `mdi:server-outline` or `si:kubernetes` — see below   |
-| `gallery` | no       | Per-badge gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
+| Field        | Required | Description                                                                          |
+| ------------ | -------- | ------------------------------------------------------------------------------------ |
+| `id`         | yes      | URL path segment — `cpu` → `GET /badges/cpu`                                         |
+| `query`      | yes      | PromQL expression returning a single scalar or vector value                          |
+| `title`      | no       | Display label on the badge (defaults to `id`)                                        |
+| `type`       | no       | `instant` (default) or `range` — see [Range badges](#range-badges)                   |
+| `range`      | no\*     | Range-query window when `type: range`                                                |
+| `valueExpr`  | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)    |
+| `colorExpr`  | no       | CEL expression for the color — see [Value and color](#value-and-color)               |
+| `labelColor` | no       | Left-segment (label) color — a name or hex; a fixed value, not a CEL expression      |
+| `style`      | no       | `flat` (default), `flat-square`, or `plastic`                                        |
+| `icon`       | no       | An icon on the SVG badge, e.g. `mdi:server-outline` or `si:kubernetes` — see below   |
+| `gallery`    | no       | Per-badge gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
 
 #### Icons
 
@@ -135,9 +136,10 @@ Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
 - **`mdi:<name>`** — a [Material Design Icon](https://pictogrammers.com/library/mdi/), e.g. `mdi:server-outline`.
 - **`si:<slug>`** — a [Simple Icons](https://simpleicons.org/) brand logo, e.g. `si:kubernetes`.
 
-It is **SVG-only** — the `shields` and `json` formats have no icon field and ignore it. The icon is
-drawn in white and sits left of the `title`; with an icon and no `title`, the badge shows just the
-icon and the value (the `id` fallback is suppressed).
+It is **SVG-only** — the `shields` and `json` formats have no icon field and ignore it. The icon sits
+to the left of the `title`, drawn to contrast with the label background (white on the default grey,
+dark on a light `labelColor`); with an icon and no `title`, the badge shows just the icon and the
+value (the `id` fallback is suppressed).
 
 ```yaml
 badges:
@@ -175,28 +177,29 @@ badges:
           offset: "7d" # shift the window back; here: 14d ago .. 7d ago (default: ends now)
           step: "1h" # resolution (default: last/100, min 1m)
           reduce: avg # last (default), first, avg, min, max, sum
-      value: string(result) + "%"
+      valueExpr: string(result) + "%"
 ```
 
 `reduce` collapses each series to one value; non-finite samples (NaN/Inf) are skipped.
 
 ### Value and color
 
-`value` and `color` are [CEL](https://cel.dev) expressions. CEL is sandboxed (no environment, file,
-or network access) and compiled once at startup, so a malformed expression fails fast rather than per
-request. Each expression receives two variables:
+`valueExpr` and `colorExpr` are [CEL](https://cel.dev) expressions (the `Expr` suffix marks the
+CEL-evaluated fields; `query` is PromQL and `labelColor` is a static value). CEL is sandboxed (no
+environment, file, or network access) and compiled once at startup, so a malformed expression fails
+fast rather than per request. Each expression receives two variables:
 
 | Variable | Type                  | Description                                              |
 | -------- | --------------------- | -------------------------------------------------------- |
 | `result` | `double`              | The sample value (for `type: range`, the reduced value). |
 | `labels` | `map(string, string)` | The sample's labels, e.g. `labels["instance"]`.          |
 
-- **`value`** must return a string — the message shown on the badge. Defaults to `string(result)`.
-- **`color`** must return a string — a [shields.io color name](https://shields.io) (`green`,
+- **`valueExpr`** must return a string — the message shown on the badge. Defaults to `string(result)`.
+- **`colorExpr`** must return a string — a [shields.io color name](https://shields.io) (`green`,
   `orange`, `red`, `blue`, `grey`, …) or a hex value like `"#e05d44"`. Omit for no color.
 
 Text color adapts to the background for legibility — dark text on light colors, white on dark — the
-same way shields.io does, so a light custom `color` stays readable. Every badge also carries
+same way shields.io does, so a light custom `colorExpr` stays readable. Every badge also carries
 `role="img"`, an `aria-label`, and a `<title>` (`"label: message"`) for screen readers and tooltips.
 
 ```yaml
@@ -204,24 +207,24 @@ badges:
     # numeric value with a unit + threshold coloring
     - id: cpu
       query: "round(avg(...) * 100, 0.1)"
-      value: string(result) + "%"
-      color: 'result < 35 ? "green" : result < 75 ? "orange" : "red"'
+      valueExpr: string(result) + "%"
+      colorExpr: 'result < 35 ? "green" : result < 75 ? "orange" : "red"'
 
     # value taken from a label, falling back if it's absent
     - id: version
       query: 'label_replace(build_info, "v", "$1", "version", "v(.+)")'
-      value: labels[?"v"].orValue("unknown")
+      valueExpr: labels[?"v"].orValue("unknown")
 
     # guard a possibly-NaN ratio (e.g. divide-by-zero) before formatting
     - id: hit_ratio
       query: cache_hits / (cache_hits + cache_misses)
-      value: 'math.isNaN(result) ? "n/a" : humanizeFloat(math.round(result * 100.0)) + "%"'
+      valueExpr: 'math.isNaN(result) ? "n/a" : humanizeFloat(math.round(result * 100.0)) + "%"'
 
     # enum → text + color
     - id: ceph_health
       query: ceph_health_status
-      value: 'result == 0.0 ? "Healthy" : result == 1.0 ? "Warning" : "Critical"'
-      color: 'result == 0.0 ? "green" : result == 1.0 ? "orange" : "red"'
+      valueExpr: 'result == 0.0 ? "Healthy" : result == 1.0 ? "Warning" : "Critical"'
+      colorExpr: 'result == 0.0 ? "green" : result == 1.0 ? "orange" : "red"'
 ```
 
 Besides CEL's built-ins (arithmetic, comparisons, ternary `?:`, `in`) the environment enables:
@@ -232,22 +235,39 @@ Besides CEL's built-ins (arithmetic, comparisons, ternary `?:`, `in`) the enviro
   `NaN` for e.g. division by zero, which would otherwise render literally on the badge);
 - **optional types** — `labels[?"k"].orValue("default")` for a label that may be absent.
 
-On top of those, these humanizer functions are available (byte and number formatting come from
-[go-humanize](https://github.com/dustin/go-humanize)):
+On top of those, these formatting helpers are available (hand-rolled — kromgo has no external
+humanize dependency, so the output is exactly as below):
 
-| Function                   | Example                      | Result    | Notes                                  |
-| -------------------------- | ---------------------------- | --------- | -------------------------------------- |
-| `humanizeBytes(result)`    | `humanizeBytes(1572864.0)`   | `1.5 MiB` | IEC binary units                       |
-| `humanizeSIBytes(result)`  | `humanizeSIBytes(1500000.0)` | `1.5 MB`  | SI decimal units                       |
-| `humanizeNumber(result)`   | `humanizeNumber(157121.0)`   | `157,121` | comma grouping                         |
-| `humanizeFloat(result)`    | `humanizeFloat(2.50)`        | `2.5`     | plain decimal, trailing zeros stripped |
-| `humanizeDuration(result)` | `humanizeDuration(9000.0)`   | `2h30m`   | **seconds** → compact time span        |
-| `humanizeDays(result)`     | `humanizeDays(5961600.0)`    | `69d`     | **seconds** → whole days, no roll-up   |
+| Function                       | Example                           | Result    | Notes                                       |
+| ------------------------------ | --------------------------------- | --------- | ------------------------------------------- |
+| `humanizeBytes(result)`        | `humanizeBytes(1500000.0)`        | `1.5MB`   | SI decimal units (powers of 1000), no space |
+| `humanizeCommas(result)`       | `humanizeCommas(157121.0)`        | `157,121` | comma thousands grouping                    |
+| `humanizeFloat(result)`        | `humanizeFloat(2.50)`             | `2.5`     | plain decimal, trailing zeros stripped      |
+| `humanizeDuration(result)`     | `humanizeDuration(9000.0)`        | `2h30m`   | **seconds** → compact time span             |
+| `humanizeDurationDays(result)` | `humanizeDurationDays(5961600.0)` | `69d`     | **seconds** → whole days, no roll-up        |
 
 `humanizeDuration` takes **seconds** (so it drops onto a `time() - created_ts` query directly) and
 adapts to the magnitude, emitting the up-to-three most-significant units — `90` → `1m30s`, `9000` →
 `2h30m`, `40348800` → `1y3mo12d`. Months render as `mo` so they never collide with minutes (`m`) in
 the same string.
+
+For **coloring**, `colorScale(result, steps, colors)` maps a number to a shields.io color name, so a
+`colorExpr` doesn't need a hand-written chain of ternaries. It returns `colors[i]` at the first
+`result < steps[i]`, otherwise the last color — so `colors` has one more entry than `steps`. Write the
+thresholds as **decimals** (`35.0`, not `35`); an integer literal fails to compile.
+
+```yaml
+# instead of
+colorExpr: 'result < 35 ? "green" : result < 75 ? "orange" : "red"'
+# use
+colorExpr: 'colorScale(result, [35.0, 75.0], ["green", "orange", "red"])'
+```
+
+For a percentage — say red below 80, green by 100 — just list the cutoffs and their colors:
+
+```yaml
+colorExpr: 'colorScale(result, [80.0, 90.0, 100.0], ["red", "yellow", "green", "brightgreen"])'
+```
 
 Two gotchas around `result` (a `double`):
 
