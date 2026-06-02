@@ -18,26 +18,24 @@ const (
 )
 
 // resolvedBadge is a config.Badge with its per-request values resolved once at
-// startup: the compiled value/color CEL programs, effective style and cache TTL,
-// and (for type: range) the parsed range-query window. This keeps compilation off
-// the request hot path and surfaces bad config at startup.
+// startup: the compiled value/color CEL programs, effective style, and (for type:
+// range) the parsed range-query window. This keeps compilation off the request hot
+// path and surfaces bad config at startup.
 type resolvedBadge struct {
 	config.Badge
-	valueProg    cel.Program // compiled Value expression (always set)
-	colorProg    cel.Program // compiled Color expression; nil when none
-	cacheSeconds int
-	style        string
-	iconPath     string      // resolved SVG path data for Icon; "" when none
-	rangeQuery   *rangeQuery // non-nil when Type == range
+	valueProg  cel.Program // compiled Value expression (always set)
+	colorProg  cel.Program // compiled Color expression; nil when none
+	style      string
+	iconPath   string      // resolved SVG path data for Icon; "" when none
+	rangeQuery *rangeQuery // non-nil when Type == range
 }
 
-// resolvedGraph is a config.Graph with its cache TTL, window cap, and default
-// sparkline parameters resolved once at startup.
+// resolvedGraph is a config.Graph with its window cap and default sparkline
+// parameters resolved once at startup.
 type resolvedGraph struct {
 	config.Graph
-	cacheSeconds int
-	maxDuration  time.Duration // 0 means unlimited
-	defaults     chartParams   // request query params override these
+	maxDuration time.Duration // 0 means unlimited
+	defaults    chartParams   // request query params override these
 }
 
 // rangeQuery is the resolved window for a type: range badge.
@@ -56,10 +54,9 @@ func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedB
 	}
 
 	rb := &resolvedBadge{
-		Badge:        b,
-		cacheSeconds: firstSet(def.CacheSeconds, b.CacheSeconds),
-		style:        cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
-		iconPath:     iconPath,
+		Badge:    b,
+		style:    cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
+		iconPath: iconPath,
 	}
 
 	if rb.valueProg, err = compileStringExpr(env, b.ID, "value", cmp.Or(b.Value, defaultValueExpr)); err != nil {
@@ -91,9 +88,8 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 	}
 
 	rg := &resolvedGraph{
-		Graph:        g,
-		cacheSeconds: firstSet(def.CacheSeconds, g.CacheSeconds),
-		maxDuration:  defaultGraphMaxDuration,
+		Graph:       g,
+		maxDuration: defaultGraphMaxDuration,
 		defaults: chartParams{
 			width:  cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
 			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),

@@ -262,47 +262,51 @@ func TestServeBadge_Expressions(t *testing.T) {
 func TestCacheControl(t *testing.T) {
 	t.Parallel()
 
-	t.Run("per-endpoint override and global default", func(t *testing.T) {
+	// Caching is global (not per endpoint) and on by default.
+	t.Run("enabled", func(t *testing.T) {
 		t.Parallel()
-		cfg := config.KromgoConfig{
-			Defaults: config.Defaults{CacheSeconds: 60}, // global default
-			Badges: []config.Badge{
-				{ID: "fast", Query: "q"},
-				{ID: "slow", Query: "q", CacheSeconds: new(3600)},
-			},
-		}
-		srv := mockProm(t, "1", nil)
-		h := newHandlerForTest(t, cfg, srv.URL)
-
 		cases := []struct {
-			name, id, wantCache, wantBody string
+			name      string
+			cache     config.Cache
+			wantCache string
+			wantBody  string
 		}{
-			{"global default", "fast", "public, max-age=60", `"cacheSeconds":60`},
-			{"per-endpoint override", "slow", "public, max-age=3600", `"cacheSeconds":3600`},
+			{"on by default at the default max-age", config.Cache{}, "public, max-age=300, s-maxage=300", `"cacheSeconds":300`},
+			{"custom max-age", config.Cache{MaxAge: 3600}, "public, max-age=3600, s-maxage=3600", `"cacheSeconds":3600`},
+			{"enabled with max-age unset falls back to default", config.Cache{Enabled: new(true)}, "public, max-age=300, s-maxage=300", `"cacheSeconds":300`},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
-				w := promtest.Get(t, h.Mux(), "/badges/"+tc.id+"?format=shields")
+				cfg := config.KromgoConfig{Cache: tc.cache, Badges: []config.Badge{{ID: "cpu", Query: "q"}}}
+				srv := mockProm(t, "1", nil)
+				h := newHandlerForTest(t, cfg, srv.URL)
+				w := promtest.Get(t, h.Mux(), "/badges/cpu?format=shields")
 				assert.Equal(t, tc.wantCache, w.Header().Get("Cache-Control"))
 				assert.Contains(t, w.Body.String(), tc.wantBody)
 			})
 		}
 	})
 
-	t.Run("disabled by default", func(t *testing.T) {
+	t.Run("disabled sends no-store", func(t *testing.T) {
 		t.Parallel()
+		cfg := config.KromgoConfig{
+			Cache:  config.Cache{Enabled: new(false)},
+			Badges: []config.Badge{{ID: "cpu", Query: "q"}},
+		}
 		srv := mockProm(t, "17.5", nil)
-		h := newHandlerForTest(t, baseConfig(), srv.URL) // no CacheSeconds
-		w := promtest.Get(t, h.Mux(), "/badges/cpu")
-		assert.Empty(t, w.Header().Get("Cache-Control"))
+		h := newHandlerForTest(t, cfg, srv.URL)
+		w := promtest.Get(t, h.Mux(), "/badges/cpu?format=shields")
+		// enabled: false sends an explicit no-store (not an empty header) so camo/CDNs don't cache.
+		assert.Equal(t, "no-cache, no-store, must-revalidate, max-age=0", w.Header().Get("Cache-Control"))
+		// cacheSeconds is 0 (omitempty) in the JSON when caching is off.
+		assert.NotContains(t, w.Body.String(), "cacheSeconds")
 	})
 
 	t.Run("errors not cached", func(t *testing.T) {
 		t.Parallel()
 		cfg := config.KromgoConfig{
-			Defaults: config.Defaults{CacheSeconds: 60},
-			Graphs:   []config.Graph{{ID: "cpu", Query: "q", MaxDuration: "24h"}},
+			Graphs: []config.Graph{{ID: "cpu", Query: "q", MaxDuration: "24h"}},
 		}
 		srv := mockProm(t, "1", nil)
 		h := newHandlerForTest(t, cfg, srv.URL)

@@ -21,6 +21,7 @@ const (
 // Handler serves badge and graph endpoints backed by Prometheus queries.
 type Handler struct {
 	cfg    config.KromgoConfig
+	cache  cachePolicy
 	badges map[string]*resolvedBadge
 	graphs map[string]*resolvedGraph
 	prom   *prometheus.Client
@@ -59,7 +60,7 @@ func New(cfg config.KromgoConfig, prom *prometheus.Client) (*Handler, error) {
 		graphs[g.ID] = rg
 	}
 
-	return &Handler{cfg: cfg, badges: badges, graphs: graphs, prom: prom, gen: gen}, nil
+	return &Handler{cfg: cfg, cache: resolveCache(cfg.Cache), badges: badges, graphs: graphs, prom: prom, gen: gen}, nil
 }
 
 // Mux returns the application router: the index page and per-type endpoints.

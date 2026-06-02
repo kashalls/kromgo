@@ -34,9 +34,6 @@
         },
         "gallery": {
           "$ref": "#/$defs/GallerySettings"
-        },
-        "cacheSeconds": {
-          "type": "integer"
         }
       },
       "additionalProperties": false,
@@ -61,11 +58,20 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Cache": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxAge": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Defaults": {
       "properties": {
-        "cacheSeconds": {
-          "type": "integer"
-        },
         "badge": {
           "$ref": "#/$defs/BadgeDefaults"
         },
@@ -125,9 +131,6 @@
         },
         "gallery": {
           "$ref": "#/$defs/GallerySettings"
-        },
-        "cacheSeconds": {
-          "type": "integer"
         }
       },
       "additionalProperties": false,
@@ -168,6 +171,9 @@
         },
         "gallery": {
           "$ref": "#/$defs/Gallery"
+        },
+        "cache": {
+          "$ref": "#/$defs/Cache"
         },
         "defaults": {
           "$ref": "#/$defs/Defaults"

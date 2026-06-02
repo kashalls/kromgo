@@ -92,7 +92,6 @@ same-named field. All keys are optional.
 
 ```yaml
 defaults:
-    cacheSeconds: 0 # Cache-Control max-age in seconds; 0 disables caching
     badge:
         font: dejavu-sans # dejavu-sans (default, shields.io-style), dejavu-sans-bold, comic-neue, comic-neue-bold
         size: 11 # badge font size in points
@@ -116,19 +115,18 @@ The gallery page itself is toggled separately at the top level — see [Gallery]
 
 Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
 
-| Field          | Required | Description                                                                          |
-| -------------- | -------- | ------------------------------------------------------------------------------------ |
-| `id`           | yes      | URL path segment — `cpu` → `GET /badges/cpu`                                         |
-| `query`        | yes      | PromQL expression returning a single scalar or vector value                          |
-| `title`        | no       | Display label on the badge (defaults to `id`)                                        |
-| `type`         | no       | `instant` (default) or `range` — see [Range badges](#range-badges)                   |
-| `range`        | no\*     | Range-query window when `type: range`                                                |
-| `value`        | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)    |
-| `color`        | no       | CEL expression for the color — see [Value and color](#value-and-color)               |
-| `style`        | no       | `flat` (default), `flat-square`, or `plastic`                                        |
-| `icon`         | no       | An icon on the SVG badge, e.g. `mdi:server-outline` or `si:kubernetes` — see below   |
-| `gallery`      | no       | Per-badge gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
-| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this badge                                      |
+| Field     | Required | Description                                                                          |
+| --------- | -------- | ------------------------------------------------------------------------------------ |
+| `id`      | yes      | URL path segment — `cpu` → `GET /badges/cpu`                                         |
+| `query`   | yes      | PromQL expression returning a single scalar or vector value                          |
+| `title`   | no       | Display label on the badge (defaults to `id`)                                        |
+| `type`    | no       | `instant` (default) or `range` — see [Range badges](#range-badges)                   |
+| `range`   | no\*     | Range-query window when `type: range`                                                |
+| `value`   | no       | CEL expression for the displayed string — see [Value and color](#value-and-color)    |
+| `color`   | no       | CEL expression for the color — see [Value and color](#value-and-color)               |
+| `style`   | no       | `flat` (default), `flat-square`, or `plastic`                                        |
+| `icon`    | no       | An icon on the SVG badge, e.g. `mdi:server-outline` or `si:kubernetes` — see below   |
+| `gallery` | no       | Per-badge gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
 
 #### Icons
 
@@ -263,19 +261,18 @@ opt-in to expose range data for that query — there is no separate enable flag.
 [go-analyze/charts](https://github.com/go-analyze/charts) as **SVG** (default) or **PNG**
 (`?format=png`).
 
-| Field          | Required | Description                                                                          |
-| -------------- | -------- | ------------------------------------------------------------------------------------ |
-| `id`           | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                                         |
-| `query`        | yes      | PromQL expression run as a range query                                               |
-| `title`        | no       | Display label (defaults to `id`)                                                     |
-| `maxDuration`  | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)                 |
-| `width`        | no       | Image width in px (overrides `defaults.graph.width`)                                 |
-| `height`       | no       | Image height in px (overrides `defaults.graph.height`)                               |
-| `legend`       | no       | Show the series legend (overrides `defaults.graph.legend`)                           |
-| `theme`        | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts)     |
-| `font`         | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)        |
-| `gallery`      | no       | Per-graph gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
-| `cacheSeconds` | no       | Override `defaults.cacheSeconds` for this graph                                      |
+| Field         | Required | Description                                                                          |
+| ------------- | -------- | ------------------------------------------------------------------------------------ |
+| `id`          | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                                         |
+| `query`       | yes      | PromQL expression run as a range query                                               |
+| `title`       | no       | Display label (defaults to `id`)                                                     |
+| `maxDuration` | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)                 |
+| `width`       | no       | Image width in px (overrides `defaults.graph.width`)                                 |
+| `height`      | no       | Image height in px (overrides `defaults.graph.height`)                               |
+| `legend`      | no       | Show the series legend (overrides `defaults.graph.legend`)                           |
+| `theme`       | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts)     |
+| `font`        | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)        |
+| `gallery`     | no       | Per-graph gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
 
 ```yaml
 graphs:
@@ -499,29 +496,34 @@ http:
 
 ## Caching
 
-Caching has two halves, and kromgo owns the half only it can know: **how long a value stays fresh**.
-Set `cacheSeconds` (globally under `defaults` and/or per endpoint) and kromgo emits
-`Cache-Control: public, max-age=N` on successful responses and includes `cacheSeconds` in the
-shields.io endpoint JSON. Errors are always sent `no-store`. Caching is off by default
-(`cacheSeconds: 0`).
+Caching has two halves. kromgo owns the half only it can know — **how long a value stays fresh** —
+and emits a `Cache-Control` header so the other half (a browser, CDN, or GitHub's camo image proxy)
+knows how long to store the response. One policy applies to every endpoint; it is configured at the
+top level under `cache:` and is **enabled by default**.
 
 ```yaml
-defaults:
-    cacheSeconds: 300 # default for every endpoint
-
-badges:
-    - id: node_cpu_usage # changes every scrape — short TTL
-      query: "..."
-      cacheSeconds: 30
-    - id: cluster_age # changes once a day — long TTL
-      query: "..."
-      cacheSeconds: 3600
+cache:
+    enabled: true # default; false sends no-store so nothing caches the badge
+    maxAge: 300 # max-age + s-maxage in seconds (default 300); ignored when disabled
 ```
 
+- **`enabled: true` (default)** — kromgo sends `Cache-Control: public, max-age=<maxAge>, s-maxage=<maxAge>`
+  on successful responses and advertises `cacheSeconds` in the shields.io endpoint JSON. `max-age`
+  governs browser caches; `s-maxage` governs shared caches (CDNs, camo) — shields.io sets both.
+- **`enabled: false`** — kromgo sends `Cache-Control: no-cache, no-store, must-revalidate, max-age=0`.
+  Sending _no_ header is not the same as disabling caching: it lets camo/CDNs apply their own
+  aggressive default (which is why an unconfigured badge can go stale), so kromgo always sends an
+  explicit header. To turn caching off set `enabled: false` — not `maxAge: 0`, which just falls back
+  to the 300s default.
+
+Errors are always sent `no-store`. A `Cache-Control` header still isn't a hard guarantee against
+GitHub's camo proxy ([shields#221](https://github.com/badges/shields/issues/221)), but it's the
+strongest signal kromgo can send.
+
 The **other half — actually storing responses — is the edge's job**, and any cache that honors
-`Cache-Control` (a CDN, Varnish, nginx `proxy_cache`) will then cache each endpoint for exactly the
-TTL kromgo advertised. shields.io already respects `cacheSeconds`, so badges served through it are
-cached without any proxy at all.
+`Cache-Control` (a CDN, Varnish, nginx `proxy_cache`) will then cache each endpoint for the advertised
+`maxAge`. shields.io already respects `cacheSeconds`, so badges served through it are cached without
+any proxy at all.
 
 If you want the reverse proxy itself to cache, enable its HTTP cache and let it honor the origin
 headers — for example, nginx:
@@ -540,7 +542,7 @@ server {
 
 Caddy (via the [cache-handler](https://github.com/caddyserver/cache-handler) plugin), Traefik, and
 Envoy can cache too, but generally need a plugin or an external cache/CDN; the simplest setup is to
-front kromgo with a CDN and let `cacheSeconds` drive it.
+front kromgo with a CDN and let kromgo's `Cache-Control` header drive it.
 
 ## Security
 

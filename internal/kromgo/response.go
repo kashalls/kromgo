@@ -1,10 +1,13 @@
 package kromgo
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/home-operations/kromgo/internal/config"
 )
 
 // Response MIME types.
@@ -41,12 +44,40 @@ func writeSVG(w http.ResponseWriter, svg []byte) {
 	_, _ = w.Write(svg)
 }
 
-// setCache applies a successful response's cache policy; writeError later overrides
-// it with no-store on failures.
-func setCache(w http.ResponseWriter, cacheSeconds int) {
-	if cacheSeconds > 0 {
-		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", cacheSeconds))
+// defaultCacheMaxAge is the Cache-Control max-age / s-maxage (in seconds) applied
+// when caching is enabled and cache.maxAge is unset.
+const defaultCacheMaxAge = 300
+
+// cachePolicy is the global, precomputed Cache-Control policy: the header value sent
+// on successful responses and the cacheSeconds advertised in the shields.io JSON. It
+// is resolved once from config (see resolveCache), the same for every endpoint.
+type cachePolicy struct {
+	control string // Cache-Control header value for successful responses
+	seconds int    // cacheSeconds reported in the shields.io JSON; 0 when caching is off
+}
+
+// resolveCache turns the global cache config into a fixed policy. Caching is on by
+// default; enabled: false sends an explicit no-store. Sending no header would NOT
+// mean "no caching" — it lets GitHub's camo proxy / CDNs apply their own aggressive
+// default, which is why badges go stale. A header still isn't a hard guarantee
+// against camo (badges/shields#221), but it's the strongest signal we can send.
+func resolveCache(c config.Cache) cachePolicy {
+	if c.Enabled != nil && !*c.Enabled {
+		return cachePolicy{control: "no-cache, no-store, must-revalidate, max-age=0"}
 	}
+	maxAge := cmp.Or(c.MaxAge, defaultCacheMaxAge)
+	// max-age governs browser caches; s-maxage governs shared caches (CDNs and GitHub's
+	// camo image proxy) — the ones that cache README badges. shields.io sets both.
+	return cachePolicy{
+		control: fmt.Sprintf("public, max-age=%d, s-maxage=%d", maxAge, maxAge),
+		seconds: maxAge,
+	}
+}
+
+// apply sets the resolved Cache-Control header on a successful response; writeError
+// later overrides it with no-store on failures.
+func (p cachePolicy) apply(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", p.control)
 }
 
 // writeJSONOr writes v as JSON, falling back to a 500 error response on marshal failure.

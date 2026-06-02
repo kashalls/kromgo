@@ -19,9 +19,23 @@ const DefaultPath = "/config/config.yaml"
 type KromgoConfig struct {
 	Prometheus string   `yaml:"prometheus,omitempty" json:"prometheus,omitempty"`
 	Gallery    Gallery  `yaml:"gallery,omitempty" json:"gallery,omitempty"`
+	Cache      Cache    `yaml:"cache,omitempty" json:"cache,omitempty"`
 	Defaults   Defaults `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Badges     []Badge  `yaml:"badges,omitempty" json:"badges,omitempty"`
 	Graphs     []Graph  `yaml:"graphs,omitempty" json:"graphs,omitempty"`
+}
+
+// Cache configures the Cache-Control headers kromgo sends with badge and graph
+// responses. Caching is enabled by default; one policy applies to every endpoint —
+// it is intentionally not configurable per badge or graph.
+type Cache struct {
+	// Enabled toggles response caching. Defaults to true. When false, kromgo sends an
+	// explicit no-store so browsers, CDNs, and GitHub's camo image proxy don't serve a
+	// stale badge.
+	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// MaxAge is the Cache-Control max-age + s-maxage in seconds (defaults to 300).
+	// Ignored when enabled is false. To disable caching set enabled: false, not maxAge: 0.
+	MaxAge int `yaml:"maxAge,omitempty" json:"maxAge,omitempty"`
 }
 
 // Gallery configures the index gallery page served at "/".
@@ -40,8 +54,6 @@ type GallerySettings struct {
 
 // Defaults holds values applied to every endpoint, each overridable per endpoint.
 type Defaults struct {
-	// CacheSeconds is the default Cache-Control max-age (in seconds). 0 disables caching.
-	CacheSeconds int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 	// Badge holds the default badge rendering settings.
 	Badge BadgeDefaults `yaml:"badge,omitempty" json:"badge,omitempty"`
 	// Graph holds the default graph rendering settings.
@@ -103,8 +115,6 @@ type Badge struct {
 	Icon string `yaml:"icon,omitempty" json:"icon,omitempty"`
 	// Gallery holds this badge's gallery settings (e.g. hidden), overriding defaults.badge.gallery.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
-	// CacheSeconds overrides defaults.cacheSeconds for this badge.
-	CacheSeconds *int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }
 
 // Graph defines a time-series endpoint at /graphs/{id}.
@@ -129,8 +139,6 @@ type Graph struct {
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
 	// Gallery holds this graph's gallery settings (e.g. hidden), overriding defaults.graph.gallery.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
-	// CacheSeconds overrides defaults.cacheSeconds for this graph.
-	CacheSeconds *int `yaml:"cacheSeconds,omitempty" json:"cacheSeconds,omitempty"`
 }
 
 // RangeQuery configures a windowed range query (Badge.Type == "range"). The window
@@ -222,6 +230,9 @@ func checkLegacy(data []byte) error {
 
 // validate checks defaults, then every badge and graph.
 func (c KromgoConfig) validate() error {
+	if c.Cache.MaxAge < 0 {
+		return fmt.Errorf("cache.maxAge: must not be negative")
+	}
 	if s := c.Defaults.Graph.MaxDuration; s != "" {
 		if _, err := ParseDuration(s); err != nil {
 			return fmt.Errorf("defaults.graph.maxDuration: %w", err)
