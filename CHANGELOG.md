@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.0](https://github.com/home-operations/kromgo/compare/0.12.2...0.13.0) (2026-06-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cache:** add a global cache config block for Cache-Control headers ([#203](https://github.com/home-operations/kromgo/issues/203))
+
+### Features
+
+* **cache:** add a global cache config block for Cache-Control headers ([#203](https://github.com/home-operations/kromgo/issues/203)) ([3175d6f](https://github.com/home-operations/kromgo/commit/3175d6f80f6df643de396b3422f2c771432e3473))
+* embed DejaVu Sans + Comic Neue via npm (DejaVu default, shields.io look) ([#202](https://github.com/home-operations/kromgo/issues/202)) ([e52358e](https://github.com/home-operations/kromgo/commit/e52358e5a301224846b9b7f81b801a7becb82c91))
+
 ## [0.12.2](https://github.com/home-operations/kromgo/compare/0.12.1...0.12.2) (2026-06-01)
 
 
