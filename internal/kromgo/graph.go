@@ -53,7 +53,7 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	metricLabel = id
-	setCache(w, graph.cacheSeconds)
+	h.cache.apply(w)
 
 	start, end, step, ok := h.validateGraphAccess(w, r, graph)
 	if !ok {

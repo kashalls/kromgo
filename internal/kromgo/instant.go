@@ -47,7 +47,7 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	metricLabel = id
-	setCache(w, badge.cacheSeconds)
+	h.cache.apply(w)
 
 	value, err := h.queryValue(r.Context(), badge)
 	if err != nil {
@@ -79,7 +79,7 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 	switch format {
 	case formatShields:
 		writeJSONOr(w, log, id, EndpointResponse{
-			SchemaVersion: 1, Label: title, Message: message, Color: color, CacheSeconds: badge.cacheSeconds,
+			SchemaVersion: 1, Label: title, Message: message, Color: color, CacheSeconds: h.cache.seconds,
 		})
 	case formatJSON:
 		writeJSONOr(w, log, id, BadgeJSON{
