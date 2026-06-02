@@ -2,6 +2,7 @@ package kromgo
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -27,26 +28,47 @@ func newCELEnv() (*cel.Env, error) {
 		// Prometheus can return non-finite values that would otherwise render
 		// literally (e.g. "NaN") on a badge.
 		ext.Math(),
-	}, humanizerFuncs()...)...)
+	}, append(humanizerFuncs(), colorFuncs()...)...)...)
 }
 
-// humanizerFuncs registers kromgo's formatting helpers as CEL functions that take
-// the numeric result and return a string, e.g. humanizeBytes(result).
+// unaryStringFunc registers a CEL function that takes the numeric result and returns
+// a string, e.g. humanizeBytes(result).
+func unaryStringFunc(name string, impl func(float64) string) cel.EnvOption {
+	return cel.Function(name, cel.Overload(name+"_double",
+		[]*cel.Type{cel.DoubleType}, cel.StringType,
+		cel.UnaryBinding(func(v ref.Val) ref.Val {
+			return types.String(impl(float64(v.(types.Double))))
+		})))
+}
+
+// humanizerFuncs registers kromgo's value-formatting helpers (see formatting.go).
 func humanizerFuncs() []cel.EnvOption {
-	fn := func(name string, impl func(float64) string) cel.EnvOption {
-		return cel.Function(name, cel.Overload(name+"_double",
-			[]*cel.Type{cel.DoubleType}, cel.StringType,
-			cel.UnaryBinding(func(v ref.Val) ref.Val {
-				return types.String(impl(float64(v.(types.Double))))
-			})))
-	}
 	return []cel.EnvOption{
-		fn("humanizeBytes", humanizeBytes),
-		fn("humanizeSIBytes", humanizeSIBytes),
-		fn("humanizeNumber", humanizeNumber),
-		fn("humanizeFloat", humanizeFloat),
-		fn("humanizeDuration", humanizeDuration),
-		fn("humanizeDays", humanizeDays),
+		unaryStringFunc("humanizeBytes", humanizeBytes),
+		unaryStringFunc("humanizeCommas", humanizeCommas),
+		unaryStringFunc("humanizeFloat", humanizeFloat),
+		unaryStringFunc("humanizeDuration", humanizeDuration),
+		unaryStringFunc("humanizeDurationDays", humanizeDurationDays),
+	}
+}
+
+// colorFuncs registers kromgo's color helper (see colors.go) for a colorExpr,
+// e.g. colorExpr: colorScale(result, [35.0, 75.0], ["green", "orange", "red"]).
+func colorFuncs() []cel.EnvOption {
+	return []cel.EnvOption{
+		cel.Function("colorScale", cel.Overload("colorScale_double_list_list",
+			[]*cel.Type{cel.DoubleType, cel.ListType(cel.DoubleType), cel.ListType(cel.StringType)}, cel.StringType,
+			cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+				steps, err := args[1].ConvertToNative(reflect.TypeOf([]float64(nil)))
+				if err != nil {
+					return types.NewErr("colorScale steps: %v", err)
+				}
+				colors, err := args[2].ConvertToNative(reflect.TypeOf([]string(nil)))
+				if err != nil {
+					return types.NewErr("colorScale colors: %v", err)
+				}
+				return types.String(colorScale(float64(args[0].(types.Double)), steps.([]float64), colors.([]string)))
+			}))),
 	}
 }
 

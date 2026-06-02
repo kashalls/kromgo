@@ -37,7 +37,7 @@ func TestNewBadgeRenderer_DefaultFont(t *testing.T) {
 	r, err := newBadgeRenderer(config.BadgeDefaults{})
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	svg := string(r.render(config.StyleFlat, "", "label", "msg", "green"))
+	svg := string(r.render(badgeSpec{style: config.StyleFlat, label: "label", message: "msg", color: "green"}))
 	assert.True(t, strings.HasPrefix(svg, "<svg"))
 	assert.Contains(t, svg, "viewBox=", "scalable")
 	assert.Contains(t, svg, `<path fill="#fff"`, "text rendered as glyph paths")
@@ -64,7 +64,7 @@ func TestBadgeRender_Icon(t *testing.T) {
 
 	path, err := resolveIcon("mdi:server-outline")
 	require.NoError(t, err)
-	svg := string(r.render(config.StyleFlat, path, "", "online", "green"))
+	svg := string(r.render(badgeSpec{style: config.StyleFlat, iconPath: path, message: "online", color: "green"}))
 
 	assert.Contains(t, svg, path, "icon path should be embedded")
 	assert.Contains(t, svg, `fill="#fff"`)
@@ -75,13 +75,13 @@ func TestBadgeRender_Accessibility(t *testing.T) {
 	r, err := newBadgeRenderer(config.BadgeDefaults{})
 	require.NoError(t, err)
 
-	svg := string(r.render(config.StyleFlat, "", "build", "passing", "green"))
+	svg := string(r.render(badgeSpec{style: config.StyleFlat, label: "build", message: "passing", color: "green"}))
 	assert.Contains(t, svg, `role="img"`)
 	assert.Contains(t, svg, `aria-label="build: passing"`, "screen readers get a combined label")
 	assert.Contains(t, svg, `<title>build: passing</title>`, "native hover tooltip")
 
 	// A message-only badge labels with just the message.
-	msgOnly := string(r.render(config.StyleFlat, "", "", "online", "green"))
+	msgOnly := string(r.render(badgeSpec{style: config.StyleFlat, message: "online", color: "green"}))
 	assert.Contains(t, msgOnly, `aria-label="online"`)
 }
 
@@ -91,16 +91,60 @@ func TestBadgeRender_TextContrast(t *testing.T) {
 	require.NoError(t, err)
 
 	// Dark background (default blue) → white text, near-black shadow.
-	dark := string(r.render(config.StyleFlat, "", "label", "msg", "blue"))
+	dark := string(r.render(badgeSpec{style: config.StyleFlat, label: "label", message: "msg", color: "blue"}))
 	assert.Contains(t, dark, `<path fill="#fff"`, "white text on a dark badge")
 	assert.NotContains(t, dark, `<path fill="#333"`)
 
 	// Light custom background → dark text + light shadow (matches shields.io).
-	light := string(r.render(config.StyleFlat, "", "label", "msg", "#eeeeee"))
+	light := string(r.render(badgeSpec{style: config.StyleFlat, label: "label", message: "msg", color: "#eeeeee"}))
 	assert.Contains(t, light, `<path fill="#333"`, "dark text on a light badge")
 	assert.Contains(t, light, `fill="#ccc" fill-opacity=".3"`, "light shadow on a light badge")
 	// The label segment stays dark (#555), so its text is still white.
 	assert.Contains(t, light, `<path fill="#fff"`, "label text stays white on the dark label segment")
+}
+
+func TestBadgeRender_LabelColor(t *testing.T) {
+	t.Parallel()
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+	icon, err := resolveIcon("mdi:server-outline")
+	require.NoError(t, err)
+
+	// labelColor is the resolved hex for the left segment (resolveBadge resolves names).
+	// A light labelColor paints the left rect and flips its text — and the icon — dark,
+	// while the message side stays independent.
+	light := string(r.render(badgeSpec{
+		style: config.StyleFlat, iconPath: icon, label: "build", message: "passing",
+		color: "blue", labelColor: "#e0e0e0", id: "x",
+	}))
+	assert.Contains(t, light, `fill="#e0e0e0"`, "label segment uses labelColor")
+	assert.Contains(t, light, icon, "icon embedded")
+	assert.Contains(t, light, `<path fill="#333"`, "label text + icon go dark on a light label")
+	assert.Contains(t, light, `<path fill="#fff"`, "message text stays white on dark blue")
+
+	// Empty labelColor falls back to the default grey segment (all text white).
+	def := string(r.render(badgeSpec{style: config.StyleFlat, label: "build", message: "passing", color: "blue", id: "x"}))
+	assert.Contains(t, def, `fill="#555"`, "default label segment is grey")
+	assert.NotContains(t, def, `<path fill="#333"`, "no dark text on an all-dark badge")
+}
+
+func TestBadgeRender_UniqueIDs(t *testing.T) {
+	t.Parallel()
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+
+	// Element ids are namespaced by badge id so two badges inlined in one document
+	// don't have the second's url(#…) refs resolve to the first's defs.
+	svg := string(r.render(badgeSpec{style: config.StyleFlat, label: "l", message: "m", color: "blue", id: "cpu"}))
+	assert.Contains(t, svg, `id="g-cpu"`)
+	assert.Contains(t, svg, `fill="url(#g-cpu)"`)
+	assert.Contains(t, svg, `id="r-cpu"`)
+	assert.Contains(t, svg, `clip-path="url(#r-cpu)"`)
+
+	// A '.' (valid in a kromgo id) is sanitized to '-' for the SVG element id.
+	dotted := string(r.render(badgeSpec{style: config.StyleFlat, label: "l", message: "m", color: "blue", id: "a.b"}))
+	assert.Contains(t, dotted, `id="r-a-b"`)
+	assert.NotContains(t, dotted, `#r-a.b`)
 }
 
 func TestBadgeRender_WellFormedXML(t *testing.T) {
@@ -110,7 +154,7 @@ func TestBadgeRender_WellFormedXML(t *testing.T) {
 
 	// A label full of XML metacharacters must not break the document: it flows into the
 	// escaped aria-label/<title>, so the whole SVG has to stay well-formed.
-	svg := r.render(config.StyleFlat, "", `a "quote" & <tag>`, "ok", "#eee")
+	svg := r.render(badgeSpec{style: config.StyleFlat, label: `a "quote" & <tag>`, message: "ok", color: "#eee"})
 	dec := xml.NewDecoder(bytes.NewReader(svg))
 	for {
 		_, err := dec.Token()
@@ -119,6 +163,21 @@ func TestBadgeRender_WellFormedXML(t *testing.T) {
 		}
 		require.NoError(t, err, "rendered SVG must be well-formed XML")
 	}
+}
+
+func TestBadgeRenderError(t *testing.T) {
+	t.Parallel()
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+
+	// 4xx → red ("your request is wrong"); 5xx → grey ("couldn't get an answer").
+	client := string(r.renderError("cpu", "Not Found", 404))
+	assert.Contains(t, client, "#e05d44", "client errors are red")
+	assert.Contains(t, client, `aria-label="cpu: Not Found"`)
+
+	server := string(r.renderError("cpu", "Query Error", 500))
+	assert.Contains(t, server, "#9f9f9f", "server/upstream errors are grey")
+	assert.Contains(t, server, `aria-label="cpu: Query Error"`)
 }
 
 func TestResolveIcon(t *testing.T) {

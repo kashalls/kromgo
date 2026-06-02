@@ -20,7 +20,7 @@ func TestSecurity_BadgeEscapesSVG(t *testing.T) {
 
 	// Text is rendered as glyph paths, so the payload becomes path geometry — the
 	// literal markup never appears in the output.
-	body := string(r.render(config.StyleFlat, "", "label", xssPayload, "green"))
+	body := string(r.render(badgeSpec{style: config.StyleFlat, label: "label", message: xssPayload, color: "green"}))
 	assert.NotContains(t, body, "<script>")
 	assert.NotContains(t, body, "</text>")
 	// The payload also feeds the aria-label/<title>, where it must be XML-escaped

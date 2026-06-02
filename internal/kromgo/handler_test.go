@@ -36,10 +36,10 @@ func newHandlerForTest(t *testing.T, cfg config.KromgoConfig, srvURL string) *Ha
 func baseConfig() config.KromgoConfig {
 	return config.KromgoConfig{
 		Badges: []config.Badge{{
-			ID:    "cpu",
-			Query: "node_cpu_usage",
-			Value: `string(result) + "%"`,
-			Color: `result <= 50.0 ? "green" : "red"`,
+			ID:        "cpu",
+			Query:     "node_cpu_usage",
+			ValueExpr: `string(result) + "%"`,
+			ColorExpr: `result <= 50.0 ? "green" : "red"`,
 		}},
 		Graphs: []config.Graph{{ID: "cpu", Query: "node_cpu_usage", MaxDuration: "24h"}},
 	}
@@ -113,7 +113,17 @@ func TestServeBadge_Output(t *testing.T) {
 			assert.InDelta(t, 17.5, *body.Result, 0.001)
 			assert.Equal(t, "node", body.Labels["job"])
 		}},
-		{"not found", "/badges/does-not-exist", func(t *testing.T, w *httptest.ResponseRecorder) {
+		{"not found svg", "/badges/does-not-exist", func(t *testing.T, w *httptest.ResponseRecorder) {
+			// Default (svg) format renders a graceful error badge with HTTP 200, so an
+			// <img> shows the error rather than a broken-image icon. 4xx → red.
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
+			assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+			assert.Contains(t, w.Body.String(), `aria-label="does-not-exist: Not Found"`)
+			assert.Contains(t, w.Body.String(), "#e05d44") // red message segment
+		}},
+		{"not found json", "/badges/does-not-exist?format=json", func(t *testing.T, w *httptest.ResponseRecorder) {
+			// Non-svg formats keep the JSON error and its status code.
 			assert.Equal(t, http.StatusNotFound, w.Code)
 			assert.Contains(t, w.Body.String(), `"isError":true`)
 		}},
@@ -129,7 +139,7 @@ func TestServeBadge_Output(t *testing.T) {
 func TestServeBadge_Icon(t *testing.T) {
 	t.Parallel()
 	cfg := config.KromgoConfig{Badges: []config.Badge{{
-		ID: "cpu", Query: "q", Icon: "mdi:server-outline", Value: `string(result) + "%"`,
+		ID: "cpu", Query: "q", Icon: "mdi:server-outline", ValueExpr: `string(result) + "%"`,
 	}}}
 	srv := mockProm(t, "17.5", nil)
 	h := newHandlerForTest(t, cfg, srv.URL)
@@ -183,7 +193,7 @@ func TestServeBadge_Expressions(t *testing.T) {
 	}{
 		{
 			name:     "humanize duration value",
-			badge:    config.Badge{ID: "uptime", Query: "q", Value: "humanizeDuration(result)"},
+			badge:    config.Badge{ID: "uptime", Query: "q", ValueExpr: "humanizeDuration(result)"},
 			sample:   promtest.Scalar("9000", map[string]string{"job": "node"}),
 			path:     "/badges/uptime?format=json",
 			wantCode: http.StatusOK,
@@ -191,28 +201,29 @@ func TestServeBadge_Expressions(t *testing.T) {
 		},
 		{
 			name:     "value from label",
-			badge:    config.Badge{ID: "ver", Query: "q", Value: `labels["version"]`},
+			badge:    config.Badge{ID: "ver", Query: "q", ValueExpr: `labels["version"]`},
 			sample:   promtest.Scalar("0", map[string]string{"version": "v1.2.3"}),
 			path:     "/badges/ver?format=shields",
 			wantCode: http.StatusOK,
 			contains: []string{`"message":"v1.2.3"`},
 		},
 		{
-			// Indexing a missing label is a CEL runtime error → 500.
+			// Indexing a missing label is a CEL runtime error. In JSON it surfaces as a
+			// 500 error response (the svg error badge is covered in TestServeBadge_Output).
 			name:     "missing label is runtime error",
-			badge:    config.Badge{ID: "ver", Query: "q", Value: `labels["version"]`},
+			badge:    config.Badge{ID: "ver", Query: "q", ValueExpr: `labels["version"]`},
 			sample:   promtest.Scalar("0", map[string]string{"other": "x"}),
-			path:     "/badges/ver",
+			path:     "/badges/ver?format=json",
 			wantCode: http.StatusInternalServerError,
 			contains: []string{`"isError":true`},
 		},
 		{
 			name: "state expressions",
 			badge: config.Badge{
-				ID:    "ceph",
-				Query: "q",
-				Value: `result == 0.0 ? "Healthy" : "Critical"`,
-				Color: `result == 0.0 ? "green" : "red"`,
+				ID:        "ceph",
+				Query:     "q",
+				ValueExpr: `result == 0.0 ? "Healthy" : "Critical"`,
+				ColorExpr: `result == 0.0 ? "green" : "red"`,
 			},
 			sample:   promtest.Scalar("0", map[string]string{"job": "node"}),
 			path:     "/badges/ceph?format=shields",
@@ -231,11 +242,11 @@ func TestServeBadge_Expressions(t *testing.T) {
 			// type: range reduces a range query to one value (avg of 10,20,30 = 20).
 			name: "range type reduces to one value",
 			badge: config.Badge{
-				ID:    "cpu_avg",
-				Type:  config.TypeRange,
-				Query: "q",
-				Value: `string(result) + "%"`,
-				Range: &config.RangeQuery{Last: "1h", Reduce: config.ReduceAvg},
+				ID:        "cpu_avg",
+				Type:      config.TypeRange,
+				Query:     "q",
+				ValueExpr: `string(result) + "%"`,
+				Range:     &config.RangeQuery{Last: "1h", Reduce: config.ReduceAvg},
 			},
 			matrix:   []float64{10, 20, 30},
 			path:     "/badges/cpu_avg?format=shields",
@@ -352,7 +363,10 @@ func TestServeGraph_Output(t *testing.T) {
 			assert.Equal(t, http.StatusBadRequest, w.Code)
 		}},
 		{"not found", nil, "/graphs/nope", func(t *testing.T, w *httptest.ResponseRecorder) {
-			assert.Equal(t, http.StatusNotFound, w.Code)
+			// svg (default) → graceful error badge with HTTP 200, not a broken image.
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "image/svg+xml", w.Header().Get("Content-Type"))
+			assert.Contains(t, w.Body.String(), `aria-label="nope: Not Found"`)
 		}},
 	}
 	for _, tc := range cases {

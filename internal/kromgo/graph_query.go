@@ -78,12 +78,12 @@ func parseGraphParams(r *http.Request) (start, end time.Time, step time.Duration
 func (h *Handler) validateGraphAccess(w http.ResponseWriter, r *http.Request, graph *resolvedGraph) (start, end time.Time, step time.Duration, ok bool) {
 	start, end, step, err := parseGraphParams(r)
 	if err != nil {
-		writeError(w, graph.ID, "Invalid parameter: "+err.Error(), http.StatusBadRequest)
+		h.errorResponse(w, graphFormat(r), graph.ID, "Invalid parameter: "+err.Error(), http.StatusBadRequest)
 		return start, end, step, false
 	}
 
 	if graph.maxDuration > 0 && end.Sub(start) > graph.maxDuration {
-		writeError(w, graph.ID, "Requested time window exceeds maximum allowed duration", http.StatusBadRequest)
+		h.errorResponse(w, graphFormat(r), graph.ID, "Requested time window exceeds maximum allowed duration", http.StatusBadRequest)
 		return start, end, step, false
 	}
 
@@ -96,13 +96,13 @@ func (h *Handler) queryMatrix(w http.ResponseWriter, r *http.Request, graph *res
 	value, err := h.prom.QueryRange(r.Context(), graph.Query, v1.Range{Start: start, End: end, Step: step})
 	if err != nil {
 		log.Error("error executing range query", "error", err)
-		writeError(w, graph.ID, "Query Error", http.StatusInternalServerError)
+		h.errorResponse(w, graphFormat(r), graph.ID, "Query Error", http.StatusInternalServerError)
 		return nil, false
 	}
 	matrix, ok := value.(model.Matrix)
 	if !ok {
 		log.Error("range query did not return a matrix", "type", value.Type().String())
-		writeError(w, graph.ID, "Unexpected result type", http.StatusInternalServerError)
+		h.errorResponse(w, graphFormat(r), graph.ID, "Unexpected result type", http.StatusInternalServerError)
 		return nil, false
 	}
 	return matrix, true

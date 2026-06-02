@@ -161,9 +161,9 @@ func TestResolveBadge_InvalidExprFailsFast(t *testing.T) {
 	env, err := newCELEnv()
 	require.NoError(t, err)
 	cases := map[string]config.Badge{
-		"syntax error":  {ID: "a", Query: "q", Value: "result +"},
-		"not a string":  {ID: "b", Query: "q", Value: "result"},       // value must be string
-		"unknown ident": {ID: "c", Query: "q", Color: "nope(result)"}, // bad color expr
+		"syntax error":  {ID: "a", Query: "q", ValueExpr: "result +"},
+		"not a string":  {ID: "b", Query: "q", ValueExpr: "result"},       // value must be string
+		"unknown ident": {ID: "c", Query: "q", ColorExpr: "nope(result)"}, // bad color expr
 	}
 	for name, b := range cases {
 		t.Run(name, func(t *testing.T) {

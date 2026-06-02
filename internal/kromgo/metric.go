@@ -26,6 +26,7 @@ type resolvedBadge struct {
 	valueProg  cel.Program // compiled Value expression (always set)
 	colorProg  cel.Program // compiled Color expression; nil when none
 	style      string
+	labelColor string      // resolved label-segment hex; "" = default grey (#555)
 	iconPath   string      // resolved SVG path data for Icon; "" when none
 	rangeQuery *rangeQuery // non-nil when Type == range
 }
@@ -53,17 +54,25 @@ func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedB
 		return nil, fmt.Errorf("badge %q: %w", b.ID, err)
 	}
 
-	rb := &resolvedBadge{
-		Badge:    b,
-		style:    cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
-		iconPath: iconPath,
+	// labelColor is a fixed color (not a CEL expression); "" leaves the renderer's
+	// default grey. Resolve names/hex to hex now so the renderer just paints it.
+	labelColor := cmp.Or(b.LabelColor, def.Badge.LabelColor)
+	if labelColor != "" {
+		labelColor = colorNameToHex(labelColor)
 	}
 
-	if rb.valueProg, err = compileStringExpr(env, b.ID, "value", cmp.Or(b.Value, defaultValueExpr)); err != nil {
+	rb := &resolvedBadge{
+		Badge:      b,
+		style:      cmp.Or(b.Style, def.Badge.Style, config.StyleFlat),
+		labelColor: labelColor,
+		iconPath:   iconPath,
+	}
+
+	if rb.valueProg, err = compileStringExpr(env, b.ID, "value", cmp.Or(b.ValueExpr, defaultValueExpr)); err != nil {
 		return nil, err
 	}
-	if b.Color != "" {
-		if rb.colorProg, err = compileStringExpr(env, b.ID, "color", b.Color); err != nil {
+	if b.ColorExpr != "" {
+		if rb.colorProg, err = compileStringExpr(env, b.ID, "color", b.ColorExpr); err != nil {
 			return nil, err
 		}
 	}

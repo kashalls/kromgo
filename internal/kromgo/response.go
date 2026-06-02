@@ -25,6 +25,7 @@ type EndpointResponse struct {
 	Label         string `json:"label"`
 	Message       string `json:"message"`
 	Color         string `json:"color,omitempty"`
+	LabelColor    string `json:"labelColor,omitempty"`
 	Error         bool   `json:"isError,omitempty"`
 	CacheSeconds  int    `json:"cacheSeconds,omitempty"`
 }
@@ -86,6 +87,19 @@ func writeJSONOr(w http.ResponseWriter, log *slog.Logger, id string, v any) {
 		log.Error("error writing json response", "error", err)
 		writeError(w, id, "Error", http.StatusInternalServerError)
 	}
+}
+
+// errorResponse renders a failure. For an SVG request it returns a self-describing
+// error badge with HTTP 200 — so an <img> shows the error instead of a broken-image
+// icon — colored red for client errors (4xx) and grey for server/upstream (5xx).
+// Other formats get the JSON error with its status code. Errors are never cached.
+func (h *Handler) errorResponse(w http.ResponseWriter, format, id, reason string, code int) {
+	if format != formatSVG {
+		writeError(w, id, reason, code)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeSVG(w, h.gen.renderError(id, reason, code))
 }
 
 // writeError writes a shields.io-compatible error response with the given status code.

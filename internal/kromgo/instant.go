@@ -16,12 +16,13 @@ import (
 // BadgeJSON is kromgo's native JSON for a badge value (format=json): the rendered
 // string plus the underlying number and labels, without the Prometheus envelope.
 type BadgeJSON struct {
-	ID     string            `json:"id"`
-	Title  string            `json:"title"`
-	Value  string            `json:"value"`
-	Color  string            `json:"color,omitempty"`
-	Result *float64          `json:"result,omitempty"`
-	Labels map[string]string `json:"labels,omitempty"`
+	ID         string            `json:"id"`
+	Title      string            `json:"title"`
+	Value      string            `json:"value"`
+	Color      string            `json:"color,omitempty"`
+	LabelColor string            `json:"labelColor,omitempty"`
+	Result     *float64          `json:"result,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
 }
 
 // serveBadge renders an instant value as an SVG badge (default), shields.io endpoint
@@ -43,7 +44,7 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 	badge, ok := h.badges[id]
 	if !ok {
 		log.Error("badge not found")
-		writeError(w, id, "Not Found", http.StatusNotFound)
+		h.errorResponse(w, format, id, "Not Found", http.StatusNotFound)
 		return
 	}
 	metricLabel = id
@@ -52,13 +53,13 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 	value, err := h.queryValue(r.Context(), badge)
 	if err != nil {
 		log.Error("error executing query", "error", err)
-		writeError(w, id, "Query Error", http.StatusInternalServerError)
+		h.errorResponse(w, format, id, "Query Error", http.StatusInternalServerError)
 		return
 	}
 	vector, ok := value.(model.Vector)
 	if !ok {
 		log.Error("query did not return an instant vector", "type", value.Type().String())
-		writeError(w, id, "Unexpected result type", http.StatusInternalServerError)
+		h.errorResponse(w, format, id, "Unexpected result type", http.StatusInternalServerError)
 		return
 	}
 
@@ -69,7 +70,7 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 	if len(vector) > 0 {
 		msg, col, ok := h.evalDisplay(badge, vector[0], log)
 		if !ok {
-			writeError(w, id, "Expression Error", http.StatusInternalServerError)
+			h.errorResponse(w, format, id, "Expression Error", http.StatusInternalServerError)
 			return
 		}
 		v := float64(vector[0].Value)
@@ -79,11 +80,13 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 	switch format {
 	case formatShields:
 		writeJSONOr(w, log, id, EndpointResponse{
-			SchemaVersion: 1, Label: title, Message: message, Color: color, CacheSeconds: h.cache.seconds,
+			SchemaVersion: 1, Label: title, Message: message, Color: color,
+			LabelColor: badge.labelColor, CacheSeconds: h.cache.seconds,
 		})
 	case formatJSON:
 		writeJSONOr(w, log, id, BadgeJSON{
-			ID: badge.ID, Title: title, Value: message, Color: color, Result: result, Labels: labels,
+			ID: badge.ID, Title: title, Value: message, Color: color,
+			LabelColor: badge.labelColor, Result: result, Labels: labels,
 		})
 	default: // svg
 		// Label text: explicit Title, else the id — unless an icon stands in for it.
@@ -92,7 +95,10 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 			labelText = badge.ID
 		}
 		style := cmp.Or(r.URL.Query().Get("style"), badge.style)
-		writeSVG(w, h.gen.render(style, badge.iconPath, labelText, message, color))
+		writeSVG(w, h.gen.render(badgeSpec{
+			style: style, iconPath: badge.iconPath, label: labelText,
+			message: message, color: color, labelColor: badge.labelColor, id: badge.ID,
+		}))
 	}
 }
 

@@ -5,7 +5,6 @@ go 1.26.0
 require (
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/catppuccin/go v0.3.0
-	github.com/dustin/go-humanize v1.0.1
 	github.com/go-analyze/charts v0.5.27
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/google/cel-go v0.28.1
@@ -26,6 +25,7 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-analyze/bulk v0.1.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kr/text v0.2.0 // indirect

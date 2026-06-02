@@ -62,14 +62,14 @@ func TestGallery(t *testing.T) {
 	require.NoError(t, err)
 
 	badges := []config.Badge{
-		{ID: "cpu", Title: "CPU", Query: "vector(4.6)", Value: `string(result) + "%"`, Color: threshold, Icon: "mdi:cpu-64-bit"},
-		{ID: "cpu_hot", Title: "CPU", Query: "vector(82)", Value: `string(result) + "%"`, Color: threshold},
-		{ID: "mem", Title: "Memory", Query: "vector(56012345678)", Value: "humanizeBytes(result)", Icon: "mdi:memory"},
-		{ID: "pods", Title: "Pods", Query: "vector(1204)", Value: "humanizeNumber(result)", Icon: "mdi:kubernetes"},
-		{ID: "uptime", Title: "Uptime", Query: "vector(40348800)", Value: "humanizeDuration(result)", Icon: "mdi:clock-outline"},
-		{ID: "age", Title: "Age", Query: "vector(5961600)", Value: "humanizeDays(result)", Icon: "mdi:server-outline"},
-		{ID: "ver", Title: "Kubernetes", Query: `label_replace(vector(1), "v", "1.36.1", "", "")`, Value: `labels["v"]`, Color: `"blue"`, Icon: "si:kubernetes"},
-		{ID: "ok", Query: "vector(1)", Value: `"online"`, Color: `"green"`, Icon: "mdi:check-circle-outline"},
+		{ID: "cpu", Title: "CPU", Query: "vector(4.6)", ValueExpr: `string(result) + "%"`, ColorExpr: threshold, Icon: "mdi:cpu-64-bit"},
+		{ID: "cpu_hot", Title: "CPU", Query: "vector(82)", ValueExpr: `string(result) + "%"`, ColorExpr: threshold},
+		{ID: "mem", Title: "Memory", Query: "vector(56012345678)", ValueExpr: "humanizeBytes(result)", Icon: "mdi:memory"},
+		{ID: "pods", Title: "Pods", Query: "vector(1204)", ValueExpr: "humanizeCommas(result)", Icon: "mdi:kubernetes"},
+		{ID: "uptime", Title: "Uptime", Query: "vector(40348800)", ValueExpr: "humanizeDuration(result)", Icon: "mdi:clock-outline"},
+		{ID: "age", Title: "Age", Query: "vector(5961600)", ValueExpr: "humanizeDurationDays(result)", Icon: "mdi:server-outline"},
+		{ID: "ver", Title: "Kubernetes", Query: `label_replace(vector(1), "v", "1.36.1", "", "")`, ValueExpr: `labels["v"]`, ColorExpr: `"blue"`, Icon: "si:kubernetes"},
+		{ID: "ok", Query: "vector(1)", ValueExpr: `"online"`, ColorExpr: `"green"`, Icon: "mdi:check-circle-outline"},
 	}
 	byID := map[string]config.Badge{}
 	for _, b := range badges {
@@ -96,9 +96,9 @@ func TestGallery(t *testing.T) {
 			"cpu":     "Percentage with threshold color",
 			"cpu_hot": "Threshold color — red when high",
 			"mem":     "humanizeBytes + icon",
-			"pods":    "humanizeNumber + icon",
+			"pods":    "humanizeCommas + icon",
 			"uptime":  "humanizeDuration + icon",
-			"age":     "humanizeDays + icon",
+			"age":     "humanizeDurationDays + icon",
 			"ver":     "Value from a label + icon",
 			"ok":      "Icon only (no title)",
 		}
