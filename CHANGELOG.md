@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.2](https://github.com/home-operations/kromgo/compare/0.14.1...0.14.2) (2026-06-05)
+
+
+### Features
+
+* graph valueExpr for y-axis label formatting ([#217](https://github.com/home-operations/kromgo/issues/217)) ([e31db54](https://github.com/home-operations/kromgo/commit/e31db54cb93352fe7fd9941f2dac5654e0d3ff4d))
+
+
+### Bug Fixes
+
+* no title badge rendering ([#215](https://github.com/home-operations/kromgo/issues/215)) ([e8997f3](https://github.com/home-operations/kromgo/commit/e8997f33f417f9449b473ee1d6a10a5d845e27bf))
+
 ## [0.14.1](https://github.com/home-operations/kromgo/compare/0.14.0...0.14.1) (2026-06-05)
 
 
