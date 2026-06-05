@@ -1,0 +1,22 @@
+---
+apiVersion: v2
+name: kromgo
+description: Safely expose individual Prometheus metric values as SVG badges and graphs
+type: application
+# version + appVersion are overridden at package time from the release tag.
+version: 0.0.0
+appVersion: "0.0.0"
+home: https://github.com/home-operations/kromgo
+sources:
+  - https://github.com/home-operations/kromgo
+maintainers:
+  - name: home-operations
+    email: contact@home-operations.com
+keywords:
+  - prometheus
+  - metrics
+  - badge
+  - shields
+  - kubernetes
+annotations:
+  category: Monitoring

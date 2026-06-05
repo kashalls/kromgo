@@ -1,6 +1,15 @@
+# mise is the single source of truth for the Go toolchain (and project tools)
+# across developer shells, CI, and the container build. The `go` version here
+# matches go.mod's `go` directive; Renovate keeps the two in lockstep via the
+# "Go Toolchain Group" rule in .renovaterc.json5. The Dockerfile and release
+# workflow read the Go and Node versions with `mise config get tools.<name>`.
+#
+# `mise tasks` lists tasks; `mise run <task>` runs one.
+
 [tools]
 go = "1.26.4"
 golangci-lint = "2.12.2"
+helm = "4.2.0"
 lefthook = "2.1.9"
 node = "24.16.0"
 npm = "11.16.0"
@@ -67,6 +76,14 @@ run = "golangci-lint run"
 description = "Run golangci-lint with --fix"
 depends = ["assets"]
 run = "golangci-lint run --fix"
+
+[tasks.helm-lint]
+description = "Lint the Helm chart"
+run = "helm lint charts/kromgo"
+
+[tasks.helm-template]
+description = "Render the Helm chart with default values"
+run = "helm template kromgo charts/kromgo"
 
 [hooks]
 postinstall = "lefthook install"

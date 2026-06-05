@@ -1,0 +1,24 @@
+kromgo is serving {{ len .Values.config.badges }} badge(s) and {{ len .Values.config.graphs }} graph(s).
+
+Open the gallery:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "kromgo.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  # then browse http://localhost:{{ .Values.service.port }}
+
+{{ if .Values.ingress.enabled -}}
+Or via ingress:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{ end -}}
+
+{{- if and (not (include "kromgo.secretName" .)) (not .Values.existingConfigMap) (not .Values.config.prometheus) }}
+
+WARNING: no Prometheus URL is configured. Set `config.prometheus`, or
+`secret.prometheusUrl` / `secret.existingSecret` if the URL carries credentials.
+{{- end }}
+{{- if and (not .Values.existingConfigMap) (not .Values.config.badges) (not .Values.config.graphs) }}
+
+No badges or graphs are defined yet — add them under `config.badges` /
+`config.graphs`. See https://github.com/home-operations/kromgo for the schema.
+{{- end }}
