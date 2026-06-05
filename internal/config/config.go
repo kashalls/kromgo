@@ -94,6 +94,11 @@ type GraphDefaults struct {
 	// ValueExpr is the default y-axis label formatter (a CEL expression over `result`)
 	// for graphs — see Graph.ValueExpr.
 	ValueExpr string `yaml:"valueExpr,omitempty" json:"valueExpr,omitempty"`
+	// YMin and YMax pin the default y-axis range for graphs — see Graph.YMin/YMax.
+	YMin *float64 `yaml:"yMin,omitempty" json:"yMin,omitempty"`
+	YMax *float64 `yaml:"yMax,omitempty" json:"yMax,omitempty"`
+	// MarkLine is the default set of mark-line types for graphs — see Graph.MarkLine.
+	MarkLine []string `yaml:"markLine,omitempty" json:"markLine,omitempty"`
 	// Gallery is the default gallery visibility for graphs.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 }
@@ -157,6 +162,15 @@ type Graph struct {
 	// (an axis tick has no labels). Empty uses the chart's default numeric formatting.
 	// Overrides defaults.graph.valueExpr.
 	ValueExpr string `yaml:"valueExpr,omitempty" json:"valueExpr,omitempty"`
+	// YMin and YMax pin the y-axis range (e.g. 0 and 100 for a percentage) instead of
+	// auto-fitting to the data. Either may be set alone. Override defaults.graph.yMin/yMax.
+	YMin *float64 `yaml:"yMin,omitempty" json:"yMin,omitempty"`
+	YMax *float64 `yaml:"yMax,omitempty" json:"yMax,omitempty"`
+	// MarkLine draws dashed reference lines at computed values: any of "average", "min",
+	// "max", "median". The chart library renders them for the first series only, and
+	// only these dynamic types are supported (no static threshold). Overrides
+	// defaults.graph.markLine.
+	MarkLine []string `yaml:"markLine,omitempty" json:"markLine,omitempty"`
 	// Gallery holds this graph's gallery settings (e.g. hidden), overriding defaults.graph.gallery.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 }

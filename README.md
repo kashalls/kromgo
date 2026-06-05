@@ -311,20 +311,22 @@ opt-in to expose range data for that query — there is no separate enable flag.
 [go-analyze/charts](https://github.com/go-analyze/charts) as **SVG** (default) or **PNG**
 (`?format=png`).
 
-| Field         | Required | Description                                                                          |
-| ------------- | -------- | ------------------------------------------------------------------------------------ |
-| `id`          | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                                         |
-| `query`       | yes      | PromQL expression run as a range query                                               |
-| `title`       | no       | Display label (defaults to `id`)                                                     |
-| `maxDuration` | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)                 |
-| `width`       | no       | Image width in px (overrides `defaults.graph.width`)                                 |
-| `height`      | no       | Image height in px (overrides `defaults.graph.height`)                               |
-| `legend`      | no       | Show the series legend (overrides `defaults.graph.legend`)                           |
-| `fill`        | no       | Fill a translucent area beneath the line(s) (overrides `defaults.graph.fill`)        |
-| `theme`       | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts)     |
-| `font`        | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)        |
-| `valueExpr`   | no       | CEL expression formatting the y-axis labels (overrides `defaults.graph.valueExpr`)   |
-| `gallery`     | no       | Per-graph gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
+| Field         | Required | Description                                                                           |
+| ------------- | -------- | ------------------------------------------------------------------------------------- |
+| `id`          | yes      | URL path segment — `cpu` → `GET /graphs/cpu`                                          |
+| `query`       | yes      | PromQL expression run as a range query                                                |
+| `title`       | no       | Display label (defaults to `id`)                                                      |
+| `maxDuration` | no       | Cap on the requested window (overrides `defaults.graph.maxDuration`)                  |
+| `width`       | no       | Image width in px (overrides `defaults.graph.width`)                                  |
+| `height`      | no       | Image height in px (overrides `defaults.graph.height`)                                |
+| `legend`      | no       | Show the series legend (overrides `defaults.graph.legend`)                            |
+| `fill`        | no       | Fill a translucent area beneath the line(s) (overrides `defaults.graph.fill`)         |
+| `theme`       | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts)      |
+| `font`        | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)         |
+| `valueExpr`   | no       | CEL expression formatting the y-axis labels (overrides `defaults.graph.valueExpr`)    |
+| `yMin`/`yMax` | no       | Pin the y-axis range instead of auto-fitting (overrides `defaults.graph.yMin`/`yMax`) |
+| `markLine`    | no       | Dashed reference lines: any of `average`, `min`, `max`, `median` (first series only)  |
+| `gallery`     | no       | Per-graph gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery)  |
 
 ```yaml
 graphs:
@@ -351,6 +353,22 @@ graphs:
       valueExpr: string(int(result)) + " pods" # integer ticks; drop the suffix for bare integers
 ```
 
+For axis context, pin the range with `yMin`/`yMax` (e.g. `yMin: 0`, `yMax: 100` for a percentage)
+rather than letting it auto-fit, and add dashed reference lines with `markLine` (`average`, `min`,
+`max`, or `median`). Mark lines are computed by the chart library — there's no static-threshold line,
+and they render for the first series only:
+
+```yaml
+graphs:
+    - id: cluster_cpu_graph
+      title: CPU Usage
+      query: avg(cluster:node_cpu:ratio_rate5m) * 100
+      valueExpr: string(int(result)) + "%"
+      yMin: 0
+      yMax: 100
+      markLine: [average]
+```
+
 The time window is chosen by these query parameters:
 
 | Parameter | Default    | Description                                                              |
@@ -360,10 +378,10 @@ The time window is chosen by these query parameters:
 | `end`     | now        | Window end — Unix timestamp or RFC3339                                   |
 | `step`    | window/100 | Resolution between points (min `1m`); supports `s/m/h/d/y` units         |
 
-The rendering fields `width`, `height`, `legend`, `fill`, and `theme`, plus the output `format`
-(`svg`/`png`), may also be overridden per request via query parameters, e.g.
-`/graphs/node_cpu_usage?theme=dracula&fill=true&format=png&width=800&last=24h`. (`font` and
-`valueExpr` are config-only — they're resolved/compiled once at startup.)
+The rendering fields `width`, `height`, `legend`, `fill`, `yMin`/`yMax`, and `theme`, plus the output
+`format` (`svg`/`png`), may also be overridden per request via query parameters, e.g.
+`/graphs/node_cpu_usage?theme=dracula&fill=true&ymax=100&format=png&last=24h`. (`font`, `valueExpr`,
+and `markLine` are config-only — resolved/compiled once at startup.)
 
 #### Themes and fonts
 

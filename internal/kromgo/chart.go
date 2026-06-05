@@ -35,6 +35,11 @@ type chartParams struct {
 	font   *truetype.Font // nil uses the chart library's default font
 	format string         // "svg" (default) or "png"
 	fill   bool           // draw a translucent area beneath the line(s)
+	yMin   *float64       // pin the y-axis minimum; nil auto-fits
+	yMax   *float64       // pin the y-axis maximum; nil auto-fits
+	// markLines lists dashed reference lines to draw (average/min/max/median),
+	// validated at resolve time. Rendered on the first series only.
+	markLines []string
 	// valueFormatter renders y-axis tick values to strings (from the graph's
 	// valueExpr). nil uses the chart library's default numeric formatting.
 	valueFormatter func(float64) string
@@ -65,6 +70,16 @@ func (p chartParams) withOverrides(r *http.Request) chartParams {
 		p.fill = false
 	case "true":
 		p.fill = true
+	}
+	if s := q.Get("ymin"); s != "" {
+		if v, err := strconv.ParseFloat(s, 64); err == nil {
+			p.yMin = &v
+		}
+	}
+	if s := q.Get("ymax"); s != "" {
+		if v, err := strconv.ParseFloat(s, 64); err == nil {
+			p.yMax = &v
+		}
 	}
 	if s := q.Get("theme"); s != "" {
 		p.theme = s // unknown names fall back to the default in chartTheme
@@ -161,11 +176,20 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 	// full precision ("46.9405%"). A graph's valueExpr (if any) then formats those
 	// values — integers or humanized units in place of the default 2-decimal numbers.
 	niceIntervals := true
-	yAxis := charts.YAxisOption{PreferNiceIntervals: &niceIntervals}
+	yAxis := charts.YAxisOption{PreferNiceIntervals: &niceIntervals, Min: p.yMin, Max: p.yMax}
 	if p.valueFormatter != nil {
 		yAxis.ValueFormatter = p.valueFormatter
 	}
 	opt.YAxis = []charts.YAxisOption{yAxis}
+
+	// Dashed reference lines (average/min/max/median). The chart library renders mark
+	// lines for the first series only; reuse the y-axis formatter so the mark values
+	// match the axis labels.
+	if len(p.markLines) > 0 && len(opt.SeriesList) > 0 {
+		markLine := charts.NewMarkLine(p.markLines...)
+		markLine.ValueFormatter = p.valueFormatter
+		opt.SeriesList[0].MarkLine = markLine
+	}
 
 	// Font is set on the painter (the non-deprecated default-font hook). resolveGraphFont
 	// always returns a face (DejaVu Sans by default), so p.font is never nil here.

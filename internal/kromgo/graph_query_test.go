@@ -161,7 +161,31 @@ func TestResolveGraph_DefaultParams(t *testing.T) {
 	assert.Equal(t, defaultGraphHeight, rg.defaults.height)
 	assert.True(t, rg.defaults.legend, "legend defaults to true")
 	assert.False(t, rg.defaults.fill, "fill defaults to false")
+	assert.Nil(t, rg.defaults.yMin, "y-axis auto-fits by default")
+	assert.Nil(t, rg.defaults.yMax, "y-axis auto-fits by default")
+	assert.Empty(t, rg.defaults.markLines, "no mark lines by default")
 	assert.Nil(t, rg.defaults.valueFormatter, "no valueExpr ⇒ default numeric formatting")
+}
+
+func TestResolveGraph_MarkLine(t *testing.T) {
+	t.Parallel()
+	env, err := newCELEnv()
+	require.NoError(t, err)
+
+	// Valid types resolve onto the params.
+	rg, err := resolveGraph(config.Graph{ID: "g", Query: "q", MarkLine: []string{"average", "max"}}, config.Defaults{}, env)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"average", "max"}, rg.defaults.markLines)
+
+	// defaults.graph.markLine applies when the graph doesn't set its own.
+	rg, err = resolveGraph(config.Graph{ID: "g", Query: "q"}, config.Defaults{Graph: config.GraphDefaults{MarkLine: []string{"average"}}}, env)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"average"}, rg.defaults.markLines)
+
+	// An unknown mark type fails at resolve (startup), not on a request.
+	_, err = resolveGraph(config.Graph{ID: "g", Query: "q", MarkLine: []string{"p99"}}, config.Defaults{}, env)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "markLine")
 }
 
 func TestResolveGraph_ValueExpr(t *testing.T) {

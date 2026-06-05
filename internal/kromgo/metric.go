@@ -85,6 +85,10 @@ func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedB
 	return rb, nil
 }
 
+// validMarkLine is the set of mark-line types the chart library supports — dynamic
+// values computed from the series, with no static-threshold option.
+var validMarkLine = map[string]bool{"average": true, "min": true, "max": true, "median": true}
+
 // resolveGraph precomputes a graph's cache TTL, window cap, and default parameters.
 func resolveGraph(g config.Graph, def config.Defaults, env *cel.Env) (*resolvedGraph, error) {
 	theme := cmp.Or(g.Theme, def.Graph.Theme)
@@ -97,18 +101,31 @@ func resolveGraph(g config.Graph, def config.Defaults, env *cel.Env) (*resolvedG
 		return nil, fmt.Errorf("graph %q font: %w", g.ID, err)
 	}
 
+	markLines := g.MarkLine
+	if markLines == nil {
+		markLines = def.Graph.MarkLine
+	}
+	for _, m := range markLines {
+		if !validMarkLine[m] {
+			return nil, fmt.Errorf("graph %q markLine: unknown type %q (want average, min, max, or median)", g.ID, m)
+		}
+	}
+
 	rg := &resolvedGraph{
 		Graph:       g,
 		maxDuration: defaultGraphMaxDuration,
 		defaults: chartParams{
-			width:  cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
-			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
-			legend: firstSet(true, g.Legend, def.Graph.Legend),
-			fill:   firstSet(false, g.Fill, def.Graph.Fill),
-			theme:  theme,
-			title:  displayTitle(g.Title, g.ID),
-			font:   font,
-			format: formatSVG,
+			width:     cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
+			height:    cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
+			legend:    firstSet(true, g.Legend, def.Graph.Legend),
+			fill:      firstSet(false, g.Fill, def.Graph.Fill),
+			yMin:      cmp.Or(g.YMin, def.Graph.YMin),
+			yMax:      cmp.Or(g.YMax, def.Graph.YMax),
+			markLines: markLines,
+			theme:     theme,
+			title:     displayTitle(g.Title, g.ID),
+			font:      font,
+			format:    formatSVG,
 		},
 	}
 	if maxStr := cmp.Or(g.MaxDuration, def.Graph.MaxDuration); maxStr != "" {

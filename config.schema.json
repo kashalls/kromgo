@@ -141,6 +141,18 @@
         "valueExpr": {
           "type": "string"
         },
+        "yMin": {
+          "type": "number"
+        },
+        "yMax": {
+          "type": "number"
+        },
+        "markLine": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "gallery": {
           "$ref": "#/$defs/GallerySettings"
         }
@@ -174,6 +186,18 @@
         },
         "valueExpr": {
           "type": "string"
+        },
+        "yMin": {
+          "type": "number"
+        },
+        "yMax": {
+          "type": "number"
+        },
+        "markLine": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "gallery": {
           "$ref": "#/$defs/GallerySettings"
