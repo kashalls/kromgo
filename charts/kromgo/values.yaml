@@ -76,6 +76,9 @@ config:
   #     query: (time() % 1800) / 18
   #     theme: dark
   #     fill: true # translucent area beneath the line
+  #     yMin: 0 # pin the y-axis range (vs auto-fitting); e.g. 0–100 for a percentage
+  #     yMax: 100
+  #     markLine: [average] # dashed reference line(s): average / min / max / median (first series only)
   #   - id: pods
   #     title: Running Pods
   #     query: sum(kube_pod_status_phase{phase="Running"})
