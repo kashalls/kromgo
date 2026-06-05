@@ -44,6 +44,7 @@ config:
   #     style: flat
   #   graph:
   #     theme: dark
+  #     valueExpr: string(int(result)) # integer y-axis labels for every graph
 
   # Instant-value endpoints served at /badges/{id}.
   badges: []
@@ -60,6 +61,13 @@ config:
   #     title: CPU %
   #     query: (time() % 1800) / 18
   #     theme: dark
+  #   - id: pods
+  #     title: Running Pods
+  #     query: sum(kube_pod_status_phase{phase="Running"})
+  #     # valueExpr formats the y-axis labels (a CEL expression over `result`, with
+  #     # the same humanizers as a badge) — here integer counts instead of the
+  #     # default fractional ticks like 42.8.
+  #     valueExpr: string(int(result)) + " pods"
 
 # Server tuning — kromgo's runtime environment variables (distinct from the
 # config file above). SERVER_HOST/PORT and HEALTH_HOST/PORT are fixed by the

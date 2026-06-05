@@ -47,6 +47,23 @@ func TestRenderChart_Title(t *testing.T) {
 	assert.Contains(t, string(svg), "CPU usage")
 }
 
+func TestRenderChart_ValueFormatter(t *testing.T) {
+	t.Parallel()
+	// A graph's valueExpr becomes the y-axis ValueFormatter; a distinctive suffix on
+	// every tick label proves it reaches the rendered SVG.
+	svg, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
+		chartParams{width: 400, height: 150, format: formatSVG,
+			valueFormatter: func(f float64) string { return fmt.Sprintf("%dpods", int(f)) }})
+	require.NoError(t, err)
+	assert.Contains(t, string(svg), "pods", "y-axis ticks are formatted by valueFormatter")
+
+	// Without a formatter the marker is absent (the library's default numeric labels).
+	plain, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
+		chartParams{width: 400, height: 150, format: formatSVG})
+	require.NoError(t, err)
+	assert.NotContains(t, string(plain), "pods")
+}
+
 func TestRenderChart_PNG(t *testing.T) {
 	t.Parallel()
 	png, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),

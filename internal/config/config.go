@@ -89,6 +89,9 @@ type GraphDefaults struct {
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 	// Font selects the text font: dejavu-sans (default), dejavu-sans-bold, comic-neue, or comic-neue-bold.
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
+	// ValueExpr is the default y-axis label formatter (a CEL expression over `result`)
+	// for graphs — see Graph.ValueExpr.
+	ValueExpr string `yaml:"valueExpr,omitempty" json:"valueExpr,omitempty"`
 	// Gallery is the default gallery visibility for graphs.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 }
@@ -143,6 +146,13 @@ type Graph struct {
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 	// Font overrides defaults.graph.font for this graph.
 	Font string `yaml:"font,omitempty" json:"font,omitempty"`
+	// ValueExpr is a CEL expression that formats the y-axis tick labels: it receives
+	// `result` (the tick value, a double) and returns the displayed string, e.g.
+	// `string(int(result))` for integers or `humanizeBytes(result)`. The same
+	// functions as a badge's valueExpr are available, but only `result` is meaningful
+	// (an axis tick has no labels). Empty uses the chart's default numeric formatting.
+	// Overrides defaults.graph.valueExpr.
+	ValueExpr string `yaml:"valueExpr,omitempty" json:"valueExpr,omitempty"`
 	// Gallery holds this graph's gallery settings (e.g. hidden), overriding defaults.graph.gallery.
 	Gallery GallerySettings `yaml:"gallery,omitempty" json:"gallery,omitempty"`
 }
