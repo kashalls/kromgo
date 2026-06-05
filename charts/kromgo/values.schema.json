@@ -1,0 +1,671 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "affinity": {
+      "required": [],
+      "title": "affinity",
+      "type": "object"
+    },
+    "config": {
+      "properties": {
+        "badges": {
+          "description": "Instant-value endpoints served at /badges/{id}.",
+          "items": {
+            "required": []
+          },
+          "title": "badges",
+          "type": "array"
+        },
+        "cache": {
+          "description": "Cache-Control headers sent with badge/graph responses. One policy applies to\nevery endpoint.",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "maxAge": {
+              "default": 300,
+              "description": "max-age + s-maxage in seconds (ignored when enabled is false).",
+              "title": "maxAge",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "cache",
+          "type": "object"
+        },
+        "defaults": {
+          "description": "Defaults applied to every endpoint, each overridable per badge/graph.",
+          "required": [],
+          "title": "defaults",
+          "type": "object"
+        },
+        "gallery": {
+          "description": "The \"/\" gallery previews every endpoint with copy-paste Markdown. Defaults to\nenabled; set false to serve a minimal landing page instead.",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "gallery",
+          "type": "object"
+        },
+        "graphs": {
+          "description": "Time-series endpoints served at /graphs/{id}.",
+          "items": {
+            "required": []
+          },
+          "title": "graphs",
+          "type": "array"
+        },
+        "prometheus": {
+          "default": "http://prometheus-operated.monitoring.svc.cluster.local:9090",
+          "description": "Prometheus base URL kromgo queries. If the URL embeds credentials, leave this\nempty and use `secret.prometheusUrl` (or `secret.existingSecret`) so it stays\nout of the ConfigMap — the Secret is injected as PROMETHEUS_URL, which\noverrides this value.",
+          "title": "prometheus",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "config",
+      "type": "object"
+    },
+    "existingConfigMap": {
+      "default": "",
+      "description": "kromgo's YAML config (endpoint definitions), rendered verbatim into a ConfigMap\nmounted at /config/config.yaml. See https://github.com/home-operations/kromgo\nfor the full schema. Set `existingConfigMap` to mount a ConfigMap you manage\nelsewhere instead — the inline `config` below is then ignored; that ConfigMap\nmust expose a `config.yaml` key.",
+      "title": "existingConfigMap",
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "default": "",
+      "title": "fullnameOverride",
+      "type": "string"
+    },
+    "global": {
+      "description": "Global values are values that can be accessed from any chart or subchart by exactly the same name.",
+      "required": [],
+      "title": "global",
+      "type": "object"
+    },
+    "httpRoute": {
+      "description": "Gateway API HTTPRoute — an alternative to `ingress` for clusters using the\nGateway API. Renders one HTTPRoute pointing at the app service port. Named\n`httpRoute` (not `route`) to avoid confusion with the OpenShift Route kind.",
+      "properties": {
+        "additionalRules": {
+          "description": " - kromgo.example.com\nCustom rules prepended before the default rule (templated).",
+          "items": {
+            "required": []
+          },
+          "title": "additionalRules",
+          "type": "array"
+        },
+        "annotations": {
+          "required": [],
+          "title": "annotations",
+          "type": "object"
+        },
+        "apiVersion": {
+          "default": "",
+          "description": "Defaults to gateway.networking.k8s.io/v1 / HTTPRoute when left empty.",
+          "title": "apiVersion",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "filters": {
+          "description": "Filters applied to the default rule.",
+          "items": {
+            "required": []
+          },
+          "title": "filters",
+          "type": "array"
+        },
+        "hostnames": {
+          "description": " - name: gateway\n   namespace: gateway\n   sectionName: https\nHostnames matched against the Host header (templated).",
+          "items": {
+            "required": []
+          },
+          "title": "hostnames",
+          "type": "array"
+        },
+        "httpsRedirect": {
+          "default": false,
+          "description": "Redirect HTTP→HTTPS (301) instead of routing to the backend. Requires a\nGateway with both HTTP and HTTPS listeners; matches/filters are ignored.",
+          "title": "httpsRedirect",
+          "type": "boolean"
+        },
+        "kind": {
+          "default": "",
+          "title": "kind",
+          "type": "string"
+        },
+        "labels": {
+          "required": [],
+          "title": "labels",
+          "type": "object"
+        },
+        "matches": {
+          "description": "Match conditions for the default rule.",
+          "items": {
+            "anyOf": [
+              {
+                "properties": {
+                  "path": {
+                    "properties": {
+                      "type": {
+                        "default": "PathPrefix",
+                        "title": "type",
+                        "type": "string"
+                      },
+                      "value": {
+                        "default": "/",
+                        "title": "value",
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "title": "path",
+                    "type": "object"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            ],
+            "required": []
+          },
+          "title": "matches",
+          "type": "array"
+        },
+        "parentRefs": {
+          "description": "Gateways (and listeners) this route attaches to.",
+          "items": {
+            "required": []
+          },
+          "title": "parentRefs",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "httpRoute",
+      "type": "object"
+    },
+    "image": {
+      "properties": {
+        "pullPolicy": {
+          "default": "IfNotPresent",
+          "title": "pullPolicy",
+          "type": "string"
+        },
+        "repository": {
+          "default": "ghcr.io/home-operations/kromgo",
+          "title": "repository",
+          "type": "string"
+        },
+        "tag": {
+          "default": "",
+          "description": "Overrides the image tag; defaults to the chart appVersion.",
+          "title": "tag",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "image",
+      "type": "object"
+    },
+    "imagePullSecrets": {
+      "items": {
+        "required": []
+      },
+      "title": "imagePullSecrets",
+      "type": "array"
+    },
+    "ingress": {
+      "properties": {
+        "annotations": {
+          "required": [],
+          "title": "annotations",
+          "type": "object"
+        },
+        "className": {
+          "default": "",
+          "title": "className",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "hosts": {
+          "items": {
+            "anyOf": [
+              {
+                "properties": {
+                  "host": {
+                    "default": "kromgo.example.com",
+                    "title": "host",
+                    "type": "string"
+                  },
+                  "paths": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "properties": {
+                            "path": {
+                              "default": "/",
+                              "title": "path",
+                              "type": "string"
+                            },
+                            "pathType": {
+                              "default": "Prefix",
+                              "title": "pathType",
+                              "type": "string"
+                            }
+                          },
+                          "required": [],
+                          "type": "object"
+                        }
+                      ],
+                      "required": []
+                    },
+                    "title": "paths",
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            ],
+            "required": []
+          },
+          "title": "hosts",
+          "type": "array"
+        },
+        "tls": {
+          "items": {
+            "required": []
+          },
+          "title": "tls",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "ingress",
+      "type": "object"
+    },
+    "livenessProbe": {
+      "properties": {
+        "httpGet": {
+          "properties": {
+            "path": {
+              "default": "/healthz",
+              "title": "path",
+              "type": "string"
+            },
+            "port": {
+              "default": "health",
+              "title": "port",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "httpGet",
+          "type": "object"
+        },
+        "initialDelaySeconds": {
+          "default": 10,
+          "title": "initialDelaySeconds",
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "default": 20,
+          "title": "periodSeconds",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "title": "livenessProbe",
+      "type": "object"
+    },
+    "monitoring": {
+      "properties": {
+        "serviceMonitor": {
+          "properties": {
+            "annotations": {
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Requires the Prometheus Operator CRDs.",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "interval": {
+              "default": "30s",
+              "title": "interval",
+              "type": "string"
+            },
+            "labels": {
+              "required": [],
+              "title": "labels",
+              "type": "object"
+            },
+            "metricRelabelings": {
+              "items": {
+                "required": []
+              },
+              "title": "metricRelabelings",
+              "type": "array"
+            },
+            "path": {
+              "default": "/metrics",
+              "title": "path",
+              "type": "string"
+            },
+            "relabelings": {
+              "items": {
+                "required": []
+              },
+              "title": "relabelings",
+              "type": "array"
+            },
+            "scrapeTimeout": {
+              "default": "10s",
+              "title": "scrapeTimeout",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceMonitor",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "monitoring",
+      "type": "object"
+    },
+    "nameOverride": {
+      "default": "",
+      "title": "nameOverride",
+      "type": "string"
+    },
+    "nodeSelector": {
+      "required": [],
+      "title": "nodeSelector",
+      "type": "object"
+    },
+    "podAnnotations": {
+      "required": [],
+      "title": "podAnnotations",
+      "type": "object"
+    },
+    "podLabels": {
+      "required": [],
+      "title": "podLabels",
+      "type": "object"
+    },
+    "podSecurityContext": {
+      "properties": {
+        "fsGroup": {
+          "default": 65532,
+          "title": "fsGroup",
+          "type": "integer"
+        },
+        "runAsGroup": {
+          "default": 65532,
+          "title": "runAsGroup",
+          "type": "integer"
+        },
+        "runAsNonRoot": {
+          "default": true,
+          "title": "runAsNonRoot",
+          "type": "boolean"
+        },
+        "runAsUser": {
+          "default": 65532,
+          "title": "runAsUser",
+          "type": "integer"
+        },
+        "seccompProfile": {
+          "properties": {
+            "type": {
+              "default": "RuntimeDefault",
+              "title": "type",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "seccompProfile",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "podSecurityContext",
+      "type": "object"
+    },
+    "readinessProbe": {
+      "properties": {
+        "httpGet": {
+          "properties": {
+            "path": {
+              "default": "/readyz",
+              "title": "path",
+              "type": "string"
+            },
+            "port": {
+              "default": "health",
+              "title": "port",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "httpGet",
+          "type": "object"
+        },
+        "initialDelaySeconds": {
+          "default": 5,
+          "title": "initialDelaySeconds",
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "default": 10,
+          "title": "periodSeconds",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "title": "readinessProbe",
+      "type": "object"
+    },
+    "replicaCount": {
+      "default": 1,
+      "description": "Default values for kromgo.\n\nMost values below — strings, lists, and maps, including the `config` block — are\nrendered through Helm's `tpl`, so you can embed template expressions and have them\nresolve at install time, e.g.:\n\n  config:\n    prometheus: http://prometheus-operated.{{ .Release.Namespace }}.svc.cluster.local:9090\n  ingress:\n    hosts:\n      - host: \"kromgo.{{ .Values.global.domain }}\"\n\nPromQL/CEL use single `{ }`, which pass through untouched; only a *literal* double\nbrace needs escaping — write `{{ \"{{\" }}` for `{{` and `{{ \"}}\" }}` for `}}`.",
+      "title": "replicaCount",
+      "type": "integer"
+    },
+    "resources": {
+      "required": [],
+      "title": "resources",
+      "type": "object"
+    },
+    "secret": {
+      "description": "Sensitive Prometheus URL — use when the endpoint embeds basic-auth credentials\nyou don't want in the ConfigMap. Provide it inline and a Secret is created, or\npoint at an existing Secret with a PROMETHEUS_URL key. Leave empty to use the\nplain `config.prometheus` above.",
+      "properties": {
+        "existingSecret": {
+          "default": "",
+          "description": "Pre-existing Secret with a PROMETHEUS_URL key. Takes precedence over the\ninline value below.",
+          "title": "existingSecret",
+          "type": "string"
+        },
+        "prometheusUrl": {
+          "default": "",
+          "description": "PROMETHEUS_URL — overrides config.prometheus when set.",
+          "title": "prometheusUrl",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "secret",
+      "type": "object"
+    },
+    "securityContext": {
+      "properties": {
+        "allowPrivilegeEscalation": {
+          "default": false,
+          "title": "allowPrivilegeEscalation",
+          "type": "boolean"
+        },
+        "capabilities": {
+          "properties": {
+            "drop": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  }
+                ],
+                "required": []
+              },
+              "title": "drop",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "capabilities",
+          "type": "object"
+        },
+        "readOnlyRootFilesystem": {
+          "default": true,
+          "title": "readOnlyRootFilesystem",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "securityContext",
+      "type": "object"
+    },
+    "server": {
+      "description": "Server tuning — kromgo's runtime environment variables (distinct from the\nconfig file above). SERVER_HOST/PORT and HEALTH_HOST/PORT are fixed by the\nchart (the Service and probes are wired to 8080 / 8888) and not exposed here.",
+      "properties": {
+        "extraEnv": {
+          "description": "Extra raw env vars merged into the container (advanced), e.g. GOMEMLIMIT.",
+          "items": {
+            "required": []
+          },
+          "title": "extraEnv",
+          "type": "array"
+        },
+        "logging": {
+          "default": false,
+          "description": "SERVER_LOGGING — per-request access logging.",
+          "title": "logging",
+          "type": "boolean"
+        },
+        "queryTimeout": {
+          "default": "30s",
+          "description": "QUERY_TIMEOUT — bounds each outbound Prometheus query.",
+          "title": "queryTimeout",
+          "type": "string"
+        },
+        "readTimeout": {
+          "default": "",
+          "description": "SERVER_READ_TIMEOUT / SERVER_WRITE_TIMEOUT — Go durations. Empty leaves Go's\ndefault (no timeout).",
+          "title": "readTimeout",
+          "type": "string"
+        },
+        "writeTimeout": {
+          "default": "",
+          "title": "writeTimeout",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "server",
+      "type": "object"
+    },
+    "service": {
+      "properties": {
+        "metricsPort": {
+          "default": 8888,
+          "description": "Health + /metrics port.",
+          "title": "metricsPort",
+          "type": "integer"
+        },
+        "port": {
+          "default": 8080,
+          "description": "Badge / graph / gallery port.",
+          "title": "port",
+          "type": "integer"
+        },
+        "type": {
+          "default": "ClusterIP",
+          "title": "type",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "service",
+      "type": "object"
+    },
+    "serviceAccount": {
+      "properties": {
+        "annotations": {
+          "required": [],
+          "title": "annotations",
+          "type": "object"
+        },
+        "automount": {
+          "default": false,
+          "description": "kromgo talks only to Prometheus over HTTP, never to the Kubernetes API, so it\nhas no use for a mounted ServiceAccount token. Disabled by default for least\nprivilege; set true only if you add sidecars/tooling that need API access.",
+          "title": "automount",
+          "type": "boolean"
+        },
+        "create": {
+          "default": true,
+          "title": "create",
+          "type": "boolean"
+        },
+        "name": {
+          "default": "",
+          "title": "name",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "serviceAccount",
+      "type": "object"
+    },
+    "tolerations": {
+      "items": {
+        "required": []
+      },
+      "title": "tolerations",
+      "type": "array"
+    },
+    "volumeMounts": {
+      "items": {
+        "required": []
+      },
+      "title": "volumeMounts",
+      "type": "array"
+    },
+    "volumes": {
+      "description": "Additional volumes / mounts on the Deployment.",
+      "items": {
+        "required": []
+      },
+      "title": "volumes",
+      "type": "array"
+    }
+  },
+  "required": [],
+  "type": "object"
+}

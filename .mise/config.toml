@@ -10,6 +10,7 @@
 go = "1.26.4"
 golangci-lint = "2.12.2"
 helm = "4.2.0"
+"aqua:dadav/helm-schema" = "0.23.4"
 lefthook = "2.1.9"
 node = "24.16.0"
 npm = "11.16.0"
@@ -44,8 +45,16 @@ depends = ["assets"]
 run = "go vet ./..."
 
 [tasks.generate]
-description = "Regenerate committed generated files (config.schema.json)"
-run = "go run ./cmd/schema > config.schema.json && oxfmt config.schema.json"
+description = "Regenerate committed generated files (config + Helm values JSON schemas)"
+run = """
+go run ./cmd/schema > config.schema.json && oxfmt config.schema.json
+# Generate the Helm chart's values.schema.json from values.yaml. required and
+# additionalProperties are skipped: values.yaml provides every default (so nothing
+# is user-required), and the free-form maps (annotations, config.defaults, …) plus
+# the runtime-validated `config` block must stay open.
+helm-schema --chart-search-root charts/kromgo --skip-auto-generation required,additionalProperties
+oxfmt charts/kromgo/values.schema.json
+"""
 
 [tasks.test]
 description = "Run tests with coverage"
