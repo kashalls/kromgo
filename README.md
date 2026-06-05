@@ -160,10 +160,12 @@ Each entry under `badges:` defines an instant-value endpoint at `/badges/{id}`.
 - **`mdi:<name>`** — a [Material Design Icon](https://pictogrammers.com/library/mdi/), e.g. `mdi:server-outline`.
 - **`si:<slug>`** — a [Simple Icons](https://simpleicons.org/) brand logo, e.g. `si:kubernetes`.
 
-It is **SVG-only** — the `shields` and `json` formats have no icon field and ignore it. The icon sits
-to the left of the `title`, drawn to contrast with the label background (white on the default grey,
-dark on a light `labelColor`); with an icon and no `title`, the badge shows just the icon and the
-value (the `id` fallback is suppressed).
+It is **SVG-only** — the `shields` and `json` formats have no icon field and ignore it. With a
+`title`, the icon sits to its left on the label segment, drawn to contrast with the label background
+(white on the default grey, dark on a light `labelColor`). With an icon and **no** `title`, the badge
+collapses to a single segment — the icon and value share one color and there's no separate label box
+(the `id` fallback is suppressed), mirroring shields.io's empty-label form. To instead keep a
+separate (colored) icon segment with no text, set `title: " "` (a single space).
 
 ```yaml
 badges:

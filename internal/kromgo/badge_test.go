@@ -70,6 +70,25 @@ func TestBadgeRender_Icon(t *testing.T) {
 	assert.Contains(t, svg, `fill="#fff"`)
 }
 
+func TestBadgeRender_IconNoLabel(t *testing.T) {
+	t.Parallel()
+	r, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+	icon, err := resolveIcon("mdi:server-outline")
+	require.NoError(t, err)
+
+	// An icon with no label is a single-color badge: the icon rides on the message
+	// segment, with no separate grey label box. With a light message color the icon
+	// is drawn dark — proving it's colored for the message background, not the grey
+	// label background (which would render it white).
+	light := string(r.render(badgeSpec{
+		style: config.StyleFlat, iconPath: icon, message: "online", color: "#eeeeee", id: "x",
+	}))
+	assert.Contains(t, light, `<path fill="#333" d="`+icon+`"`, "icon takes the light message background's dark fill")
+	assert.NotContains(t, light, `fill="#555"`, "no default grey label segment when there's no label")
+	assert.Contains(t, light, `<rect x="0" `, "the single message segment spans from the badge's left edge")
+}
+
 func TestBadgeRender_Accessibility(t *testing.T) {
 	t.Parallel()
 	r, err := newBadgeRenderer(config.BadgeDefaults{})
