@@ -119,6 +119,21 @@ func TestRenderGraph_ConfigTable(t *testing.T) {
 	}
 }
 
+func TestRenderChart_FillArea(t *testing.T) {
+	t.Parallel()
+	data := makeMatrix([][]float64{{10, 25, 15, 40, 30}})
+
+	// fill draws a translucent area (rgba) beneath the line.
+	filled, err := renderChart(data, chartParams{width: 400, height: 150, format: formatSVG, fill: true})
+	require.NoError(t, err)
+	assert.Contains(t, string(filled), "fill:rgba", "fill should draw a translucent area")
+
+	// Without fill, only the line stroke is drawn — no area fill.
+	plain, err := renderChart(data, chartParams{width: 400, height: 150, format: formatSVG})
+	require.NoError(t, err)
+	assert.NotContains(t, string(plain), "fill:rgba", "no area fill when fill is off")
+}
+
 func TestRenderChart_PNG(t *testing.T) {
 	t.Parallel()
 	png, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),
@@ -169,12 +184,13 @@ func TestChartParams_WithOverrides(t *testing.T) {
 	base := chartParams{width: 300, height: 80, legend: true, theme: "dark", format: formatSVG}
 
 	req := httptest.NewRequest(http.MethodGet,
-		"/?width=500&height=250&legend=false&theme=dracula&format=png", nil)
+		"/?width=500&height=250&legend=false&fill=true&theme=dracula&format=png", nil)
 	got := base.withOverrides(req)
 
 	assert.Equal(t, 500, got.width)
 	assert.Equal(t, 250, got.height)
 	assert.False(t, got.legend)
+	assert.True(t, got.fill)
 	assert.Equal(t, "dracula", got.theme)
 	assert.Equal(t, formatPNG, got.format)
 	assert.Equal(t, "image/png", got.contentType())

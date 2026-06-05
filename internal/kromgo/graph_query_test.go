@@ -160,6 +160,7 @@ func TestResolveGraph_DefaultParams(t *testing.T) {
 	assert.Equal(t, defaultGraphWidth, rg.defaults.width)
 	assert.Equal(t, defaultGraphHeight, rg.defaults.height)
 	assert.True(t, rg.defaults.legend, "legend defaults to true")
+	assert.False(t, rg.defaults.fill, "fill defaults to false")
 	assert.Nil(t, rg.defaults.valueFormatter, "no valueExpr ⇒ default numeric formatting")
 }
 
