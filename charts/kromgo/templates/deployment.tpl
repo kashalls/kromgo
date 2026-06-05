@@ -22,6 +22,10 @@ spec:
         # Roll the pods when the rendered config changes.
         checksum/config: {{ include (print $.Template.BasePath "/configmap.tpl") . | sha256sum }}
         {{- end }}
+        {{- if and (not .Values.secret.existingSecret) .Values.secret.prometheusUrl }}
+        # Roll the pods when the chart-managed Prometheus URL Secret changes.
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.tpl") . | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
