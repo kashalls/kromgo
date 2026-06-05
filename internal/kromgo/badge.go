@@ -129,25 +129,32 @@ func (b *badgeRenderer) render(spec badgeSpec) []byte {
 	iconSize := h - 6
 	hasIcon := spec.iconPath != ""
 	hasLabel := spec.label != ""
+	// With an icon but no label, the icon rides on the message segment and no label
+	// segment is drawn at all — a single-color badge, mirroring shields.io's
+	// empty-label form (just a logo and a value, no separate grey box).
+	iconOnMessage := hasIcon && !hasLabel
 
+	// Label segment: drawn only when there's label text. An icon sharing it shifts
+	// the label text right to clear the glyph.
 	labelLeft := xPad
-	if hasIcon {
+	if hasIcon && hasLabel {
 		labelLeft = iconX + iconSize + iconGap
 	}
-
-	labelW := 0
+	labelSeg := 0
 	if hasLabel {
-		labelW = b.measure(spec.label)
+		labelSeg = labelLeft + b.measure(spec.label) + xPad
 	}
-	var labelSeg int
-	switch {
-	case hasLabel:
-		labelSeg = labelLeft + labelW + xPad
-	case hasIcon:
-		labelSeg = iconX + iconSize + xPad // icon-only label side
-	}
+
+	// Message segment: starts after the label segment. When the icon rides here
+	// instead, the text is pushed right to clear it and the icon's width joins this
+	// segment.
 	msgW := b.measure(spec.message)
+	msgLeft := labelSeg + xPad
 	msgSeg := msgW + 2*xPad
+	if iconOnMessage {
+		msgLeft = iconX + iconSize + iconGap
+		msgSeg = msgLeft + msgW + xPad
+	}
 	total := labelSeg + msgSeg
 
 	rx, gradStops := styleAppearance(spec.style)
@@ -177,15 +184,22 @@ func (b *badgeRenderer) render(spec badgeSpec) []byte {
 	// Everything is drawn inside the clip group so the rounded corners trim every
 	// element — and any stray glyph ink can never escape the badge bounds.
 	fmt.Fprintf(&s, `<g clip-path="url(#%s)">`, clipID)
-	fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="%s"/>`, labelSeg, h, labelHex)
+	if labelSeg > 0 {
+		fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="%s"/>`, labelSeg, h, labelHex)
+	}
 	fmt.Fprintf(&s, `<rect x="%d" width="%d" height="%d" fill="%s"/>`, labelSeg, msgSeg, h, msgHex)
 	if gradStops != "" {
 		fmt.Fprintf(&s, `<rect width="%d" height="%d" fill="url(#%s)"/>`, total, h, gradID)
 	}
 	if hasIcon {
-		// iconPath is static, trusted registry data (not user input). It sits on the
-		// label segment, so it takes a fill legible on that background.
-		iconColor, _ := colorsForBackground(labelHex)
+		// iconPath is static, trusted registry data (not user input). It takes a fill
+		// legible on whichever segment it sits on: the label segment, or the message
+		// segment when there's no label.
+		iconBg := labelHex
+		if iconOnMessage {
+			iconBg = msgHex
+		}
+		iconColor, _ := colorsForBackground(iconBg)
 		scale := float64(iconSize) / 24.0
 		fmt.Fprintf(&s, `<g transform="translate(%d %d) scale(%.4f)"><path fill="%s" d="%s"/></g>`,
 			iconX, (h-iconSize)/2, scale, iconColor, spec.iconPath)
@@ -198,7 +212,7 @@ func (b *badgeRenderer) render(spec badgeSpec) []byte {
 	if hasLabel {
 		b.writeText(&s, spec.label, float64(labelLeft), bl, labelHex)
 	}
-	b.writeText(&s, spec.message, float64(labelSeg+xPad), bl, msgHex)
+	b.writeText(&s, spec.message, float64(msgLeft), bl, msgHex)
 	s.WriteString(`</g></svg>`)
 	return []byte(s.String())
 }
