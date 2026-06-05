@@ -64,6 +64,21 @@ func TestRenderChart_ValueFormatter(t *testing.T) {
 	assert.NotContains(t, string(plain), "pods")
 }
 
+func TestRenderChart_NiceYAxisTicks(t *testing.T) {
+	t.Parallel()
+	// Over a non-round data range (e.g. [25.3, 46.94]) the y-axis ticks must still be
+	// round numbers, not an even division like 25/29.39/33.78. Otherwise a
+	// full-precision valueExpr such as `string(result)` prints labels like "46.9405".
+	// A %g formatter (shortest float repr, like string()/humanizeFloat) makes any
+	// non-round tick visible as a long-decimal label.
+	full := func(f float64) string { return fmt.Sprintf("%g", f) }
+	svg, err := renderChart(makeMatrix([][]float64{{25.3, 46.94, 33.1, 41.5, 28.4, 44.0}}),
+		chartParams{width: 600, height: 200, format: formatSVG, valueFormatter: full})
+	require.NoError(t, err)
+	assert.NotRegexp(t, `>\d+\.\d{3,}<`, string(svg),
+		"y-axis ticks should be round, not full-precision floats like 46.9405")
+}
+
 func TestRenderChart_PNG(t *testing.T) {
 	t.Parallel()
 	png, err := renderChart(makeMatrix([][]float64{{10, 25, 15, 40, 30}}),

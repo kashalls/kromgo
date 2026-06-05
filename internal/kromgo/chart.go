@@ -138,11 +138,17 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 		hide := false
 		opt.Legend.Show = &hide
 	}
-	// A graph's valueExpr (if any) formats the y-axis tick labels — e.g. integers or
-	// humanized units in place of the default 2-decimal numbers.
+	// Ask the chart library for round y-axis tick values (e.g. 25/30/35/40/45 rather
+	// than dividing the range evenly into 25/29.39/33.78/…). Without this the ticks
+	// land on arbitrary floats, which a valueExpr like `string(result)` then prints at
+	// full precision ("46.9405%"). A graph's valueExpr (if any) then formats those
+	// values — integers or humanized units in place of the default 2-decimal numbers.
+	niceIntervals := true
+	yAxis := charts.YAxisOption{PreferNiceIntervals: &niceIntervals}
 	if p.valueFormatter != nil {
-		opt.YAxis = []charts.YAxisOption{{ValueFormatter: p.valueFormatter}}
+		yAxis.ValueFormatter = p.valueFormatter
 	}
+	opt.YAxis = []charts.YAxisOption{yAxis}
 
 	// Font is set on the painter (the non-deprecated default-font hook). resolveGraphFont
 	// always returns a face (DejaVu Sans by default), so p.font is never nil here.
