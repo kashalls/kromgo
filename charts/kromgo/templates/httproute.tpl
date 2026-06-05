@@ -8,16 +8,16 @@ metadata:
   labels:
     {{- include "kromgo.labels" . | nindent 4 }}
     {{- with $route.labels }}
-    {{- toYaml . | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
     {{- end }}
   {{- with $route.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
   {{- with $route.parentRefs }}
   parentRefs:
-    {{- toYaml . | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
   {{- with $route.hostnames }}
   hostnames:
@@ -39,11 +39,11 @@ spec:
           port: {{ .Values.service.port }}
       {{- with $route.filters }}
       filters:
-        {{- toYaml . | nindent 8 }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with $route.matches }}
       matches:
-        {{- toYaml . | nindent 8 }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     {{- end }}
 {{- end }}

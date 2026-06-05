@@ -7,11 +7,11 @@ metadata:
   labels:
     {{- include "kromgo.labels" . | nindent 4 }}
     {{- with .Values.monitoring.serviceMonitor.labels }}
-    {{- toYaml . | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
     {{- end }}
   {{- with .Values.monitoring.serviceMonitor.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
   selector:
@@ -24,10 +24,10 @@ spec:
       path: {{ .Values.monitoring.serviceMonitor.path | default "/metrics" }}
       {{- with .Values.monitoring.serviceMonitor.metricRelabelings }}
       metricRelabelings:
-        {{- toYaml . | nindent 8 }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.monitoring.serviceMonitor.relabelings }}
       relabelings:
-        {{- toYaml . | nindent 8 }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
 {{- end }}
