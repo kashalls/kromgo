@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/home-operations/kromgo/internal/config"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,6 +63,60 @@ func TestRenderChart_ValueFormatter(t *testing.T) {
 		chartParams{width: 400, height: 150, format: formatSVG})
 	require.NoError(t, err)
 	assert.NotContains(t, string(plain), "pods")
+}
+
+func TestRenderChart_NiceYAxisTicks(t *testing.T) {
+	t.Parallel()
+	// Over a non-round data range (e.g. [25.3, 46.94]) the y-axis ticks must still be
+	// round numbers, not an even division like 25/29.39/33.78. Otherwise a
+	// full-precision valueExpr such as `string(result)` prints labels like "46.9405".
+	// A %g formatter (shortest float repr, like string()/humanizeFloat) makes any
+	// non-round tick visible as a long-decimal label.
+	full := func(f float64) string { return fmt.Sprintf("%g", f) }
+	svg, err := renderChart(makeMatrix([][]float64{{25.3, 46.94, 33.1, 41.5, 28.4, 44.0}}),
+		chartParams{width: 600, height: 200, format: formatSVG, valueFormatter: full})
+	require.NoError(t, err)
+	assert.NotRegexp(t, `>\d+\.\d{3,}<`, string(svg),
+		"y-axis ticks should be round, not full-precision floats like 46.9405")
+}
+
+// TestRenderGraph_ConfigTable renders representative graph configs end-to-end
+// (config → resolveGraph → renderChart) and checks the y-axis labels: each
+// valueExpr's units appear, and — whatever the formatter — ticks stay round (no
+// full-precision floats), guarding the formatting regressions this package has hit.
+func TestRenderGraph_ConfigTable(t *testing.T) {
+	t.Parallel()
+	env, err := newCELEnv()
+	require.NoError(t, err)
+
+	cpu := [][]float64{{25.3, 46.94, 33.1, 41.5, 28.4, 44.0}} // non-round CPU% range
+	mem := [][]float64{{1.5e9, 2.1e9, 1.2e9, 1.8e9, 2.4e9}}   // bytes
+
+	cases := []struct {
+		name      string
+		valueExpr string
+		data      [][]float64
+		want      []string // substrings that must appear in the rendered SVG
+	}{
+		{"default formatter", "", cpu, nil},
+		{"percent via string", `string(result) + "%"`, cpu, []string{"%"}},
+		{"percent via int", `string(int(result)) + "%"`, cpu, []string{"%"}},
+		{"humanized bytes", `humanizeBytes(result)`, mem, []string{"GB"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rg, err := resolveGraph(config.Graph{ID: "g", Query: "q", ValueExpr: tc.valueExpr}, config.Defaults{}, env)
+			require.NoError(t, err)
+			svg, err := renderChart(makeMatrix(tc.data), rg.defaults)
+			require.NoError(t, err)
+			for _, w := range tc.want {
+				assert.Contains(t, string(svg), w)
+			}
+			assert.NotRegexp(t, `>\d+\.\d{3,}`, string(svg),
+				"y-axis labels should be round, not full-precision floats")
+		})
+	}
 }
 
 func TestRenderChart_PNG(t *testing.T) {

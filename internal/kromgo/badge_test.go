@@ -89,6 +89,53 @@ func TestBadgeRender_IconNoLabel(t *testing.T) {
 	assert.Contains(t, light, `<rect x="0" `, "the single message segment spans from the badge's left edge")
 }
 
+// TestRenderBadge_ConfigTable renders representative badge configs end-to-end
+// (config → resolveBadge → evaluate → render). The value text is drawn as glyph
+// paths, but also appears verbatim in the accessible name (aria-label / <title>),
+// which is what we assert — guarding the value/color expression wiring per config.
+func TestRenderBadge_ConfigTable(t *testing.T) {
+	t.Parallel()
+	env, err := newCELEnv()
+	require.NoError(t, err)
+	gen, err := newBadgeRenderer(config.BadgeDefaults{})
+	require.NoError(t, err)
+
+	cases := []struct {
+		name  string
+		badge config.Badge
+		value float64
+		want  string // expected value text in the rendered badge's accessible name
+	}{
+		{"percent + threshold color", config.Badge{ID: "cpu", Query: "q", ValueExpr: `string(int(result)) + "%"`, ColorExpr: `result <= 80.0 ? "green" : "red"`}, 42, "42%"},
+		{"humanized bytes", config.Badge{ID: "mem", Query: "q", ValueExpr: `humanizeBytes(result)`}, 1.5e9, "1.5GB"},
+		{"static string", config.Badge{ID: "ver", Query: "q", ValueExpr: `"v1.2.3"`, ColorExpr: `"blue"`}, 1, "v1.2.3"},
+		{"colorScale", config.Badge{ID: "cov", Query: "q", ValueExpr: `humanizeFloat(result) + "%"`, ColorExpr: `colorScale(result, [80.0, 90.0], ["red", "yellow", "green"])`}, 87, "87%"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rb, err := resolveBadge(tc.badge, config.Defaults{}, env)
+			require.NoError(t, err)
+			msg, err := evalStringExpr(rb.valueProg, tc.value, nil)
+			require.NoError(t, err)
+			var color string
+			if rb.colorProg != nil {
+				color, err = evalStringExpr(rb.colorProg, tc.value, nil)
+				require.NoError(t, err)
+			}
+			label := rb.Title
+			if label == "" && rb.iconPath == "" {
+				label = rb.ID
+			}
+			svg := string(gen.render(badgeSpec{
+				style: rb.style, iconPath: rb.iconPath, label: label,
+				message: msg, color: color, labelColor: rb.labelColor, id: rb.ID,
+			}))
+			assert.Contains(t, svg, tc.want, "rendered value should appear in the badge's accessible name")
+		})
+	}
+}
+
 func TestBadgeRender_Accessibility(t *testing.T) {
 	t.Parallel()
 	r, err := newBadgeRenderer(config.BadgeDefaults{})
