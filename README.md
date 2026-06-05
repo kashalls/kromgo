@@ -52,6 +52,30 @@ services:
             - "8080:8080"
 ```
 
+### Kubernetes (Helm)
+
+kromgo publishes an **OCI** Helm chart to `oci://ghcr.io/home-operations/charts/kromgo`:
+
+```bash
+helm install kromgo oci://ghcr.io/home-operations/charts/kromgo \
+  --namespace kromgo --create-namespace \
+  --set config.prometheus='http://prometheus-operated.monitoring.svc.cluster.local:9090'
+```
+
+The `config` value is rendered verbatim into a ConfigMap mounted at
+`/config/config.yaml`, so the [config schema](#configuration) below maps directly
+onto it. Notable values (see [`charts/kromgo/values.yaml`](charts/kromgo/values.yaml)):
+
+| Value                                      | Purpose                                                                       |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| `config.prometheus`                        | Prometheus URL kromgo queries                                                 |
+| `config.badges` / `config.graphs`          | the endpoint definitions (same schema as the config file)                     |
+| `existingConfigMap`                        | mount a ConfigMap you manage elsewhere instead of rendering `config`          |
+| `secret.prometheusUrl` / `.existingSecret` | inject `PROMETHEUS_URL` from a Secret when the URL carries credentials        |
+| `ingress.enabled`                          | expose the app via an Ingress                                                 |
+| `httpRoute.enabled`                        | expose the app via a Gateway API `HTTPRoute` (set `parentRefs` + `hostnames`) |
+| `monitoring.serviceMonitor.enabled`        | scrape `/metrics` on the health port (Prometheus Operator)                    |
+
 ## Configuration
 
 kromgo reads its endpoint definitions from `/config/config.yaml` inside the container. Mount your

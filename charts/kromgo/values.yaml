@@ -1,0 +1,206 @@
+---
+# Default values for kromgo.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/home-operations/kromgo
+  pullPolicy: IfNotPresent
+  # Overrides the image tag; defaults to the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# kromgo's YAML config (endpoint definitions), rendered verbatim into a ConfigMap
+# mounted at /config/config.yaml. See https://github.com/home-operations/kromgo
+# for the full schema. Set `existingConfigMap` to mount a ConfigMap you manage
+# elsewhere instead — the inline `config` below is then ignored; that ConfigMap
+# must expose a `config.yaml` key.
+existingConfigMap: ""
+config:
+  # Prometheus base URL kromgo queries. If the URL embeds credentials, leave this
+  # empty and use `secret.prometheusUrl` (or `secret.existingSecret`) so it stays
+  # out of the ConfigMap — the Secret is injected as PROMETHEUS_URL, which
+  # overrides this value.
+  prometheus: http://prometheus-operated.monitoring.svc.cluster.local:9090
+
+  # The "/" gallery previews every endpoint with copy-paste Markdown. Defaults to
+  # enabled; set false to serve a minimal landing page instead.
+  gallery:
+    enabled: true
+
+  # Cache-Control headers sent with badge/graph responses. One policy applies to
+  # every endpoint.
+  cache:
+    enabled: true
+    # max-age + s-maxage in seconds (ignored when enabled is false).
+    maxAge: 300
+
+  # Defaults applied to every endpoint, each overridable per badge/graph.
+  defaults: {}
+  #   badge:
+  #     style: flat
+  #   graph:
+  #     theme: dark
+
+  # Instant-value endpoints served at /badges/{id}.
+  badges: []
+  #   - id: cpu
+  #     title: CPU
+  #     query: round(vector((time() % 1800) / 18))
+  #     valueExpr: string(int(result)) + "%"
+  #     colorExpr: 'result <= 50.0 ? "green" : result <= 80.0 ? "orange" : "red"'
+  #     icon: mdi:cpu-64-bit
+
+  # Time-series endpoints served at /graphs/{id}.
+  graphs: []
+  #   - id: cpu
+  #     title: CPU %
+  #     query: (time() % 1800) / 18
+  #     theme: dark
+
+# Server tuning — kromgo's runtime environment variables (distinct from the
+# config file above). SERVER_HOST/PORT and HEALTH_HOST/PORT are fixed by the
+# chart (the Service and probes are wired to 8080 / 8888) and not exposed here.
+server:
+  # QUERY_TIMEOUT — bounds each outbound Prometheus query.
+  queryTimeout: 30s
+  # SERVER_READ_TIMEOUT / SERVER_WRITE_TIMEOUT — Go durations. Empty leaves Go's
+  # default (no timeout).
+  readTimeout: ""
+  writeTimeout: ""
+  # SERVER_LOGGING — per-request access logging.
+  logging: false
+  # Extra raw env vars merged into the container (advanced), e.g. GOMEMLIMIT.
+  extraEnv: []
+  # - name: GOMEMLIMIT
+  #   value: "200MiB"
+
+# Sensitive Prometheus URL — use when the endpoint embeds basic-auth credentials
+# you don't want in the ConfigMap. Provide it inline and a Secret is created, or
+# point at an existing Secret with a PROMETHEUS_URL key. Leave empty to use the
+# plain `config.prometheus` above.
+secret:
+  # Pre-existing Secret with a PROMETHEUS_URL key. Takes precedence over the
+  # inline value below.
+  existingSecret: ""
+  # PROMETHEUS_URL — overrides config.prometheus when set.
+  prometheusUrl: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  # Badge / graph / gallery port.
+  port: 8080
+  # Health + /metrics port.
+  metricsPort: 8888
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kromgo.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: kromgo-tls
+  #   hosts:
+  #     - kromgo.example.com
+
+# Gateway API HTTPRoute — an alternative to `ingress` for clusters using the
+# Gateway API. Renders one HTTPRoute pointing at the app service port. Named
+# `httpRoute` (not `route`) to avoid confusion with the OpenShift Route kind.
+httpRoute:
+  enabled: false
+  # Defaults to gateway.networking.k8s.io/v1 / HTTPRoute when left empty.
+  apiVersion: ""
+  kind: ""
+  annotations: {}
+  labels: {}
+  # Gateways (and listeners) this route attaches to.
+  parentRefs: []
+  #  - name: gateway
+  #    namespace: gateway
+  #    sectionName: https
+  # Hostnames matched against the Host header (templated).
+  hostnames: []
+  #  - kromgo.example.com
+  # Custom rules prepended before the default rule (templated).
+  additionalRules: []
+  # Filters applied to the default rule.
+  filters: []
+  # Match conditions for the default rule.
+  matches:
+    - path:
+        type: PathPrefix
+        value: /
+  # Redirect HTTP→HTTPS (301) instead of routing to the backend. Requires a
+  # Gateway with both HTTP and HTTPS listeners; matches/filters are ignored.
+  httpsRedirect: false
+
+resources: {}
+# limits:
+#   memory: 256Mi
+# requests:
+#   cpu: 10m
+#   memory: 64Mi
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: health
+  initialDelaySeconds: 10
+  periodSeconds: 20
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: health
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+monitoring:
+  serviceMonitor:
+    # Requires the Prometheus Operator CRDs.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    labels: {}
+    annotations: {}
+    metricRelabelings: []
+    relabelings: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Additional volumes / mounts on the Deployment.
+volumes: []
+volumeMounts: []

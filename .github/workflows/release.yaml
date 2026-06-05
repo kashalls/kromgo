@@ -11,8 +11,36 @@ on:
       - published
 
 jobs:
+  versions:
+    name: Versions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      go-version: ${{ steps.versions.outputs.go-version }}
+      node-version: ${{ steps.versions.outputs.node-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          cache: false
+          experimental: true
+          install: false
+
+      - name: Resolve versions
+        id: versions
+        run: |
+          echo "go-version=$(mise config get tools.go)" >> "$GITHUB_OUTPUT"
+          echo "node-version=$(mise config get tools.node)" >> "$GITHUB_OUTPUT"
+
   release:
     name: Release
+    needs: versions
     permissions:
       contents: read
       id-token: write
@@ -22,6 +50,9 @@ jobs:
       build-args: |
         VERSION=${{ github.ref_name }}
         REVISION=${{ github.sha }}
+        GO_VERSION=${{ needs.versions.outputs.go-version }}
+        NODE_VERSION=${{ needs.versions.outputs.node-version }}
+      cache: true
       meta-images: ghcr.io/${{ github.repository }}
       meta-tags: |
         type=semver,pattern={{version}}
@@ -37,3 +68,42 @@ jobs:
         - registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+  helm:
+    name: Helm
+    if: ${{ github.event_name == 'release' }}
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          cache: false # publishing job — avoid restoring a poisonable cache
+          experimental: true
+          install_args: --locked
+
+      - name: Package Helm chart
+        run: |
+          helm package charts/kromgo \
+            --version "${VERSION}" \
+            --app-version "${VERSION}"
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Helm chart to GHCR (OCI)
+        run: |-
+          helm push "kromgo-${VERSION}.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"

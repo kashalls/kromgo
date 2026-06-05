@@ -1,11 +1,19 @@
+# syntax=docker/dockerfile:1
+
+# ARGs used in a FROM must live in the global scope (before the first FROM).
+# Both versions are supplied by the release workflow from mise — the single
+# source of truth for the toolchain (see .mise/config.toml).
+ARG NODE_VERSION
+ARG GO_VERSION
+
 # Vendor the npm packages (marked, github-markdown-css, @mdi/svg, simple-icons) that
 # become the embedded assets. Pinned by package-lock.json and kept current by Renovate.
-FROM node:24-alpine AS assets
+FROM node:${NODE_VERSION}-alpine AS assets
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-FROM golang:1.26-alpine AS builder
+FROM golang:${GO_VERSION}-alpine AS builder
 ARG VERSION=dev
 ARG REVISION=dev
 WORKDIR /src
