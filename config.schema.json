@@ -129,6 +129,9 @@
         "legend": {
           "type": "boolean"
         },
+        "fill": {
+          "type": "boolean"
+        },
         "theme": {
           "type": "string"
         },
@@ -158,6 +161,9 @@
           "type": "integer"
         },
         "legend": {
+          "type": "boolean"
+        },
+        "fill": {
           "type": "boolean"
         },
         "theme": {

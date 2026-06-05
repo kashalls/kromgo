@@ -85,6 +85,8 @@ type GraphDefaults struct {
 	Height int `yaml:"height,omitempty" json:"height,omitempty"`
 	// Legend toggles the series legend (defaults to true).
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
+	// Fill draws a translucent area beneath graph lines (defaults to false).
+	Fill *bool `yaml:"fill,omitempty" json:"fill,omitempty"`
 	// Theme selects the color theme (e.g. "dark", "grafana", "catppuccin-mocha", "dracula").
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 	// Font selects the text font: dejavu-sans (default), dejavu-sans-bold, comic-neue, or comic-neue-bold.
@@ -142,6 +144,8 @@ type Graph struct {
 	Height int `yaml:"height,omitempty" json:"height,omitempty"`
 	// Legend overrides defaults.graph.legend for this graph.
 	Legend *bool `yaml:"legend,omitempty" json:"legend,omitempty"`
+	// Fill draws a translucent area beneath the line, overriding defaults.graph.fill.
+	Fill *bool `yaml:"fill,omitempty" json:"fill,omitempty"`
 	// Theme overrides defaults.graph.theme for this graph.
 	Theme string `yaml:"theme,omitempty" json:"theme,omitempty"`
 	// Font overrides defaults.graph.font for this graph.

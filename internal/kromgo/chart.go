@@ -19,6 +19,9 @@ import (
 const (
 	maxChartDimension = 2048
 	formatPNG         = "png"
+	// fillOpacity is the alpha (0-255) for the area fill — translucent so overlapping
+	// per-series fills stay legible (the library's default is a heavier 200).
+	fillOpacity = 90
 )
 
 // chartParams holds the resolved sparkline rendering parameters. The graph's
@@ -31,6 +34,7 @@ type chartParams struct {
 	title  string         // chart title, rendered top-left
 	font   *truetype.Font // nil uses the chart library's default font
 	format string         // "svg" (default) or "png"
+	fill   bool           // draw a translucent area beneath the line(s)
 	// valueFormatter renders y-axis tick values to strings (from the graph's
 	// valueExpr). nil uses the chart library's default numeric formatting.
 	valueFormatter func(float64) string
@@ -55,6 +59,12 @@ func (p chartParams) withOverrides(r *http.Request) chartParams {
 		p.legend = false
 	case "true":
 		p.legend = true
+	}
+	switch q.Get("fill") {
+	case "false":
+		p.fill = false
+	case "true":
+		p.fill = true
 	}
 	if s := q.Get("theme"); s != "" {
 		p.theme = s // unknown names fall back to the default in chartTheme
@@ -137,6 +147,13 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 	} else {
 		hide := false
 		opt.Legend.Show = &hide
+	}
+	// Fill the area beneath the line(s). The library's default fill alpha (200/255) is
+	// heavy when kromgo's per-series lines overlap, so use a lighter, translucent value.
+	if p.fill {
+		fill := true
+		opt.FillArea = &fill
+		opt.FillOpacity = fillOpacity
 	}
 	// Ask the chart library for round y-axis tick values (e.g. 25/30/35/40/45 rather
 	// than dividing the range evenly into 25/29.39/33.78/…). Without this the ticks

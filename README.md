@@ -320,6 +320,7 @@ opt-in to expose range data for that query — there is no separate enable flag.
 | `width`       | no       | Image width in px (overrides `defaults.graph.width`)                                 |
 | `height`      | no       | Image height in px (overrides `defaults.graph.height`)                               |
 | `legend`      | no       | Show the series legend (overrides `defaults.graph.legend`)                           |
+| `fill`        | no       | Fill a translucent area beneath the line(s) (overrides `defaults.graph.fill`)        |
 | `theme`       | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts)     |
 | `font`        | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)        |
 | `valueExpr`   | no       | CEL expression formatting the y-axis labels (overrides `defaults.graph.valueExpr`)   |
@@ -359,10 +360,10 @@ The time window is chosen by these query parameters:
 | `end`     | now        | Window end — Unix timestamp or RFC3339                                   |
 | `step`    | window/100 | Resolution between points (min `1m`); supports `s/m/h/d/y` units         |
 
-The rendering fields `width`, `height`, `legend`, and `theme`, plus the output `format` (`svg`/`png`),
-may also be overridden per request via query parameters, e.g.
-`/graphs/node_cpu_usage?theme=dracula&format=png&width=800&last=24h`. (`font` is config-only — it's
-resolved once at startup.)
+The rendering fields `width`, `height`, `legend`, `fill`, and `theme`, plus the output `format`
+(`svg`/`png`), may also be overridden per request via query parameters, e.g.
+`/graphs/node_cpu_usage?theme=dracula&fill=true&format=png&width=800&last=24h`. (`font` and
+`valueExpr` are config-only — they're resolved/compiled once at startup.)
 
 #### Themes and fonts
 

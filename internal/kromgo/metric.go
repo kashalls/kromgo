@@ -104,6 +104,7 @@ func resolveGraph(g config.Graph, def config.Defaults, env *cel.Env) (*resolvedG
 			width:  cmp.Or(g.Width, def.Graph.Width, defaultGraphWidth),
 			height: cmp.Or(g.Height, def.Graph.Height, defaultGraphHeight),
 			legend: firstSet(true, g.Legend, def.Graph.Legend),
+			fill:   firstSet(false, g.Fill, def.Graph.Fill),
 			theme:  theme,
 			title:  displayTitle(g.Title, g.ID),
 			font:   font,
