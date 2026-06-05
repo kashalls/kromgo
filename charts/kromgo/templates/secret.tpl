@@ -8,5 +8,5 @@ metadata:
     {{- include "kromgo.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  PROMETHEUS_URL: {{ .Values.secret.prometheusUrl | quote }}
+  PROMETHEUS_URL: {{ tpl .Values.secret.prometheusUrl $ | quote }}
 {{- end }}

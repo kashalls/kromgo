@@ -7,6 +7,8 @@ metadata:
   labels:
     {{- include "kromgo.labels" . | nindent 4 }}
 data:
+  # Rendered through `tpl`, so config values may reference release metadata or other
+  # values. PromQL/CEL braces pass through; escaping note is in values.yaml.
   config.yaml: |
-    {{- toYaml .Values.config | nindent 4 }}
+    {{- tpl (toYaml .Values.config) $ | nindent 4 }}
 {{- end }}

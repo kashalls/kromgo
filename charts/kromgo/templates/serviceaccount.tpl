@@ -8,7 +8,7 @@ metadata:
     {{- include "kromgo.labels" . | nindent 4 }}
   {{- with .Values.serviceAccount.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
 {{- end }}

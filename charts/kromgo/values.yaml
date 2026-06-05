@@ -1,5 +1,18 @@
 ---
 # Default values for kromgo.
+#
+# Most values below — strings, lists, and maps, including the `config` block — are
+# rendered through Helm's `tpl`, so you can embed template expressions and have them
+# resolve at install time, e.g.:
+#
+#   config:
+#     prometheus: http://prometheus-operated.{{ .Release.Namespace }}.svc.cluster.local:9090
+#   ingress:
+#     hosts:
+#       - host: "kromgo.{{ .Values.global.domain }}"
+#
+# PromQL/CEL use single `{ }`, which pass through untouched; only a *literal* double
+# brace needs escaping — write `{{ "{{" }}` for `{{` and `{{ "}}" }}` for `}}`.
 
 replicaCount: 1
 
