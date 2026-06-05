@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.1](https://github.com/home-operations/kromgo/compare/0.14.0...0.14.1) (2026-06-05)
+
+
+### Features
+
+* add kromgo helm chart ([#214](https://github.com/home-operations/kromgo/issues/214)) ([168e479](https://github.com/home-operations/kromgo/commit/168e4791702371cfb37dcdbc0bff8157b34c3641))
+
+
+### Bug Fixes
+
+* **deps:** update dependency marked (18.0.4 → 18.0.5) ([#213](https://github.com/home-operations/kromgo/issues/213)) ([f1e127d](https://github.com/home-operations/kromgo/commit/f1e127d394925f9f407418a6ae237e98d2d298de))
+* **deps:** update module github.com/prometheus/common (v0.68.0 → v0.68.1) ([#210](https://github.com/home-operations/kromgo/issues/210)) ([5f7a860](https://github.com/home-operations/kromgo/commit/5f7a8606283cc4d1074fa1d3e85dff36cbac9538))
+* **mise:** update tool go (1.26.3 → 1.26.4) ([cde60a0](https://github.com/home-operations/kromgo/commit/cde60a017bf76153dfef04525520fd851924a38f))
+
 ## [0.14.0](https://github.com/home-operations/kromgo/compare/0.13.1...0.14.0) (2026-06-02)
 
 
