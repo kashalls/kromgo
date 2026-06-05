@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.3](https://github.com/home-operations/kromgo/compare/0.14.2...0.14.3) (2026-06-05)
+
+
+### Features
+
+* **chart:** disable ServiceAccount token automount by default ([#220](https://github.com/home-operations/kromgo/issues/220)) ([2fcdd05](https://github.com/home-operations/kromgo/commit/2fcdd054ddff173b77136c4614266a88afb9df6e))
+* **chart:** generate values.schema.json ([#224](https://github.com/home-operations/kromgo/issues/224)) ([f2b1ac9](https://github.com/home-operations/kromgo/commit/f2b1ac9da00ab68bee4fefc34dcdace4ab2e9d35))
+* **chart:** render values through tpl ([#218](https://github.com/home-operations/kromgo/issues/218)) ([c04ee32](https://github.com/home-operations/kromgo/commit/c04ee3279f32ea1d4ecf15d144e07172274ddd1d))
+* **graph:** optional area fill (fill: true) ([#222](https://github.com/home-operations/kromgo/issues/222)) ([c7045f2](https://github.com/home-operations/kromgo/commit/c7045f2b8e0a01c5f7b945953c9cc61b2fa503af))
+* **graph:** y-axis min/max + reference mark lines ([#223](https://github.com/home-operations/kromgo/issues/223)) ([b304342](https://github.com/home-operations/kromgo/commit/b304342603941583f4b64635cdccc7d1372074ca))
+
+
+### Bug Fixes
+
+* **graph:** round y-axis tick values (PreferNiceIntervals) ([#221](https://github.com/home-operations/kromgo/issues/221)) ([67fcecc](https://github.com/home-operations/kromgo/commit/67fceccf5d59a6ae42108d2d31007fc8ffd638fc))
+
 ## [0.14.2](https://github.com/home-operations/kromgo/compare/0.14.1...0.14.2) (2026-06-05)
 
 
