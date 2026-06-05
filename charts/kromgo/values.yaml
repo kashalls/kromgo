@@ -99,7 +99,10 @@ secret:
 
 serviceAccount:
   create: true
-  automount: true
+  # kromgo talks only to Prometheus over HTTP, never to the Kubernetes API, so it
+  # has no use for a mounted ServiceAccount token. Disabled by default for least
+  # privilege; set true only if you add sidecars/tooling that need API access.
+  automount: false
   annotations: {}
   name: ""
 
