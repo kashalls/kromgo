@@ -135,6 +135,9 @@
         "font": {
           "type": "string"
         },
+        "valueExpr": {
+          "type": "string"
+        },
         "gallery": {
           "$ref": "#/$defs/GallerySettings"
         }
@@ -161,6 +164,9 @@
           "type": "string"
         },
         "font": {
+          "type": "string"
+        },
+        "valueExpr": {
           "type": "string"
         },
         "gallery": {

@@ -119,6 +119,8 @@ func TestParseTimeParam(t *testing.T) {
 
 func TestResolveGraph_MaxDuration(t *testing.T) {
 	t.Parallel()
+	env, err := newCELEnv()
+	require.NoError(t, err)
 	cases := []struct {
 		name  string
 		graph config.Graph
@@ -133,7 +135,7 @@ func TestResolveGraph_MaxDuration(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			rg, err := resolveGraph(tc.graph, tc.def)
+			rg, err := resolveGraph(tc.graph, tc.def, env)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, rg.maxDuration)
 		})
@@ -142,18 +144,55 @@ func TestResolveGraph_MaxDuration(t *testing.T) {
 
 func TestResolveGraph_InvalidTheme(t *testing.T) {
 	t.Parallel()
-	_, err := resolveGraph(config.Graph{ID: "t", Query: "q", Theme: "nope"}, config.Defaults{})
+	env, err := newCELEnv()
+	require.NoError(t, err)
+	_, err = resolveGraph(config.Graph{ID: "t", Query: "q", Theme: "nope"}, config.Defaults{}, env)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "theme")
 }
 
 func TestResolveGraph_DefaultParams(t *testing.T) {
 	t.Parallel()
-	rg, err := resolveGraph(config.Graph{ID: "t"}, config.Defaults{})
+	env, err := newCELEnv()
+	require.NoError(t, err)
+	rg, err := resolveGraph(config.Graph{ID: "t"}, config.Defaults{}, env)
 	require.NoError(t, err)
 	assert.Equal(t, defaultGraphWidth, rg.defaults.width)
 	assert.Equal(t, defaultGraphHeight, rg.defaults.height)
 	assert.True(t, rg.defaults.legend, "legend defaults to true")
+	assert.Nil(t, rg.defaults.valueFormatter, "no valueExpr ⇒ default numeric formatting")
+}
+
+func TestResolveGraph_ValueExpr(t *testing.T) {
+	t.Parallel()
+	env, err := newCELEnv()
+	require.NoError(t, err)
+
+	// A per-graph valueExpr compiles into a y-axis tick formatter.
+	rg, err := resolveGraph(config.Graph{ID: "t", Query: "q", ValueExpr: `string(int(result)) + " pods"`}, config.Defaults{}, env)
+	require.NoError(t, err)
+	require.NotNil(t, rg.defaults.valueFormatter)
+	assert.Equal(t, "42 pods", rg.defaults.valueFormatter(42.0))
+	assert.Equal(t, "42 pods", rg.defaults.valueFormatter(42.7), "int() truncates the float tick")
+
+	// defaults.graph.valueExpr applies when the graph doesn't set its own.
+	rg, err = resolveGraph(config.Graph{ID: "t", Query: "q"}, config.Defaults{Graph: config.GraphDefaults{ValueExpr: "humanizeBytes(result)"}}, env)
+	require.NoError(t, err)
+	require.NotNil(t, rg.defaults.valueFormatter)
+	assert.Equal(t, "1.5MB", rg.defaults.valueFormatter(1500000))
+
+	// A per-graph valueExpr overrides the default.
+	rg, err = resolveGraph(config.Graph{ID: "t", Query: "q", ValueExpr: "string(int(result))"}, config.Defaults{Graph: config.GraphDefaults{ValueExpr: "humanizeBytes(result)"}}, env)
+	require.NoError(t, err)
+	assert.Equal(t, "1500000", rg.defaults.valueFormatter(1500000))
+
+	// A malformed expression fails at resolve (startup), not on a request.
+	_, err = resolveGraph(config.Graph{ID: "t", Query: "q", ValueExpr: "nope("}, config.Defaults{}, env)
+	require.Error(t, err)
+
+	// An expression that compiles but returns a non-string is rejected too.
+	_, err = resolveGraph(config.Graph{ID: "t", Query: "q", ValueExpr: "result + 1.0"}, config.Defaults{}, env)
+	require.Error(t, err)
 }
 
 func TestResolveBadge_InvalidExprFailsFast(t *testing.T) {

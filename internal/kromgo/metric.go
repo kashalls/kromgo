@@ -3,6 +3,7 @@ package kromgo
 import (
 	"cmp"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/cel-go/cel"
@@ -85,7 +86,7 @@ func resolveBadge(b config.Badge, def config.Defaults, env *cel.Env) (*resolvedB
 }
 
 // resolveGraph precomputes a graph's cache TTL, window cap, and default parameters.
-func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
+func resolveGraph(g config.Graph, def config.Defaults, env *cel.Env) (*resolvedGraph, error) {
 	theme := cmp.Or(g.Theme, def.Graph.Theme)
 	if theme != "" && !validTheme(theme) {
 		return nil, fmt.Errorf("graph %q: unknown theme %q", g.ID, theme)
@@ -115,6 +116,22 @@ func resolveGraph(g config.Graph, def config.Defaults) (*resolvedGraph, error) {
 			return nil, fmt.Errorf("graph %q maxDuration: %w", g.ID, err)
 		}
 		rg.maxDuration = d
+	}
+	if expr := cmp.Or(g.ValueExpr, def.Graph.ValueExpr); expr != "" {
+		prog, err := compileStringExpr(env, g.ID, "value", expr)
+		if err != nil {
+			return nil, err
+		}
+		// Format each y-axis tick by evaluating the expression with result = the tick
+		// value (an axis tick has no series, so no labels). A runtime eval error
+		// degrades to a plain number rather than failing the whole render.
+		rg.defaults.valueFormatter = func(f float64) string {
+			s, err := evalStringExpr(prog, f, nil)
+			if err != nil {
+				return strconv.FormatFloat(f, 'f', -1, 64)
+			}
+			return s
+		}
 	}
 	return rg, nil
 }

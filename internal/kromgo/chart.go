@@ -31,6 +31,9 @@ type chartParams struct {
 	title  string         // chart title, rendered top-left
 	font   *truetype.Font // nil uses the chart library's default font
 	format string         // "svg" (default) or "png"
+	// valueFormatter renders y-axis tick values to strings (from the graph's
+	// valueExpr). nil uses the chart library's default numeric formatting.
+	valueFormatter func(float64) string
 }
 
 // withOverrides returns the graph's default params with request query parameters
@@ -134,6 +137,11 @@ func renderChart(matrix model.Matrix, p chartParams) ([]byte, error) {
 	} else {
 		hide := false
 		opt.Legend.Show = &hide
+	}
+	// A graph's valueExpr (if any) formats the y-axis tick labels — e.g. integers or
+	// humanized units in place of the default 2-decimal numbers.
+	if p.valueFormatter != nil {
+		opt.YAxis = []charts.YAxisOption{{ValueFormatter: p.valueFormatter}}
 	}
 
 	// Font is set on the painter (the non-deprecated default-font hook). resolveGraphFont

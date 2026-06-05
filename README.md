@@ -322,6 +322,7 @@ opt-in to expose range data for that query — there is no separate enable flag.
 | `legend`      | no       | Show the series legend (overrides `defaults.graph.legend`)                           |
 | `theme`       | no       | Color theme (overrides `defaults.graph.theme`) — see [Themes](#themes-and-fonts)     |
 | `font`        | no       | Text font (overrides `defaults.graph.font`) — see [Themes](#themes-and-fonts)        |
+| `valueExpr`   | no       | CEL expression formatting the y-axis labels (overrides `defaults.graph.valueExpr`)   |
 | `gallery`     | no       | Per-graph gallery settings, e.g. `gallery: {hidden: true}` — see [Gallery](#gallery) |
 
 ```yaml
@@ -331,6 +332,22 @@ graphs:
       maxDuration: "30d"
       width: 800
       theme: catppuccin-mocha
+```
+
+By default the y-axis labels use the chart library's numeric formatting, which can show fractional
+ticks (e.g. `42.8`) even when the underlying values are whole numbers. `valueExpr` overrides this:
+like a badge's [`valueExpr`](#value-and-color), it's a CEL expression over `result` (here, the y-axis
+tick value) that returns the label string, with the same [humanizer functions](#value-and-color)
+available. It formats **only the y-axis labels** — the legend shows series names, and `?format=json`
+keeps the raw numbers.
+
+```yaml
+graphs:
+    - id: cluster_pod_count_graph
+      title: Running Pods
+      query: sum(kube_pod_status_phase{phase="Running"})
+      maxDuration: 7d
+      valueExpr: string(int(result)) + " pods" # integer ticks; drop the suffix for bare integers
 ```
 
 The time window is chosen by these query parameters:

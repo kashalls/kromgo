@@ -53,7 +53,7 @@ func New(cfg config.KromgoConfig, prom *prometheus.Client) (*Handler, error) {
 
 	graphs := make(map[string]*resolvedGraph, len(cfg.Graphs))
 	for _, g := range cfg.Graphs {
-		rg, err := resolveGraph(g, cfg.Defaults)
+		rg, err := resolveGraph(g, cfg.Defaults, env)
 		if err != nil {
 			return nil, err
 		}
