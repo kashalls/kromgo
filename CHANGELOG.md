@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.14.4](https://github.com/home-operations/kromgo/compare/0.14.3...0.14.4) (2026-06-07)
+
+
+### Features
+
+* **chart:** digest pinning, generated README + values schema, and helm tests ([#227](https://github.com/home-operations/kromgo/issues/227)) ([d0aa57a](https://github.com/home-operations/kromgo/commit/d0aa57ae5f01314bd695bfb3cb135fda721e0e4c))
+* **container:** update image mirror.gcr.io/busybox (1.37.0 → 1.38.0) ([#228](https://github.com/home-operations/kromgo/issues/228)) ([03cf4d7](https://github.com/home-operations/kromgo/commit/03cf4d7a83ad914bf1c627f02f3fa9c84ebbf647))
+* **deps:** update dependency simple-icons (16.22.0 → 16.23.0) ([#226](https://github.com/home-operations/kromgo/issues/226)) ([11cd211](https://github.com/home-operations/kromgo/commit/11cd21134674d152c35bd9f6c0241e927473be21))
+
+
+### Bug Fixes
+
+* **chart:** pin the helm-test image as tag@digest so renovate updates both ([#230](https://github.com/home-operations/kromgo/issues/230)) ([ba91657](https://github.com/home-operations/kromgo/commit/ba916575d839d149bd4b5271b259e441e787e6c4))
+
+
+### Miscellaneous Chores
+
+* remove automerge setting from toolchain groups ([be05683](https://github.com/home-operations/kromgo/commit/be05683d104870c3433669f4b9ef219a7e64cfe2))
+* Update release-please-config.json to remove paths ([cce6ef8](https://github.com/home-operations/kromgo/commit/cce6ef8f3c4a0cc1096b38f7ec53defdc50de9ef))
+
 ## [0.14.3](https://github.com/home-operations/kromgo/compare/0.14.2...0.14.3) (2026-06-05)
 
 
