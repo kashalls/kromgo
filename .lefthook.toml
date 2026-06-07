@@ -3,9 +3,24 @@ git_url = "https://github.com/home-operations/.github"
 ref = "main"
 configs = ["lefthook.common.toml"]
 
-# Regenerate the committed JSON schemas whenever their sources change — the config
-# model/generator (config.schema.json) or the chart values (values.schema.json) — so
-# both stay in sync within the same commit. CI verifies it.
-[pre-commit.commands.config-schema]
-glob = ["internal/config/*.go", "cmd/schema/*.go", "charts/kromgo/values.yaml"]
-run = "mise run generate && git add config.schema.json charts/kromgo/values.schema.json"
+# Regenerate the committed generated files (config schema, chart README, values
+# schema) whenever their sources change, and stage them, so they stay in sync within
+# the commit. CI's generate-check is the backstop.
+[pre-commit.commands.generate]
+glob = [
+  "internal/config/*.go",
+  "cmd/schema/*.go",
+  "charts/kromgo/Chart.yaml",
+  "charts/kromgo/values.yaml",
+  "charts/kromgo/README.md.gotmpl",
+]
+run = "mise run generate && git add config.schema.json charts/kromgo/README.md charts/kromgo/values.schema.json"
+
+# The generated chart README/schema are .prettierignore'd; exclude them from the
+# shared formatters too, so oxfmt isn't handed a file it then drops (it exits
+# non-zero when every input is ignored, which would block the commit).
+[pre-commit.commands.format-markdown]
+exclude = ["charts/kromgo/README.md"]
+
+[pre-commit.commands.format-json]
+exclude = ["charts/kromgo/values.schema.json"]

@@ -2,11 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
     "affinity": {
+      "description": "Affinity rules for pod scheduling.",
       "required": [],
       "title": "affinity",
       "type": "object"
     },
     "config": {
+      "description": "kromgo's YAML config (endpoint definitions), rendered into a ConfigMap and templated through `tpl`.",
       "properties": {
         "badges": {
           "description": "Instant-value endpoints served at /badges/{id}.",
@@ -21,12 +23,13 @@
           "properties": {
             "enabled": {
               "default": true,
+              "description": "Send Cache-Control headers on badge/graph responses.",
               "title": "enabled",
               "type": "boolean"
             },
             "maxAge": {
               "default": 300,
-              "description": "max-age + s-maxage in seconds (ignored when enabled is false).",
+              "description": "max-age + s-maxage in seconds (ignored when cache is disabled).",
               "title": "maxAge",
               "type": "integer"
             }
@@ -46,6 +49,7 @@
           "properties": {
             "enabled": {
               "default": true,
+              "description": "Preview every endpoint at \"/\" with copy-paste Markdown; false serves a minimal landing page.",
               "title": "enabled",
               "type": "boolean"
             }
@@ -64,7 +68,7 @@
         },
         "prometheus": {
           "default": "http://prometheus-operated.monitoring.svc.cluster.local:9090",
-          "description": "Prometheus base URL kromgo queries. If the URL embeds credentials, leave this\nempty and use `secret.prometheusUrl` (or `secret.existingSecret`) so it stays\nout of the ConfigMap — the Secret is injected as PROMETHEUS_URL, which\noverrides this value.",
+          "description": "Prometheus base URL kromgo queries; use `secret.prometheusUrl` instead when it embeds credentials.",
           "title": "prometheus",
           "type": "string"
         }
@@ -75,12 +79,13 @@
     },
     "existingConfigMap": {
       "default": "",
-      "description": "kromgo's YAML config (endpoint definitions), rendered verbatim into a ConfigMap\nmounted at /config/config.yaml. See https://github.com/home-operations/kromgo\nfor the full schema. Set `existingConfigMap` to mount a ConfigMap you manage\nelsewhere instead — the inline `config` below is then ignored; that ConfigMap\nmust expose a `config.yaml` key.",
+      "description": "Mount an existing ConfigMap (with a `config.yaml` key) instead of the inline `config`; takes precedence over it.",
       "title": "existingConfigMap",
       "type": "string"
     },
     "fullnameOverride": {
       "default": "",
+      "description": "Override the full release name.",
       "title": "fullnameOverride",
       "type": "string"
     },
@@ -102,18 +107,20 @@
           "type": "array"
         },
         "annotations": {
+          "description": "HTTPRoute annotations.",
           "required": [],
           "title": "annotations",
           "type": "object"
         },
         "apiVersion": {
           "default": "",
-          "description": "Defaults to gateway.networking.k8s.io/v1 / HTTPRoute when left empty.",
+          "description": "HTTPRoute apiVersion; empty defaults to gateway.networking.k8s.io/v1.",
           "title": "apiVersion",
           "type": "string"
         },
         "enabled": {
           "default": false,
+          "description": "Expose the UI via a Gateway API HTTPRoute (alternative to ingress).",
           "title": "enabled",
           "type": "boolean"
         },
@@ -135,16 +142,18 @@
         },
         "httpsRedirect": {
           "default": false,
-          "description": "Redirect HTTP→HTTPS (301) instead of routing to the backend. Requires a\nGateway with both HTTP and HTTPS listeners; matches/filters are ignored.",
+          "description": "Redirect HTTP→HTTPS (301) instead of routing to the backend (needs HTTP+HTTPS listeners).",
           "title": "httpsRedirect",
           "type": "boolean"
         },
         "kind": {
           "default": "",
+          "description": "HTTPRoute kind; empty defaults to HTTPRoute.",
           "title": "kind",
           "type": "string"
         },
         "labels": {
+          "description": "HTTPRoute labels.",
           "required": [],
           "title": "labels",
           "type": "object"
@@ -197,13 +206,21 @@
     },
     "image": {
       "properties": {
+        "digest": {
+          "default": "",
+          "description": "Pin the image by digest (sha256:…); when set, overrides the tag.",
+          "title": "digest",
+          "type": "string"
+        },
         "pullPolicy": {
           "default": "IfNotPresent",
+          "description": "Image pull policy.",
           "title": "pullPolicy",
           "type": "string"
         },
         "repository": {
           "default": "ghcr.io/home-operations/kromgo",
+          "description": "Image repository.",
           "title": "repository",
           "type": "string"
         },
@@ -219,6 +236,7 @@
       "type": "object"
     },
     "imagePullSecrets": {
+      "description": "Image pull secrets for private registries.",
       "items": {
         "required": []
       },
@@ -228,21 +246,25 @@
     "ingress": {
       "properties": {
         "annotations": {
+          "description": "Ingress annotations.",
           "required": [],
           "title": "annotations",
           "type": "object"
         },
         "className": {
           "default": "",
+          "description": "IngressClass name.",
           "title": "className",
           "type": "string"
         },
         "enabled": {
           "default": false,
+          "description": "Expose the UI via an Ingress.",
           "title": "enabled",
           "type": "boolean"
         },
         "hosts": {
+          "description": "Ingress hosts and their paths.",
           "items": {
             "anyOf": [
               {
@@ -288,6 +310,7 @@
           "type": "array"
         },
         "tls": {
+          "description": "Ingress TLS configuration.",
           "items": {
             "required": []
           },
@@ -300,6 +323,7 @@
       "type": "object"
     },
     "livenessProbe": {
+      "description": "Liveness probe.",
       "properties": {
         "httpGet": {
           "properties": {
@@ -338,27 +362,31 @@
         "serviceMonitor": {
           "properties": {
             "annotations": {
+              "description": "ServiceMonitor annotations.",
               "required": [],
               "title": "annotations",
               "type": "object"
             },
             "enabled": {
               "default": false,
-              "description": "Requires the Prometheus Operator CRDs.",
+              "description": "Create a Prometheus Operator ServiceMonitor (requires its CRDs).",
               "title": "enabled",
               "type": "boolean"
             },
             "interval": {
               "default": "30s",
+              "description": "Scrape interval.",
               "title": "interval",
               "type": "string"
             },
             "labels": {
+              "description": "ServiceMonitor labels.",
               "required": [],
               "title": "labels",
               "type": "object"
             },
             "metricRelabelings": {
+              "description": "Prometheus metric relabelings.",
               "items": {
                 "required": []
               },
@@ -367,10 +395,12 @@
             },
             "path": {
               "default": "/metrics",
+              "description": "Metrics path.",
               "title": "path",
               "type": "string"
             },
             "relabelings": {
+              "description": "Prometheus relabelings.",
               "items": {
                 "required": []
               },
@@ -379,6 +409,7 @@
             },
             "scrapeTimeout": {
               "default": "10s",
+              "description": "Scrape timeout.",
               "title": "scrapeTimeout",
               "type": "string"
             }
@@ -394,25 +425,30 @@
     },
     "nameOverride": {
       "default": "",
+      "description": "Override the chart name used in resource names.",
       "title": "nameOverride",
       "type": "string"
     },
     "nodeSelector": {
+      "description": "Node selector for pod scheduling.",
       "required": [],
       "title": "nodeSelector",
       "type": "object"
     },
     "podAnnotations": {
+      "description": "Annotations added to the pod.",
       "required": [],
       "title": "podAnnotations",
       "type": "object"
     },
     "podLabels": {
+      "description": "Labels added to the pod.",
       "required": [],
       "title": "podLabels",
       "type": "object"
     },
     "podSecurityContext": {
+      "description": "Pod-level securityContext (runs as non-root uid/gid 65532 with the RuntimeDefault seccomp profile).",
       "properties": {
         "fsGroup": {
           "default": 65532,
@@ -452,6 +488,7 @@
       "type": "object"
     },
     "readinessProbe": {
+      "description": "Readiness probe.",
       "properties": {
         "httpGet": {
           "properties": {
@@ -487,11 +524,12 @@
     },
     "replicaCount": {
       "default": 1,
-      "description": "Default values for kromgo.\n\nMost values below — strings, lists, and maps, including the `config` block — are\nrendered through Helm's `tpl`, so you can embed template expressions and have them\nresolve at install time, e.g.:\n\n  config:\n    prometheus: http://prometheus-operated.{{ .Release.Namespace }}.svc.cluster.local:9090\n  ingress:\n    hosts:\n      - host: \"kromgo.{{ .Values.global.domain }}\"\n\nPromQL/CEL use single `{ }`, which pass through untouched; only a *literal* double\nbrace needs escaping — write `{{ \"{{\" }}` for `{{` and `{{ \"}}\" }}` for `}}`.",
+      "description": "Number of kromgo replicas (it queries Prometheus per request and is stateless behind the Service).",
       "title": "replicaCount",
       "type": "integer"
     },
     "resources": {
+      "description": "Pod resource requests/limits.",
       "required": [],
       "title": "resources",
       "type": "object"
@@ -501,13 +539,13 @@
       "properties": {
         "existingSecret": {
           "default": "",
-          "description": "Pre-existing Secret with a PROMETHEUS_URL key. Takes precedence over the\ninline value below.",
+          "description": "Existing Secret with a PROMETHEUS_URL key; takes precedence over the inline value below.",
           "title": "existingSecret",
           "type": "string"
         },
         "prometheusUrl": {
           "default": "",
-          "description": "PROMETHEUS_URL — overrides config.prometheus when set.",
+          "description": "PROMETHEUS_URL — sensitive Prometheus URL; overrides config.prometheus when set.",
           "title": "prometheusUrl",
           "type": "string"
         }
@@ -517,6 +555,7 @@
       "type": "object"
     },
     "securityContext": {
+      "description": "Container securityContext (no privilege escalation, read-only root filesystem, drops ALL capabilities).",
       "properties": {
         "allowPrivilegeEscalation": {
           "default": false,
@@ -571,18 +610,19 @@
         },
         "queryTimeout": {
           "default": "30s",
-          "description": "QUERY_TIMEOUT — bounds each outbound Prometheus query.",
+          "description": "QUERY_TIMEOUT — bounds each outbound Prometheus query (Go duration).",
           "title": "queryTimeout",
           "type": "string"
         },
         "readTimeout": {
           "default": "",
-          "description": "SERVER_READ_TIMEOUT / SERVER_WRITE_TIMEOUT — Go durations. Empty leaves Go's\ndefault (no timeout).",
+          "description": "SERVER_READ_TIMEOUT (Go duration); empty = Go's default (no timeout).",
           "title": "readTimeout",
           "type": "string"
         },
         "writeTimeout": {
           "default": "",
+          "description": "SERVER_WRITE_TIMEOUT (Go duration); empty = Go's default (no timeout).",
           "title": "writeTimeout",
           "type": "string"
         }
@@ -607,6 +647,7 @@
         },
         "type": {
           "default": "ClusterIP",
+          "description": "Service type.",
           "title": "type",
           "type": "string"
         }
@@ -618,23 +659,26 @@
     "serviceAccount": {
       "properties": {
         "annotations": {
+          "description": "Annotations for the ServiceAccount.",
           "required": [],
           "title": "annotations",
           "type": "object"
         },
         "automount": {
           "default": false,
-          "description": "kromgo talks only to Prometheus over HTTP, never to the Kubernetes API, so it\nhas no use for a mounted ServiceAccount token. Disabled by default for least\nprivilege; set true only if you add sidecars/tooling that need API access.",
+          "description": "Automount the ServiceAccount API token (off by default: kromgo talks to Prometheus, not the cluster API).",
           "title": "automount",
           "type": "boolean"
         },
         "create": {
           "default": true,
+          "description": "Create a ServiceAccount.",
           "title": "create",
           "type": "boolean"
         },
         "name": {
           "default": "",
+          "description": "ServiceAccount name; generated from the release name if empty.",
           "title": "name",
           "type": "string"
         }
@@ -643,7 +687,47 @@
       "title": "serviceAccount",
       "type": "object"
     },
+    "tests": {
+      "description": "Config for the chart's `helm test` hook (a pod that curls the Service's /readyz). Used only by `helm test`, never the workload.",
+      "properties": {
+        "image": {
+          "properties": {
+            "digest": {
+              "default": "sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+              "description": "`helm test` image digest (sha256:…); pins immutably and wins over the tag when set.",
+              "title": "digest",
+              "type": "string"
+            },
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "`helm test` image pull policy.",
+              "title": "pullPolicy",
+              "type": "string"
+            },
+            "repository": {
+              "default": "mirror.gcr.io/busybox",
+              "description": "`helm test` pod image; needs a shell with wget (kromgo's own image is from scratch).",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "1.37.0",
+              "description": "`helm test` image tag.",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "tests",
+      "type": "object"
+    },
     "tolerations": {
+      "description": "Tolerations for pod scheduling.",
       "items": {
         "required": []
       },
@@ -651,6 +735,7 @@
       "type": "array"
     },
     "volumeMounts": {
+      "description": "Additional volume mounts on the container.",
       "items": {
         "required": []
       },
@@ -658,7 +743,7 @@
       "type": "array"
     },
     "volumes": {
-      "description": "Additional volumes / mounts on the Deployment.",
+      "description": "Additional volumes on the Deployment.",
       "items": {
         "required": []
       },

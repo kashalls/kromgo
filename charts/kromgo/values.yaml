@@ -14,16 +14,27 @@
 # PromQL/CEL use single `{ }`, which pass through untouched; only a *literal* double
 # brace needs escaping — write `{{ "{{" }}` for `{{` and `{{ "}}" }}` for `}}`.
 
+# -- Number of kromgo replicas (it queries Prometheus per request and is stateless behind the Service).
 replicaCount: 1
 
 image:
+  # -- Image repository.
   repository: ghcr.io/home-operations/kromgo
+  # -- Image pull policy.
   pullPolicy: IfNotPresent
-  # Overrides the image tag; defaults to the chart appVersion.
+  # -- Overrides the image tag; defaults to the chart appVersion.
   tag: ""
+  # Pins the image by digest (sha256:…). When set it takes precedence over tag;
+  # the release pipeline fills it with the published image's digest.
 
+  # -- Pin the image by digest (sha256:…); when set, overrides the tag.
+  digest: ""
+
+# -- Image pull secrets for private registries.
 imagePullSecrets: []
+# -- Override the chart name used in resource names.
 nameOverride: ""
+# -- Override the full release name.
 fullnameOverride: ""
 
 # kromgo's YAML config (endpoint definitions), rendered verbatim into a ConfigMap
@@ -31,27 +42,35 @@ fullnameOverride: ""
 # for the full schema. Set `existingConfigMap` to mount a ConfigMap you manage
 # elsewhere instead — the inline `config` below is then ignored; that ConfigMap
 # must expose a `config.yaml` key.
+
+# -- Mount an existing ConfigMap (with a `config.yaml` key) instead of the inline `config`; takes precedence over it.
 existingConfigMap: ""
+
+# kromgo's YAML config (endpoint definitions), rendered into a ConfigMap and templated through `tpl`.
 config:
   # Prometheus base URL kromgo queries. If the URL embeds credentials, leave this
   # empty and use `secret.prometheusUrl` (or `secret.existingSecret`) so it stays
   # out of the ConfigMap — the Secret is injected as PROMETHEUS_URL, which
   # overrides this value.
+
+  # -- Prometheus base URL kromgo queries; use `secret.prometheusUrl` instead when it embeds credentials.
   prometheus: http://prometheus-operated.monitoring.svc.cluster.local:9090
 
   # The "/" gallery previews every endpoint with copy-paste Markdown. Defaults to
   # enabled; set false to serve a minimal landing page instead.
   gallery:
+    # -- Preview every endpoint at "/" with copy-paste Markdown; false serves a minimal landing page.
     enabled: true
 
   # Cache-Control headers sent with badge/graph responses. One policy applies to
   # every endpoint.
   cache:
+    # -- Send Cache-Control headers on badge/graph responses.
     enabled: true
-    # max-age + s-maxage in seconds (ignored when enabled is false).
+    # -- max-age + s-maxage in seconds (ignored when cache is disabled).
     maxAge: 300
 
-  # Defaults applied to every endpoint, each overridable per badge/graph.
+  # -- Defaults applied to every endpoint, each overridable per badge/graph.
   defaults: {}
   #   badge:
   #     style: flat
@@ -60,7 +79,7 @@ config:
   #     fill: true # translucent area beneath every graph's line
   #     valueExpr: string(int(result)) # integer y-axis labels for every graph
 
-  # Instant-value endpoints served at /badges/{id}.
+  # -- Instant-value endpoints served at /badges/{id}.
   badges: []
   #   - id: cpu
   #     title: CPU
@@ -69,7 +88,7 @@ config:
   #     colorExpr: 'result <= 50.0 ? "green" : result <= 80.0 ? "orange" : "red"'
   #     icon: mdi:cpu-64-bit
 
-  # Time-series endpoints served at /graphs/{id}.
+  # -- Time-series endpoints served at /graphs/{id}.
   graphs: []
   #   - id: cpu
   #     title: CPU %
@@ -91,15 +110,18 @@ config:
 # config file above). SERVER_HOST/PORT and HEALTH_HOST/PORT are fixed by the
 # chart (the Service and probes are wired to 8080 / 8888) and not exposed here.
 server:
-  # QUERY_TIMEOUT — bounds each outbound Prometheus query.
+  # -- QUERY_TIMEOUT — bounds each outbound Prometheus query (Go duration).
   queryTimeout: 30s
   # SERVER_READ_TIMEOUT / SERVER_WRITE_TIMEOUT — Go durations. Empty leaves Go's
   # default (no timeout).
+
+  # -- SERVER_READ_TIMEOUT (Go duration); empty = Go's default (no timeout).
   readTimeout: ""
+  # -- SERVER_WRITE_TIMEOUT (Go duration); empty = Go's default (no timeout).
   writeTimeout: ""
-  # SERVER_LOGGING — per-request access logging.
+  # -- SERVER_LOGGING — per-request access logging.
   logging: false
-  # Extra raw env vars merged into the container (advanced), e.g. GOMEMLIMIT.
+  # -- Extra raw env vars merged into the container (advanced), e.g. GOMEMLIMIT.
   extraEnv: []
   # - name: GOMEMLIMIT
   #   value: "200MiB"
@@ -111,22 +133,32 @@ server:
 secret:
   # Pre-existing Secret with a PROMETHEUS_URL key. Takes precedence over the
   # inline value below.
+
+  # -- Existing Secret with a PROMETHEUS_URL key; takes precedence over the inline value below.
   existingSecret: ""
-  # PROMETHEUS_URL — overrides config.prometheus when set.
+  # -- PROMETHEUS_URL — sensitive Prometheus URL; overrides config.prometheus when set.
   prometheusUrl: ""
 
 serviceAccount:
+  # -- Create a ServiceAccount.
   create: true
   # kromgo talks only to Prometheus over HTTP, never to the Kubernetes API, so it
   # has no use for a mounted ServiceAccount token. Disabled by default for least
   # privilege; set true only if you add sidecars/tooling that need API access.
+
+  # -- Automount the ServiceAccount API token (off by default: kromgo talks to Prometheus, not the cluster API).
   automount: false
+  # -- Annotations for the ServiceAccount.
   annotations: {}
+  # -- ServiceAccount name; generated from the release name if empty.
   name: ""
 
+# -- Annotations added to the pod.
 podAnnotations: {}
+# -- Labels added to the pod.
 podLabels: {}
 
+# -- Pod-level securityContext (runs as non-root uid/gid 65532 with the RuntimeDefault seccomp profile).
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65532
@@ -135,6 +167,7 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
+# -- Container securityContext (no privilege escalation, read-only root filesystem, drops ALL capabilities).
 securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
@@ -143,21 +176,27 @@ securityContext:
       - ALL
 
 service:
+  # -- Service type.
   type: ClusterIP
-  # Badge / graph / gallery port.
+  # -- Badge / graph / gallery port.
   port: 8080
-  # Health + /metrics port.
+  # -- Health + /metrics port.
   metricsPort: 8888
 
 ingress:
+  # -- Expose the UI via an Ingress.
   enabled: false
+  # -- IngressClass name.
   className: ""
+  # -- Ingress annotations.
   annotations: {}
+  # -- Ingress hosts and their paths.
   hosts:
     - host: kromgo.example.com
       paths:
         - path: /
           pathType: Prefix
+  # -- Ingress TLS configuration.
   tls: []
   # - secretName: kromgo-tls
   #   hosts:
@@ -167,33 +206,40 @@ ingress:
 # Gateway API. Renders one HTTPRoute pointing at the app service port. Named
 # `httpRoute` (not `route`) to avoid confusion with the OpenShift Route kind.
 httpRoute:
+  # -- Expose the UI via a Gateway API HTTPRoute (alternative to ingress).
   enabled: false
-  # Defaults to gateway.networking.k8s.io/v1 / HTTPRoute when left empty.
+  # -- HTTPRoute apiVersion; empty defaults to gateway.networking.k8s.io/v1.
   apiVersion: ""
+  # -- HTTPRoute kind; empty defaults to HTTPRoute.
   kind: ""
+  # -- HTTPRoute annotations.
   annotations: {}
+  # -- HTTPRoute labels.
   labels: {}
-  # Gateways (and listeners) this route attaches to.
+  # -- Gateways (and listeners) this route attaches to.
   parentRefs: []
   #  - name: gateway
   #    namespace: gateway
   #    sectionName: https
-  # Hostnames matched against the Host header (templated).
+  # -- Hostnames matched against the Host header (templated).
   hostnames: []
   #  - kromgo.example.com
-  # Custom rules prepended before the default rule (templated).
+  # -- Custom rules prepended before the default rule (templated).
   additionalRules: []
-  # Filters applied to the default rule.
+  # -- Filters applied to the default rule.
   filters: []
-  # Match conditions for the default rule.
+  # -- Match conditions for the default rule.
   matches:
     - path:
         type: PathPrefix
         value: /
   # Redirect HTTP→HTTPS (301) instead of routing to the backend. Requires a
   # Gateway with both HTTP and HTTPS listeners; matches/filters are ignored.
+
+  # -- Redirect HTTP→HTTPS (301) instead of routing to the backend (needs HTTP+HTTPS listeners).
   httpsRedirect: false
 
+# -- Pod resource requests/limits.
 resources: {}
 # limits:
 #   memory: 256Mi
@@ -201,12 +247,14 @@ resources: {}
 #   cpu: 10m
 #   memory: 64Mi
 
+# -- Liveness probe.
 livenessProbe:
   httpGet:
     path: /healthz
     port: health
   initialDelaySeconds: 10
   periodSeconds: 20
+# -- Readiness probe.
 readinessProbe:
   httpGet:
     path: /readyz
@@ -216,20 +264,43 @@ readinessProbe:
 
 monitoring:
   serviceMonitor:
-    # Requires the Prometheus Operator CRDs.
+    # -- Create a Prometheus Operator ServiceMonitor (requires its CRDs).
     enabled: false
+    # -- Scrape interval.
     interval: 30s
+    # -- Scrape timeout.
     scrapeTimeout: 10s
+    # -- Metrics path.
     path: /metrics
+    # -- ServiceMonitor labels.
     labels: {}
+    # -- ServiceMonitor annotations.
     annotations: {}
+    # -- Prometheus metric relabelings.
     metricRelabelings: []
+    # -- Prometheus relabelings.
     relabelings: []
 
+# -- Node selector for pod scheduling.
 nodeSelector: {}
+# -- Tolerations for pod scheduling.
 tolerations: []
+# -- Affinity rules for pod scheduling.
 affinity: {}
 
-# Additional volumes / mounts on the Deployment.
+# -- Additional volumes on the Deployment.
 volumes: []
+# -- Additional volume mounts on the container.
 volumeMounts: []
+
+# Config for the chart's `helm test` hook (a pod that curls the Service's /readyz). Used only by `helm test`, never the workload.
+tests:
+  image:
+    # -- `helm test` pod image; needs a shell with wget (kromgo's own image is from scratch).
+    repository: mirror.gcr.io/busybox
+    # -- `helm test` image tag.
+    tag: "1.37.0"
+    # -- `helm test` image digest (sha256:…); pins immutably and wins over the tag when set.
+    digest: "sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"
+    # -- `helm test` image pull policy.
+    pullPolicy: IfNotPresent
