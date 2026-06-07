@@ -105,7 +105,7 @@ Kubernetes: `>=1.25.0-0`
 | serviceAccount.name | string | `""` | ServiceAccount name; generated from the release name if empty. |
 | tests.image.pullPolicy | string | `"IfNotPresent"` | `helm test` image pull policy. |
 | tests.image.repository | string | `"mirror.gcr.io/busybox"` | `helm test` pod image; needs a shell with wget (kromgo's own image is from scratch). |
-| tests.image.tag | string | `"1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"` | `helm test` image, pinned as `tag@sha256:digest` so Renovate bumps the tag and its digest together. |
+| tests.image.tag | string | `"1.38.0@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d"` | `helm test` image, pinned as `tag@sha256:digest` so Renovate bumps the tag and its digest together. |
 | tolerations | list | `[]` | Tolerations for pod scheduling. |
 | volumeMounts | list | `[]` | Additional volume mounts on the container. |
 | volumes | list | `[]` | Additional volumes on the Deployment. |
