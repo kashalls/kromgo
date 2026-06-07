@@ -103,10 +103,9 @@ Kubernetes: `>=1.25.0-0`
 | serviceAccount.automount | bool | `false` | Automount the ServiceAccount API token (off by default: kromgo talks to Prometheus, not the cluster API). |
 | serviceAccount.create | bool | `true` | Create a ServiceAccount. |
 | serviceAccount.name | string | `""` | ServiceAccount name; generated from the release name if empty. |
-| tests.image.digest | string | `"sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"` | `helm test` image digest (sha256:…); pins immutably and wins over the tag when set. |
 | tests.image.pullPolicy | string | `"IfNotPresent"` | `helm test` image pull policy. |
 | tests.image.repository | string | `"mirror.gcr.io/busybox"` | `helm test` pod image; needs a shell with wget (kromgo's own image is from scratch). |
-| tests.image.tag | string | `"1.37.0"` | `helm test` image tag. |
+| tests.image.tag | string | `"1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"` | `helm test` image, pinned as `tag@sha256:digest` so Renovate bumps the tag and its digest together. |
 | tolerations | list | `[]` | Tolerations for pod scheduling. |
 | volumeMounts | list | `[]` | Additional volume mounts on the container. |
 | volumes | list | `[]` | Additional volumes on the Deployment. |

@@ -692,12 +692,6 @@
       "properties": {
         "image": {
           "properties": {
-            "digest": {
-              "default": "sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
-              "description": "`helm test` image digest (sha256:…); pins immutably and wins over the tag when set.",
-              "title": "digest",
-              "type": "string"
-            },
             "pullPolicy": {
               "default": "IfNotPresent",
               "description": "`helm test` image pull policy.",
@@ -711,8 +705,8 @@
               "type": "string"
             },
             "tag": {
-              "default": "1.37.0",
-              "description": "`helm test` image tag.",
+              "default": "1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+              "description": "`helm test` image, pinned as `tag",
               "title": "tag",
               "type": "string"
             }
