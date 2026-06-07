@@ -76,6 +76,12 @@ onto it. Notable values (see [`charts/kromgo/values.yaml`](charts/kromgo/values.
 | `httpRoute.enabled`                        | expose the app via a Gateway API `HTTPRoute` (set `parentRefs` + `hostnames`) |
 | `monitoring.serviceMonitor.enabled`        | scrape `/metrics` on the health port (Prometheus Operator)                    |
 
+Every value is documented in the chart's generated README,
+[`charts/kromgo/README.md`](charts/kromgo/README.md), built from
+[`values.yaml`](charts/kromgo/values.yaml) — which also ships a
+[`values.schema.json`](charts/kromgo/values.schema.json) for editor
+autocompletion and `helm install`-time validation.
+
 ## Configuration
 
 kromgo reads its endpoint definitions from `/config/config.yaml` inside the container. Mount your
