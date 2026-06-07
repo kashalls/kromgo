@@ -2,7 +2,7 @@ suite: test-connection
 templates:
   - tests/test-connection.tpl
 tests:
-  - it: is a hardened helm test Pod that probes /readyz with the pinned busybox
+  - it: is a hardened helm test Pod that probes /readyz with the tag+digest-pinned busybox
     asserts:
       - isKind:
           of: Pod
@@ -11,7 +11,7 @@ tests:
           value: test
       - matchRegex:
           path: spec.containers[0].image
-          pattern: busybox@sha256:[0-9a-f]{64}$
+          pattern: busybox:.+@sha256:[0-9a-f]{64}$
       - equal:
           path: spec.securityContext.runAsNonRoot
           value: true
