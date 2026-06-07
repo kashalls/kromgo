@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   e2e:
-    name: E2E
+    name: Go E2E
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -36,8 +36,86 @@ jobs:
           experimental: true
           install_args: --locked
 
+      - name: Cache Go modules and build
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
       - name: Fetch build assets
         run: mise run assets
 
       - name: Run e2e tests
         run: mise run test-e2e
+
+  helm-e2e:
+    name: Helm E2E (kind)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          experimental: true
+          install_args: --locked
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          cluster_name: kromgo-e2e
+          wait: 60s
+
+      - name: Cluster info
+        run: |
+          kubectl version
+          kubectl get nodes
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+
+      # Build args come from mise, matching the release build (the Dockerfile reads
+      # NODE_VERSION / GO_VERSION).
+      - name: Resolve toolchain versions
+        id: tools
+        run: |
+          echo "go=$(mise config get tools.go)" >> "$GITHUB_OUTPUT"
+          echo "node=$(mise config get tools.node)" >> "$GITHUB_OUTPUT"
+
+      # Build this PR's image (not a published tag) so the test exercises the code
+      # under review; the GHA layer cache speeds repeat builds.
+      - name: Build image
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: .
+          load: true
+          tags: ghcr.io/home-operations/kromgo:e2e
+          build-args: |
+            GO_VERSION=${{ steps.tools.outputs.go }}
+            NODE_VERSION=${{ steps.tools.outputs.node }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Load image into kind
+        run: kind load docker-image ghcr.io/home-operations/kromgo:e2e --name kromgo-e2e
+
+      - name: Helm install + test
+        env:
+          # Install the kind-loaded PR image; Never so the kubelet uses it instead
+          # of pulling the (nonexistent) e2e tag from the registry.
+          KROMGO_TEST_IMAGE_TAG: e2e
+          KROMGO_TEST_PULL_POLICY: Never
+        run: |-
+          # kind-action writes the kubeconfig to ~/.kube/config but does not export
+          # KUBECONFIG to later steps, so set it explicitly for the mise task.
+          export KUBECONFIG="${HOME}/.kube/config"
+          mise run helm-test

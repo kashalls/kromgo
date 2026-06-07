@@ -1,0 +1,28 @@
+suite: configmap
+templates:
+  - configmap.tpl
+tests:
+  - it: renders a ConfigMap with the rendered config by default
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "prometheus:"
+
+  - it: renders nothing when an existing ConfigMap is provided
+    set:
+      existingConfigMap: my-config
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders config values through tpl
+    set:
+      config.prometheus: http://prom.{{ .Release.Namespace }}.svc:9090
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "http://prom.NAMESPACE.svc:9090"

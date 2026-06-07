@@ -1,0 +1,23 @@
+suite: test-connection
+templates:
+  - tests/test-connection.tpl
+tests:
+  - it: is a hardened helm test Pod that probes /readyz with the pinned busybox
+    asserts:
+      - isKind:
+          of: Pod
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+      - matchRegex:
+          path: spec.containers[0].image
+          pattern: busybox@sha256:[0-9a-f]{64}$
+      - equal:
+          path: spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.containers[0].args
+          content: http://RELEASE-NAME-kromgo:8888/readyz

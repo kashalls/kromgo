@@ -1,0 +1,61 @@
+suite: deployment
+# configmap.tpl is included by deployment.tpl (config-checksum annotation), so it
+# must be loaded too; each test scopes its asserts to deployment.tpl.
+templates:
+  - deployment.tpl
+  - configmap.tpl
+tests:
+  - it: defaults the image to repository:appVersion when no digest or tag is set
+    template: deployment.tpl
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/home-operations/kromgo:0.0.0
+
+  - it: prefers the digest over the tag when set
+    template: deployment.tpl
+    set:
+      image.digest: sha256:deadbeef
+      image.tag: ignored
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/home-operations/kromgo@sha256:deadbeef
+
+  - it: renders QUERY_TIMEOUT through tpl
+    template: deployment.tpl
+    set:
+      server.queryTimeout: "{{ .Release.Name }}"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QUERY_TIMEOUT
+            value: RELEASE-NAME
+
+  - it: omits SERVER_READ_TIMEOUT by default and emits it when set
+    template: deployment.tpl
+    set:
+      server.readTimeout: 5s
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SERVER_READ_TIMEOUT
+            value: "5s"
+
+  - it: omits SERVER_LOGGING by default
+    template: deployment.tpl
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content:
+            name: SERVER_LOGGING
+
+  - it: does not automount the ServiceAccount token
+    template: deployment.tpl
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false

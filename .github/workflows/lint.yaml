@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   lint:
-    name: Run on Ubuntu
+    name: Go Lint
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -36,6 +36,15 @@ jobs:
         with:
           experimental: true
           install_args: --locked
+
+      - name: Cache Go modules and build
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
 
       # //go:embed needs the assets present before the linter compiles the package.
       - name: Fetch build assets

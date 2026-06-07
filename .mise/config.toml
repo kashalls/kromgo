@@ -16,6 +16,8 @@ node = "24.16.0"
 npm = "11.16.0"
 oxfmt = "0.53.0"
 zizmor = "1.25.2"
+helm-docs = "1.14.2"
+yq = "4.53.3"
 
 # Vendor the npm packages and build the embedded assets. sources/outputs make this a
 # no-op until package-lock.json (or the generator) changes — e.g. a Renovate bump —
@@ -45,15 +47,23 @@ depends = ["assets"]
 run = "go vet ./..."
 
 [tasks.generate]
-description = "Regenerate committed generated files (config + Helm values JSON schemas)"
+description = "Regenerate committed generated files (config schema, chart README, values schema)"
 run = """
 go run ./cmd/schema > config.schema.json && oxfmt config.schema.json
-# Generate the Helm chart's values.schema.json from values.yaml. required and
-# additionalProperties are skipped: values.yaml provides every default (so nothing
-# is user-required), and the free-form maps (annotations, config.defaults, …) plus
-# the runtime-validated `config` block must stay open.
-helm-schema --chart-search-root charts/kromgo --skip-auto-generation required,additionalProperties
-oxfmt charts/kromgo/values.schema.json
+helm-docs --chart-search-root=charts --log-level=warn
+# values.schema.json from values.yaml. required/additionalProperties are skipped:
+# values.yaml provides every default (so nothing is user-required), and the free-form
+# maps (annotations, config.defaults, …) plus the runtime-validated `config` block
+# must stay open. --append-newline gives a clean EOF; the file is .prettierignore'd
+# (a generated artifact), so oxfmt skips it.
+helm-schema --chart-search-root charts/kromgo --skip-auto-generation required,additionalProperties --append-newline
+"""
+
+[tasks.generate-check]
+description = "Fail if the committed generated files are stale (CI gate)"
+run = """
+mise run generate
+git diff --exit-code config.schema.json charts/kromgo/README.md charts/kromgo/values.schema.json
 """
 
 [tasks.test]
@@ -89,6 +99,25 @@ run = "golangci-lint run --fix"
 [tasks.helm-lint]
 description = "Lint the Helm chart"
 run = "helm lint charts/kromgo"
+
+[tasks.helm-unittest]
+description = "Run helm-unittest template tests (needs the helm-unittest plugin)"
+run = "helm unittest charts/kromgo"
+
+[tasks.helm-test]
+description = "Install the chart into the current cluster (e.g. a kind context) and run `helm test`"
+# The e2e workflow builds the PR's image, kind-loads it, and sets
+# KROMGO_TEST_IMAGE_TAG=e2e + pull policy Never so the test runs the code under
+# review; locally these default to the published `latest` for a quick chart check
+# (the chart appVersion is a release-time placeholder, so a tag is always needed).
+# config.prometheus is never dialed at startup and /readyz is static, so the pod
+# becomes Ready without a real Prometheus. The trap cleans up.
+run = """
+trap 'helm uninstall kromgo-e2e -n kromgo-e2e --wait >/dev/null 2>&1 || true' EXIT
+set -e
+helm install kromgo-e2e charts/kromgo -n kromgo-e2e --create-namespace --wait --timeout 5m --set image.tag="${KROMGO_TEST_IMAGE_TAG:-latest}" --set image.pullPolicy="${KROMGO_TEST_PULL_POLICY:-IfNotPresent}"
+helm test kromgo-e2e -n kromgo-e2e --logs
+"""
 
 [tasks.helm-template]
 description = "Render the Helm chart with default values"
