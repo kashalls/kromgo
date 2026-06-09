@@ -76,6 +76,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+      id-token: write # keyless Cosign signing of the published chart
       packages: write
     env:
       VERSION: ${{ github.event.release.tag_name }}
@@ -119,3 +120,7 @@ jobs:
       - name: Publish Helm chart to GHCR (OCI)
         run: |-
           helm push "kromgo-${VERSION}.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
+
+      - name: Sign the published chart with Cosign
+        run: |-
+          cosign sign --yes "ghcr.io/${{ github.repository_owner }}/charts/kromgo:${VERSION}"
