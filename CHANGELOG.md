@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.5](https://github.com/home-operations/kromgo/compare/0.14.4...0.14.5) (2026-06-09)
+
+
+### Features
+
+* **deps:** update module golang.org/x/image (v0.41.0 → v0.42.0) ([#233](https://github.com/home-operations/kromgo/issues/233)) ([c9e267f](https://github.com/home-operations/kromgo/commit/c9e267fd5ccf6d8b5283780d316aa214311cff43))
+* **github-release:** update release helm-unittest/helm-unittest (v1.0.3 → v1.1.1) ([#232](https://github.com/home-operations/kromgo/issues/232)) ([a7d09f0](https://github.com/home-operations/kromgo/commit/a7d09f0460b11844bc266431ff9e41994594e22a))
+* **mise:** update tool oxfmt (0.53.0 → 0.54.0) ([#234](https://github.com/home-operations/kromgo/issues/234)) ([f4e93a8](https://github.com/home-operations/kromgo/commit/f4e93a8912d6f0573b103762692c5c81475702ed))
+
+
+### Bug Fixes
+
+* **deps:** update module go.yaml.in/yaml/v4 (v4.0.0-rc.4 → v4.0.0-rc.5) ([#235](https://github.com/home-operations/kromgo/issues/235)) ([eb4b9ef](https://github.com/home-operations/kromgo/commit/eb4b9efece25a82dab941fbb1483d52389564475))
+
 ## [0.14.4](https://github.com/home-operations/kromgo/compare/0.14.3...0.14.4) (2026-06-07)
 
 
