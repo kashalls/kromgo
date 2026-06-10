@@ -6,9 +6,13 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
 
 concurrency:
@@ -30,7 +34,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # mise provides Go, golangci-lint, and Node (for the npm-vendored assets).
       - name: Setup Mise
         uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
@@ -46,7 +49,13 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
-      # //go:embed needs the assets present before the linter compiles the package.
+      - name: Cache golangci-lint
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/golangci-lint
+          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('go.sum', '.golangci.yml') }}
+          restore-keys: ${{ runner.os }}-golangci-lint-
+
       - name: Fetch build assets
         run: mise run assets
 
