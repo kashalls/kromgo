@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.14.6](https://github.com/home-operations/kromgo/compare/0.14.5...0.14.6) (2026-06-11)
+
+
+### Features
+
+* **mise:** update tool cosign (3.0.6 → 3.1.1) ([#238](https://github.com/home-operations/kromgo/issues/238)) ([c7ef608](https://github.com/home-operations/kromgo/commit/c7ef608f080be4154fc513f9e9fcd1d2bc8339a2))
+
+
+### Bug Fixes
+
+* bound HTTP timeouts, cap graph series, guard non-finite values ([#244](https://github.com/home-operations/kromgo/issues/244)) ([837dc16](https://github.com/home-operations/kromgo/commit/837dc16d2d872edba515b964fd96c27cd11547c0))
+
+
+### Miscellaneous Chores
+
+* **mise:** update tool npm (11.16.0 → 11.17.0) ([#246](https://github.com/home-operations/kromgo/issues/246)) ([13522b0](https://github.com/home-operations/kromgo/commit/13522b0d6227f52a27a382195e38006a0d83084f))
+
 ## [0.14.5](https://github.com/home-operations/kromgo/compare/0.14.4...0.14.5) (2026-06-09)
 
 
