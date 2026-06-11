@@ -1,6 +1,7 @@
 package kromgo
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,4 +25,7 @@ func TestColorScale(t *testing.T) {
 	// Misconfigured: colors must be exactly one longer than steps → "grey", not a panic.
 	assert.Equal(t, "grey", colorScale(50, steps, []string{"green", "red"}))
 	assert.Equal(t, "grey", colorScale(50, steps, nil))
+
+	// NaN must not fall through to the last (worst) color — it degrades to grey.
+	assert.Equal(t, "grey", colorScale(math.NaN(), steps, colors))
 }

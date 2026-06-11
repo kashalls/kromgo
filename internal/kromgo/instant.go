@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"time"
 
@@ -74,7 +75,10 @@ func (h *Handler) serveBadge(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		v := float64(vector[0].Value)
-		message, color, result, labels = msg, col, &v, labelMap(vector[0].Metric)
+		message, color, labels = msg, col, labelMap(vector[0].Metric)
+		if !math.IsInf(v, 0) && !math.IsNaN(v) {
+			result = &v // omit a non-finite value: JSON can't encode NaN/Inf, and it isn't a real result
+		}
 	}
 
 	switch format {

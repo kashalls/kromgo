@@ -94,8 +94,8 @@ Kubernetes: `>=1.25.0-0`
 | server.extraEnv | list | `[]` | Extra raw env vars merged into the container (advanced), e.g. GOMEMLIMIT. |
 | server.logging | bool | `false` | SERVER_LOGGING — per-request access logging. |
 | server.queryTimeout | string | `"30s"` | QUERY_TIMEOUT — bounds each outbound Prometheus query (Go duration). |
-| server.readTimeout | string | `""` | SERVER_READ_TIMEOUT (Go duration); empty = Go's default (no timeout). |
-| server.writeTimeout | string | `""` | SERVER_WRITE_TIMEOUT (Go duration); empty = Go's default (no timeout). |
+| server.readTimeout | string | `"15s"` | SERVER_READ_TIMEOUT (Go duration); "0" disables the read deadline. |
+| server.writeTimeout | string | `"60s"` | SERVER_WRITE_TIMEOUT (Go duration, must exceed queryTimeout); "0" disables it. |
 | service.metricsPort | int | `8888` | Health + /metrics port. |
 | service.port | int | `8080` | Badge / graph / gallery port. |
 | service.type | string | `"ClusterIP"` | Service type. |

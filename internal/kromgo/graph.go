@@ -1,12 +1,21 @@
 package kromgo
 
 import (
+	"log/slog"
+	"math"
 	"net/http"
 	"time"
 
 	"github.com/home-operations/kromgo/internal/logging"
 	"github.com/prometheus/common/model"
 )
+
+// maxGraphSeries caps how many series a single graph response will encode or render.
+// The series count tracks the exposed metric's label cardinality, which is not
+// request-bounded and can spike at runtime (label churn); without a cap one public
+// request could materialize and draw thousands of lines. Excess series are dropped
+// and the truncation is logged. It is a fixed limit, like maxChartDimension.
+const maxGraphSeries = 100
 
 // HistoryDataPoint is one sample in a graph's JSON time series.
 type HistoryDataPoint struct {
@@ -69,6 +78,7 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	matrix = capSeries(matrix, log)
 
 	if format == formatJSON {
 		writeJSONOr(w, log, id, historyResponse(graph, start, end, step, matrix))
@@ -86,13 +96,29 @@ func (h *Handler) serveGraph(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(img)
 }
 
+// capSeries truncates a matrix to maxGraphSeries, logging when it drops series so a
+// silent truncation doesn't read as "this is the whole result".
+func capSeries(matrix model.Matrix, log *slog.Logger) model.Matrix {
+	if len(matrix) <= maxGraphSeries {
+		return matrix
+	}
+	log.Warn("graph series truncated", "total", len(matrix), "cap", maxGraphSeries)
+	return matrix[:maxGraphSeries]
+}
+
 // historyResponse builds the JSON time-series payload from a query matrix.
 func historyResponse(graph *resolvedGraph, start, end time.Time, step time.Duration, matrix model.Matrix) HistoryResponse {
 	series := make([]HistorySeries, 0, len(matrix))
 	for _, stream := range matrix {
 		data := make([]HistoryDataPoint, 0, len(stream.Values))
 		for _, point := range stream.Values {
-			data = append(data, HistoryDataPoint{T: int64(point.Timestamp) / 1000, V: float64(point.Value)})
+			v := float64(point.Value)
+			// Skip non-finite samples: encoding/json errors on NaN/Inf (a single such
+			// sample would 500 the whole response), and the chart renders them as gaps.
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				continue
+			}
+			data = append(data, HistoryDataPoint{T: int64(point.Timestamp) / 1000, V: v})
 		}
 		series = append(series, HistorySeries{Labels: labelMap(stream.Metric), Data: data})
 	}

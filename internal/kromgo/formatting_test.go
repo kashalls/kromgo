@@ -51,6 +51,9 @@ func TestHumanizers(t *testing.T) {
 		{"days truncates", humanizeDurationDays, 1.5 * day, "1d"},
 		{"days under a day", humanizeDurationDays, 3600, "0d"},
 		{"days clamped", humanizeDurationDays, -5, "0d"},
+		// Non-finite degrades to a clean string, not a garbage int(NaN/Inf) day count.
+		{"days NaN", humanizeDurationDays, math.NaN(), "NaN"},
+		{"days +Inf", humanizeDurationDays, math.Inf(1), "+Inf"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -81,6 +84,10 @@ func TestHumanizeDuration(t *testing.T) {
 		// Edges.
 		{"zero", 0, "0s"},
 		{"negative clamped", -5, "0s"},
+		// Non-finite: int(NaN/Inf) is undefined, so guard before the conversion.
+		{"NaN", math.NaN(), "NaN"},
+		{"+Inf", math.Inf(1), "+Inf"},
+		{"-Inf", math.Inf(-1), "-Inf"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

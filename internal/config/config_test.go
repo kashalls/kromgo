@@ -116,7 +116,7 @@ func TestLoad_InvalidID(t *testing.T) {
 func TestLoadServer_Defaults(t *testing.T) {
 	// Clear any inherited env so envDefault applies. t.Setenv registers the
 	// restore; os.Unsetenv then removes the var for the duration of the test.
-	for _, k := range []string{"SERVER_PORT", "HEALTH_PORT", "QUERY_TIMEOUT", "SERVER_LOGGING"} {
+	for _, k := range []string{"SERVER_PORT", "HEALTH_PORT", "QUERY_TIMEOUT", "SERVER_LOGGING", "SERVER_READ_TIMEOUT", "SERVER_WRITE_TIMEOUT"} {
 		t.Setenv(k, "")
 		_ = os.Unsetenv(k)
 	}
@@ -126,6 +126,8 @@ func TestLoadServer_Defaults(t *testing.T) {
 	assert.Equal(t, 8080, sc.ServerPort)
 	assert.Equal(t, 8888, sc.HealthPort)
 	assert.Equal(t, 30*time.Second, sc.QueryTimeout)
+	assert.Equal(t, 15*time.Second, sc.ServerReadTimeout, "read timeout defaults to a bounded value, not 0")
+	assert.Equal(t, 60*time.Second, sc.ServerWriteTimeout, "write timeout defaults above QueryTimeout")
 	assert.False(t, sc.ServerLogging)
 }
 
@@ -133,9 +135,13 @@ func TestLoadServer_Overrides(t *testing.T) {
 	t.Setenv("SERVER_PORT", "9000")
 	t.Setenv("QUERY_TIMEOUT", "5s")
 	t.Setenv("SERVER_LOGGING", "true")
+	t.Setenv("SERVER_READ_TIMEOUT", "5s")
+	t.Setenv("SERVER_WRITE_TIMEOUT", "0") // 0 disables the deadline
 	sc, err := LoadServer()
 	require.NoError(t, err)
 	assert.Equal(t, 9000, sc.ServerPort)
 	assert.Equal(t, 5*time.Second, sc.QueryTimeout)
 	assert.True(t, sc.ServerLogging)
+	assert.Equal(t, 5*time.Second, sc.ServerReadTimeout)
+	assert.Equal(t, time.Duration(0), sc.ServerWriteTimeout, "0 disables the write deadline")
 }
