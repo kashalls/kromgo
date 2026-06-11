@@ -14,8 +14,12 @@ type ServerConfig struct {
 	HealthHost string `env:"HEALTH_HOST" envDefault:"0.0.0.0"`
 	HealthPort int    `env:"HEALTH_PORT" envDefault:"8888"`
 
-	ServerReadTimeout  time.Duration `env:"SERVER_READ_TIMEOUT"`
-	ServerWriteTimeout time.Duration `env:"SERVER_WRITE_TIMEOUT"`
+	// ServerReadTimeout / ServerWriteTimeout bound reading a request and writing its
+	// response on the public listener; the defaults harden against slow-client
+	// connection holding. WriteTimeout must exceed QueryTimeout so a slow upstream
+	// isn't cut off mid-render. Set either to "0" to disable (no deadline).
+	ServerReadTimeout  time.Duration `env:"SERVER_READ_TIMEOUT" envDefault:"15s"`
+	ServerWriteTimeout time.Duration `env:"SERVER_WRITE_TIMEOUT" envDefault:"60s"`
 	ServerLogging      bool          `env:"SERVER_LOGGING"`
 
 	// QueryTimeout bounds each outbound Prometheus query.

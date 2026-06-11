@@ -615,14 +615,14 @@
           "type": "string"
         },
         "readTimeout": {
-          "default": "",
-          "description": "SERVER_READ_TIMEOUT (Go duration); empty = Go's default (no timeout).",
+          "default": "15s",
+          "description": "SERVER_READ_TIMEOUT (Go duration); \"0\" disables the read deadline.",
           "title": "readTimeout",
           "type": "string"
         },
         "writeTimeout": {
-          "default": "",
-          "description": "SERVER_WRITE_TIMEOUT (Go duration); empty = Go's default (no timeout).",
+          "default": "60s",
+          "description": "SERVER_WRITE_TIMEOUT (Go duration, must exceed queryTimeout); \"0\" disables it.",
           "title": "writeTimeout",
           "type": "string"
         }

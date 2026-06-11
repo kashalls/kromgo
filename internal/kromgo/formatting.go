@@ -97,6 +97,9 @@ var durationUnits = []struct {
 // 40348800 -> "1y3mo12d". Negative input and anything that rounds to zero render
 // as "0s".
 func humanizeDuration(f float64) string {
+	if math.IsInf(f, 0) || math.IsNaN(f) {
+		return humanizeFloat(f) // "+Inf" / "-Inf" / "NaN" — int(NaN/Inf) is undefined in Go
+	}
 	rem := int(math.Round(f))
 	if rem <= 0 {
 		return "0s"
@@ -122,6 +125,9 @@ func humanizeDuration(f float64) string {
 // 5961600 -> "69d". Unlike humanizeDuration it never rolls up to months/years —
 // just total days, truncated and clamped at zero.
 func humanizeDurationDays(f float64) string {
+	if math.IsInf(f, 0) || math.IsNaN(f) {
+		return humanizeFloat(f) // "+Inf" / "-Inf" / "NaN" — int(NaN/Inf) is undefined in Go
+	}
 	days := int(f / 86400)
 	if days < 0 {
 		days = 0

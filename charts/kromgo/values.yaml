@@ -112,13 +112,14 @@ config:
 server:
   # -- QUERY_TIMEOUT — bounds each outbound Prometheus query (Go duration).
   queryTimeout: 30s
-  # SERVER_READ_TIMEOUT / SERVER_WRITE_TIMEOUT — Go durations. Empty leaves Go's
-  # default (no timeout).
+  # SERVER_READ_TIMEOUT / SERVER_WRITE_TIMEOUT — Go durations bounding request read
+  # and response write on the public listener. The defaults harden against slow-client
+  # (Slowloris-style) connection holding; set either to "0" to disable its deadline.
 
-  # -- SERVER_READ_TIMEOUT (Go duration); empty = Go's default (no timeout).
-  readTimeout: ""
-  # -- SERVER_WRITE_TIMEOUT (Go duration); empty = Go's default (no timeout).
-  writeTimeout: ""
+  # -- SERVER_READ_TIMEOUT (Go duration); "0" disables the read deadline.
+  readTimeout: 15s
+  # -- SERVER_WRITE_TIMEOUT (Go duration, must exceed queryTimeout); "0" disables it.
+  writeTimeout: 60s
   # -- SERVER_LOGGING — per-request access logging.
   logging: false
   # -- Extra raw env vars merged into the container (advanced), e.g. GOMEMLIMIT.
