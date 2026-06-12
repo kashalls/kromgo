@@ -154,6 +154,9 @@ serviceAccount:
   # -- ServiceAccount name; generated from the release name if empty.
   name: ""
 
+# -- Annotations added to the deployment, (e.g. reloader.stakater.com/auto).
+deploymentAnnotations: {}
+
 # -- Annotations added to the pod.
 podAnnotations: {}
 # -- Labels added to the pod.

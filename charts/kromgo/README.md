@@ -48,6 +48,7 @@ Kubernetes: `>=1.25.0-0`
 | config.gallery.enabled | bool | `true` | Preview every endpoint at "/" with copy-paste Markdown; false serves a minimal landing page. |
 | config.graphs | list | `[]` | Time-series endpoints served at /graphs/{id}. |
 | config.prometheus | string | `"http://prometheus-operated.monitoring.svc.cluster.local:9090"` | Prometheus base URL kromgo queries; use `secret.prometheusUrl` instead when it embeds credentials. |
+| deploymentAnnotations | object | `{}` | Annotations added to the deployment, (e.g. reloader.stakater.com/auto). |
 | existingConfigMap | string | `""` | Mount an existing ConfigMap (with a `config.yaml` key) instead of the inline `config`; takes precedence over it. |
 | fullnameOverride | string | `""` | Override the full release name. |
 | httpRoute.additionalRules | list | `[]` | Custom rules prepended before the default rule (templated). |

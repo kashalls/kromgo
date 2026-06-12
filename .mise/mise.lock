@@ -294,6 +294,7 @@ url = "https://registry.npmjs.org/npm/-/npm-11.17.0.tgz"
 url = "https://registry.npmjs.org/npm/-/npm-11.17.0.tgz"
 
 [tools.npm."platforms.macos-arm64"]
+checksum = "blake3:4e9f5c11a213a1a3c3fe9b3a1718040c32eae33a5c57d318988a6979c487cc24"
 url = "https://registry.npmjs.org/npm/-/npm-11.17.0.tgz"
 
 [tools.npm."platforms.macos-x64"]
