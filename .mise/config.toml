@@ -9,7 +9,7 @@
 [tools]
 go = "1.26.4"
 golangci-lint = "2.12.2"
-helm = "4.2.0"
+helm = "4.2.1"
 cosign = "3.1.1"
 "aqua:dadav/helm-schema" = "0.23.4"
 lefthook = "2.1.9"
