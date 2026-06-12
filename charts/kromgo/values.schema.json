@@ -77,6 +77,12 @@
       "title": "config",
       "type": "object"
     },
+    "deploymentAnnotations": {
+      "description": "Annotations added to the deployment, (e.g. reloader.stakater.com/auto).",
+      "required": [],
+      "title": "deploymentAnnotations",
+      "type": "object"
+    },
     "existingConfigMap": {
       "default": "",
       "description": "Mount an existing ConfigMap (with a `config.yaml` key) instead of the inline `config`; takes precedence over it.",
