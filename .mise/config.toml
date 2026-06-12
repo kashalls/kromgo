@@ -112,9 +112,10 @@ description = "Install the chart into the current cluster (e.g. a kind context) 
 # review; locally these default to the published `latest` for a quick chart check
 # (the chart appVersion is a release-time placeholder, so a tag is always needed).
 # config.prometheus is never dialed at startup and /readyz is static, so the pod
-# becomes Ready without a real Prometheus. The trap cleans up.
+# becomes Ready without a real Prometheus. The trap cleans up (without --wait,
+# which can hang on teardown).
 run = """
-trap 'helm uninstall kromgo-e2e -n kromgo-e2e --wait >/dev/null 2>&1 || true' EXIT
+trap 'helm uninstall kromgo-e2e -n kromgo-e2e >/dev/null 2>&1 || true' EXIT
 set -e
 helm install kromgo-e2e charts/kromgo -n kromgo-e2e --create-namespace --wait --timeout 5m --set image.tag="${KROMGO_TEST_IMAGE_TAG:-latest}" --set image.pullPolicy="${KROMGO_TEST_PULL_POLICY:-IfNotPresent}"
 helm test kromgo-e2e -n kromgo-e2e --logs
