@@ -7,9 +7,11 @@ metadata:
     {{- include "kromgo.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: test
-    # Recreate on each run; keep the pod on failure so `helm test --logs` (and a
-    # manual `kubectl logs`) can show what happened.
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    # before-hook-creation only (no hook-succeeded): `helm test` then never deletes
+    # the pod itself, so it can't block on Helm 4's wait-for-delete (kstatus) after a
+    # green run — which otherwise stalled `helm test` ~5m. The pod is recreated on
+    # the next run, and a failed run's pod stays for `helm test --logs` / kubectl.
+    helm.sh/hook-delete-policy: before-hook-creation
 spec:
   restartPolicy: Never
   securityContext:
