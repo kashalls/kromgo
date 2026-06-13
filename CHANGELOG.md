@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.7](https://github.com/home-operations/kromgo/compare/0.14.6...0.14.7) (2026-06-13)
+
+
+### Miscellaneous Chores
+
+* **helm:** add deploymentAnnotations to values.yaml ([#247](https://github.com/home-operations/kromgo/issues/247)) ([5e482ab](https://github.com/home-operations/kromgo/commit/5e482ab47a91cc797a0051b76742603b460fe99d))
+* **mise:** update tool helm (4.2.0 → 4.2.1) ([#248](https://github.com/home-operations/kromgo/issues/248)) ([0811240](https://github.com/home-operations/kromgo/commit/0811240e808f423b6e16a67cc8c4dc6f82502256))
+
 ## [0.14.6](https://github.com/home-operations/kromgo/compare/0.14.5...0.14.6) (2026-06-11)
 
 
