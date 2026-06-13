@@ -301,8 +301,8 @@ volumeMounts: []
 tests:
   image:
     # -- `helm test` pod image; needs a shell with wget (kromgo's own image is from scratch).
-    repository: mirror.gcr.io/busybox
+    repository: ghcr.io/home-operations/busybox
     # -- `helm test` image, pinned as `tag@sha256:digest` so Renovate bumps the tag and its digest together.
-    tag: "1.38.0@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d"
+    tag: "1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df"
     # -- `helm test` image pull policy.
     pullPolicy: IfNotPresent
